@@ -7,6 +7,9 @@ depends on the ProtoMolt platform: no index hints, no proto validate options,
 no Kafka serde module. Domain rules that used to live in proto options are
 enforced in Java validators before a message leaves the process.
 
+See [docs/architecture.md](docs/architecture.md) for process topology and
+[CONTRIBUTING.md](CONTRIBUTING.md) for the lint bar.
+
 The Microsoft Copilot connector wire contracts are copied from
 [Custom-Copilot-Connector-using-Connector-SDK](https://github.com/microsoft/Custom-Copilot-Connector-using-Connector-SDK)
 (MIT). See `grpc-microsoft-connector/NOTICE`.
@@ -183,10 +186,30 @@ Tools: `confluence_list_spaces`, `confluence_get_page`,
 `microsoft_sync`, `sync_table_get_asset`, `sync_table_list_assets`.
 Do not call unbounded `Watch` from a tool; use `ListAssets`.
 
+## Proto lint (Buf)
+
+Our domain protos (`grpc-confluence-api`, `grpc-microsoft-api`,
+`grpc-sync-api`) lint with Buf **STANDARD** plus **COMMENTS**. Every
+service, rpc, message, field, oneof, enum, and enum value needs a
+non-empty comment. Codegen stays `protoc` via the Gradle protobuf plugin;
+Buf is lint-only here.
+
+Microsoft's GCA `Contracts/` tree is a frozen MIT copy of their wire. It is
+**not** in the Buf workspace (their lint bar, not ours). The proto package
+stays `Microsoft.Graph.Connectors.Contracts.Grpc`.
+
+```
+buf lint
+```
+
+CI runs this on every PR (`buf` job, Buf 1.54.0). Install from
+https://buf.build or use the version CI pins.
+
 ## Build and tests
 
 Java 25 toolchain (same as gRPOIc). `./gradlew build` is the fake/unit
-suite and never talks to Atlassian or Graph.
+suite, javadoc (`-Xdoclint:all -Werror` on handwritten API), and never
+talks to Atlassian or Graph.
 
 Live smokes are **read-only**, excluded from `test`, and skip unless
 credentials are in the environment:

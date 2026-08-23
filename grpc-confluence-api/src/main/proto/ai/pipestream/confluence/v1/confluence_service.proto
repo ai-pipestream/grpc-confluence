@@ -174,10 +174,13 @@ message ListAttachmentsRequest {
   string page_id = 1;
   // Blog post id to list when page_id is empty.
   string blog_post_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
 
+// One streamed attachment of the requested page or blog post.
 message ListAttachmentsResponse {
+  // The streamed attachment (metadata; bytes are not inlined on this rpc).
   Attachment attachment = 1;
 }
 
