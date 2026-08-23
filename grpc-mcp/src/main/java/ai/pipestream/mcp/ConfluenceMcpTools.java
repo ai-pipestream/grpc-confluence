@@ -17,12 +17,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-final class ConfluenceMcpTools {
+/** MCP tools over {@code ConfluenceService}. */
+public final class ConfluenceMcpTools {
 
     private ConfluenceMcpTools() {
     }
 
-    static List<McpServerFeatures.SyncToolSpecification> of(
+    /**
+     * Confluence list/get/sync tools.
+     *
+     * @param stub {@code ConfluenceService} stub
+     * @return tool specs
+     */
+    public static List<McpServerFeatures.SyncToolSpecification> of(
             ConfluenceServiceGrpc.ConfluenceServiceBlockingStub stub) {
         return List.of(spaces(stub), page(stub), attachments(stub), sync(stub));
     }
@@ -31,12 +38,15 @@ final class ConfluenceMcpTools {
             ConfluenceServiceGrpc.ConfluenceServiceBlockingStub stub) {
         return tool("confluence_list_spaces", "List Confluence spaces the credentials can see",
                 McpJson.objectSchema(Map.of(
-                        "limit", McpJson.intProp("Max spaces; 0 = no cap")),
+                        "limit", McpJson.intProp("Max spaces; 0 = no cap"),
+                        "connectionId", McpJson.stringProp("Catalog connection; empty = default")),
                         List.of()),
                 (exchange, request) -> {
                     int limit = McpJson.argInt(request.arguments(), "limit", 0);
                     var response = stub.listSpaces(ListSpacesRequest.newBuilder()
                             .setLimit(limit)
+                            .setConnectionId(McpJson.argString(request.arguments(),
+                                    "connectionId", ""))
                             .build());
                     List<Map<String, String>> spaces = new ArrayList<>();
                     response.getSpacesList().forEach(space -> spaces.add(Map.of(
@@ -109,7 +119,8 @@ final class ConfluenceMcpTools {
                 McpJson.objectSchema(Map.of(
                         "sinceCursor", McpJson.stringProp("Empty = full crawl"),
                         "includeBodies", McpJson.boolProp("Include page bodies"),
-                        "limit", McpJson.intProp("Max change events to return")),
+                        "limit", McpJson.intProp("Max change events to return"),
+                        "connectionId", McpJson.stringProp("Catalog connection; empty = default")),
                         List.of()),
                 (exchange, request) -> {
                     String since = McpJson.argString(request.arguments(), "sinceCursor", "");
@@ -118,6 +129,8 @@ final class ConfluenceMcpTools {
                             .setSinceCursor(since)
                             .setIncludeBodies(McpJson.argBool(request.arguments(),
                                     "includeBodies", false))
+                            .setConnectionId(McpJson.argString(request.arguments(),
+                                    "connectionId", ""))
                             .build());
                     List<Map<String, String>> events = new ArrayList<>();
                     String resume = "";

@@ -3,6 +3,9 @@ package ai.pipestream.okf;
 import ai.pipestream.okf.warc.WarcArchive;
 import ai.pipestream.okf.warc.WarcRecord;
 import ai.pipestream.okf.warc.WarcWriter;
+import ai.pipestream.output.ObjectKeys;
+import ai.pipestream.output.OutputObject;
+import ai.pipestream.output.OutputStore;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -131,6 +134,41 @@ public final class KnowledgeBundle {
             WarcWriter.writeGzip(output.warc(), warcRecords);
         }
         return this;
+    }
+
+    /**
+     * Writes the OKF tree, zip, and sibling WARC through {@code store}.
+     * Tree files land under {@code {prefix}/okf/}; zip and warc sit beside
+     * that directory as {@code bundle.zip} / {@code bundle.warc.gz}.
+     *
+     * @param store destination
+     * @param prefix store prefix, or blank
+     * @return this bundle
+     * @throws IOException if a write fails
+     */
+    public KnowledgeBundle write(OutputStore store, String prefix) throws IOException {
+        Objects.requireNonNull(store, "store");
+        String root = prefix == null ? "" : prefix;
+        for (Map.Entry<String, byte[]> entry : bundle.files().entrySet()) {
+            String key = ObjectKeys.under(root, ObjectKeys.join("okf", entry.getKey()));
+            store.put(OutputObject.of(key, entry.getValue(), mime(entry.getKey())));
+        }
+        store.put(OutputObject.of(ObjectKeys.under(root, "bundle.zip"),
+                OkfZip.toBytes(bundle), "application/zip"));
+        store.put(OutputObject.of(ObjectKeys.under(root, "bundle.warc.gz"),
+                WarcWriter.toGzipBytes(warcRecords), "application/gzip"));
+        return this;
+    }
+
+    private static String mime(String path) {
+        String lower = path.toLowerCase(java.util.Locale.ROOT);
+        if (lower.endsWith(".md")) {
+            return "text/markdown; charset=utf-8";
+        }
+        if (lower.endsWith(".html")) {
+            return "text/html; charset=utf-8";
+        }
+        return "application/octet-stream";
     }
 
     private static void putNestedIndexes(OkfBundle bundle, List<CatalogEntry> entries) {

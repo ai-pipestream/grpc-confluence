@@ -109,6 +109,9 @@ message Asset {
   google.protobuf.Timestamp deleted_at = 19;
   // Failure detail when status is FAILED.
   string error_message = 20;
+  // Catalog connection this row belongs to. Empty = the process-default
+  // connection (env credentials, connection_id "default").
+  string connection_id = 21;
   // Connector-specific attributes (change_id, operation name, ...).
   map<string, string> attributes = 99;
 }
@@ -152,6 +155,8 @@ message ListAssetsRequest {
   AssetSyncStatus status = 5;
   // Maximum rows to emit; 0 = no cap.
   int32 limit = 6;
+  // Catalog connection filter; empty = every connection.
+  string connection_id = 7;
 }
 
 // One streamed ledger row.
@@ -166,6 +171,8 @@ message WatchRequest {
   string source = 1;
   // When true, emit current matching rows before live mutations.
   bool include_snapshot = 2;
+  // Catalog connection filter; empty = every connection.
+  string connection_id = 3;
 }
 
 // One streamed mutation (or snapshot row when include_snapshot is set).
@@ -198,6 +205,10 @@ message ReconcileRequest {
   string run_id = 2;
   // Optional kind filter (empty = every kind of the source).
   string kind = 3;
+  // Catalog connection to reconcile. Empty = every connection of source
+  // (legacy). Multi-connection crawlers must set this so one site does
+  // not delete another site's rows.
+  string connection_id = 4;
 }
 
 // How many rows Reconcile marked deleted.
@@ -216,6 +227,8 @@ message Checkpoint {
   string cursor = 3;
   // When this checkpoint was last written.
   google.protobuf.Timestamp updated_at = 4;
+  // Catalog connection this cursor belongs to. Empty = process-default.
+  string connection_id = 5;
 }
 
 // Request to read one checkpoint.
@@ -224,6 +237,8 @@ message GetCheckpointRequest {
   string source = 1;
   // Scope within the source; empty = source-wide.
   string scope = 2;
+  // Catalog connection; empty = process-default.
+  string connection_id = 3;
 }
 
 // The stored checkpoint.

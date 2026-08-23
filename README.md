@@ -27,6 +27,9 @@ The Microsoft Copilot connector wire contracts are copied from
 | `grpc-sync-api` | — | Generic `SyncTableService` protos |
 | `grpc-sync-service` | 9097 | In-memory asset ledger (Watch stream) |
 | `grpc-okf` | — | OKF v0.2 + WARC 1.1 producer (both crawlers) |
+| `grpc-output-spi` | — | Swappable output SPI (`OutputStore` + `OutputFormat`) |
+| `grpc-output-filesystem` | — | Default ServiceLoader store (local directory) |
+| `grpc-output-s3` | — | Optional ServiceLoader store (S3, Confluence hierarchy keys) |
 | `grpc-mcp` | 8090 | MCP 2.0 Streamable HTTP tools over the gRPC jars |
 
 ## Confluence proxy
@@ -65,11 +68,51 @@ per-URI archive (ISO 28500): one `resource` record per live `web_url`, a
 links are those same URIs. The zip is **not** stored inside the WARC.
 
 ```
-OKF_DIR=/data/okf/confluence-run
-# optional overrides; default beside the directory:
+OUTPUT_DIR=/data/okf/confluence-run   # alias: OKF_DIR
+# OUTPUT_STORE=filesystem             # default; set s3 when grpc-output-s3 is loaded
+# OUTPUT_FORMATS=okf                  # also: protobuf,json,microsoft-connector
+# OUTPUT_PREFIX=run-2026-08-23
+# OUTPUT_S3_BUCKET=knowledge
+# OUTPUT_S3_PREFIX=confluence
+# OUTPUT_S3_REGION=us-east-1
+# optional path-based OKF siblings when writing only the legacy OkfOutput:
 # OKF_ZIP=/data/okf/confluence-run.zip
 # OKF_WARC=/data/okf/confluence-run.warc.gz
 ```
+
+`OutputStores.load().has("s3")` is true only when the S3 jar is on the
+classpath. Filesystem is the default store. S3 object keys follow the
+Confluence hierarchy (`{space}/pages/{id}.md`,
+`pages/{pageId}/comments/{id}.pb`, …). OKF trees land under `{prefix}/okf/`
+with `bundle.zip` and `bundle.warc.gz` beside them. Protobuf is the same
+binary Kafka Connect already publishes; JSON is a file export, not the
+gRPC wire.
+
+## Multiple connections
+
+The sync-table process hosts `ConnectionService` on the same port as
+`SyncTableService` (`:9097`). That gRPC service is the catalog: create,
+get, list, update, delete, record-probe. Confluence, MCP, and a future UI
+call the generated stub. They never open the SQLite file.
+
+```
+SYNC_TABLE_JDBC_URL=jdbc:sqlite:/data/sync-table.db
+# or SYNC_TABLE_DB=/data/sync-table.db
+```
+
+MCP setup tools (the same RPCs a frontend will call):
+
+```
+connection_create / connection_list / connection_get / connection_update
+connection_set_output / connection_test / connection_delete
+confluence_sync connectionId=...
+sync_table_list_assets connectionId=...
+```
+
+`connection_id` on Confluence `ListSpaces` / `Sync` / `ProbeConnection`
+selects the catalog row. Ledger `asset_id` is
+`{source}:{connection_id}:{kind}:{native_id}`. Env credentials still work
+as connection `default`.
 
 ## Microsoft Graph proxy
 

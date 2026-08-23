@@ -2,6 +2,7 @@ package ai.pipestream.mcp;
 
 import ai.pipestream.confluence.v1.ConfluenceServiceGrpc;
 import ai.pipestream.microsoft.v1.MicrosoftServiceGrpc;
+import ai.pipestream.sync.v1.ConnectionServiceGrpc;
 import ai.pipestream.sync.v1.SyncTableServiceGrpc;
 import io.grpc.ManagedChannel;
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -45,9 +46,12 @@ public final class McpServerMain {
                 GrpcTargets.DEFAULT_MICROSOFT);
         ManagedChannel sync = GrpcTargets.channel(GrpcTargets.ENV_SYNC, GrpcTargets.DEFAULT_SYNC);
         List<McpServerFeatures.SyncToolSpecification> tools = new ArrayList<>();
-        tools.addAll(ConfluenceMcpTools.of(ConfluenceServiceGrpc.newBlockingStub(confluence)));
+        var confluenceStub = ConfluenceServiceGrpc.newBlockingStub(confluence);
+        tools.addAll(ConfluenceMcpTools.of(confluenceStub));
         tools.addAll(MicrosoftMcpTools.of(MicrosoftServiceGrpc.newBlockingStub(microsoft)));
         tools.addAll(SyncTableMcpTools.of(SyncTableServiceGrpc.newBlockingStub(sync)));
+        tools.addAll(ConnectionMcpTools.of(ConnectionServiceGrpc.newBlockingStub(sync),
+                confluenceStub));
 
         int port = parseInt(System.getenv(ENV_PORT), DEFAULT_PORT);
         McpHttpServer server = McpHttpServer.start(port, "pipestream-connectors", tools);

@@ -1,6 +1,6 @@
 /**
- * Generic asset ledger: where a source asset is, its sync phase and
- * status, attachments included. Source-agnostic gRPC; Confluence and
- * Microsoft write through {@code SyncTableService}.
+ * Generic asset ledger and connection catalog. Confluence, Microsoft,
+ * MCP, and a future UI call {@code SyncTableService} and
+ * {@code ConnectionService} over gRPC; they do not open this store.
  */
 package ai.pipestream.sync;

@@ -31,8 +31,23 @@ public final class OkfZip {
         if (zipFile.getParent() != null) {
             Files.createDirectories(zipFile.getParent());
         }
-        try (OutputStream out = Files.newOutputStream(zipFile);
-                ZipOutputStream zip = new ZipOutputStream(out)) {
+        try (OutputStream out = Files.newOutputStream(zipFile)) {
+            write(bundle, out);
+        }
+        return zipFile;
+    }
+
+    /**
+     * Writes the zip to {@code out}.
+     *
+     * @param bundle the bundle
+     * @param out destination
+     * @throws IOException if the zip cannot be written
+     */
+    public static void write(OkfBundle bundle, OutputStream out) throws IOException {
+        Objects.requireNonNull(bundle, "bundle");
+        Objects.requireNonNull(out, "out");
+        try (ZipOutputStream zip = new ZipOutputStream(out)) {
             for (Map.Entry<String, byte[]> entry : bundle.files().entrySet()) {
                 ZipEntry zipEntry = new ZipEntry(entry.getKey());
                 zip.putNextEntry(zipEntry);
@@ -40,6 +55,18 @@ public final class OkfZip {
                 zip.closeEntry();
             }
         }
-        return zipFile;
+    }
+
+    /**
+     * Serializes the zip to bytes.
+     *
+     * @param bundle the bundle
+     * @return zip bytes
+     * @throws IOException if packing fails
+     */
+    public static byte[] toBytes(OkfBundle bundle) throws IOException {
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        write(bundle, out);
+        return out.toByteArray();
     }
 }

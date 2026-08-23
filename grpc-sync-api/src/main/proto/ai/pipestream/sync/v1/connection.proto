@@ -1,0 +1,210 @@
+syntax = "proto3";
+
+package ai.pipestream.sync.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "ai.pipestream.sync.v1";
+
+// ============================================================================
+// CONNECTION CATALOG — the control-plane a browser UI will call later.
+//
+// One row per upstream site (a Confluence Cloud, a Microsoft tenant). The
+// ledger process stores the catalog next to assets so a frontend has a
+// single gRPC target for "what sources exist" and "what we have crawled".
+// Secrets are write-only: Create/Update accept them; Get/List never return
+// them (has_token / has_client_secret say whether one is stored).
+// ============================================================================
+
+// Catalog of upstream connections and their output bindings.
+service ConnectionService {
+  // Create a connection. connection_id is generated when the request
+  // leaves it empty (a lowercase slug of display_name, or a random id).
+  rpc CreateConnection(CreateConnectionRequest) returns (CreateConnectionResponse);
+
+  // One connection by id. Secrets are omitted.
+  rpc GetConnection(GetConnectionRequest) returns (GetConnectionResponse);
+
+  // Every stored connection, secrets omitted. Pagination stays hidden.
+  rpc ListConnections(ListConnectionsRequest) returns (ListConnectionsResponse);
+
+  // Patch an existing connection. Empty fields leave the stored value
+  // unchanged; a non-empty secret replaces the stored secret.
+  rpc UpdateConnection(UpdateConnectionRequest) returns (UpdateConnectionResponse);
+
+  // Delete a connection. Ledger asset rows are left in place so history
+  // stays queryable; they keep the deleted connection_id.
+  rpc DeleteConnection(DeleteConnectionRequest) returns (DeleteConnectionResponse);
+
+  // Record a probe result (ok / error). The live probe itself is a
+  // Confluence or Microsoft RPC; this rpc only updates catalog status so
+  // a frontend can show last-tested without holding credentials.
+  rpc RecordProbe(RecordProbeRequest) returns (RecordProbeResponse);
+}
+
+// Connector family this connection talks to.
+enum ConnectionKind {
+  // Zero value; the kind was not set.
+  CONNECTION_KIND_UNSPECIFIED = 0;
+  // Atlassian Confluence Cloud (REST v2).
+  CONNECTION_KIND_CONFLUENCE = 1;
+  // Microsoft Graph / SharePoint.
+  CONNECTION_KIND_MICROSOFT = 2;
+}
+
+// Whether the last probe (or create) left the row usable.
+enum ConnectionStatus {
+  // Zero value; no probe has been recorded.
+  CONNECTION_STATUS_UNSPECIFIED = 0;
+  // Last probe listed spaces / sites successfully.
+  CONNECTION_STATUS_READY = 1;
+  // Last probe failed; see last_error.
+  CONNECTION_STATUS_ERROR = 2;
+  // Row exists but has not been probed yet.
+  CONNECTION_STATUS_PENDING = 3;
+}
+
+// Where crawl artifacts for this connection should land.
+message ConnectionOutput {
+  // OutputStore id: "filesystem" (default) or "s3".
+  string store = 1;
+  // OutputFormat ids (okf, protobuf, json, microsoft-connector). Empty =
+  // the process default (okf).
+  repeated string formats = 2;
+  // Filesystem root when store is filesystem.
+  string directory = 3;
+  // Run prefix under the store. Empty = the connection_id.
+  string prefix = 4;
+  // S3 bucket when store is s3.
+  string s3_bucket = 5;
+  // S3 key prefix (before the Confluence / Graph hierarchy).
+  string s3_prefix = 6;
+  // AWS region for the S3 client; empty = us-east-1.
+  string s3_region = 7;
+}
+
+// One upstream site the control plane knows about.
+message Connection {
+  // Stable id. Used as Asset.connection_id and as the default output prefix.
+  string connection_id = 1;
+  // Connector family.
+  ConnectionKind kind = 2;
+  // Human name for a UI list.
+  string display_name = 3;
+  // Confluence Cloud base URL including /wiki, or unused for Microsoft.
+  string base_url = 4;
+  // Atlassian account email (Confluence basic auth).
+  string email = 5;
+  // Write-only API token / secret. Get and List always leave this empty.
+  string token = 6;
+  // True when a token is stored. Get/List use this instead of token.
+  bool has_token = 7;
+  // Space-key allowlist (Confluence). Empty = every space the token can see.
+  repeated string space_keys = 8;
+  // Entra tenant id (Microsoft).
+  string tenant_id = 9;
+  // Entra application (client) id (Microsoft).
+  string client_id = 10;
+  // Write-only client secret (Microsoft). Get and List always leave empty.
+  string client_secret = 11;
+  // True when a client secret is stored.
+  bool has_client_secret = 12;
+  // Optional Graph site id (Microsoft).
+  string site_id = 13;
+  // Optional Graph drive-id allowlist (Microsoft).
+  repeated string drive_ids = 14;
+  // Per-connection output binding. Empty store = process env / filesystem.
+  ConnectionOutput output = 15;
+  // Last recorded probe status.
+  ConnectionStatus status = 16;
+  // Failure detail when status is ERROR. Never contains the token.
+  string last_error = 17;
+  // When this connection_id was created.
+  google.protobuf.Timestamp created_at = 18;
+  // When this row was last written (including probes).
+  google.protobuf.Timestamp updated_at = 19;
+  // When RecordProbe last ran; unset if never probed.
+  google.protobuf.Timestamp last_tested_at = 20;
+}
+
+// Request to create a catalog row.
+message CreateConnectionRequest {
+  // The row to store. connection_id may be empty (the service fills it).
+  // token / client_secret are stored and then stripped from the response.
+  Connection connection = 1;
+}
+
+// The stored row after create (secrets omitted).
+message CreateConnectionResponse {
+  // The stored row.
+  Connection connection = 1;
+}
+
+// Request to read one catalog row.
+message GetConnectionRequest {
+  // The connection_id to fetch.
+  string connection_id = 1;
+  // When true, include token / client_secret. Only the Confluence /
+  // Microsoft processes set this; MCP and a future UI must leave it false.
+  bool include_secret = 2;
+}
+
+// The requested catalog row.
+message GetConnectionResponse {
+  // The stored row (secrets omitted unless include_secret was set).
+  Connection connection = 1;
+}
+
+// Filters for ListConnections. Empty filters match every row.
+message ListConnectionsRequest {
+  // Kind filter; UNSPECIFIED = every kind.
+  ConnectionKind kind = 1;
+}
+
+// The matching catalog rows.
+message ListConnectionsResponse {
+  // Matching rows, secrets omitted, in insertion order.
+  repeated Connection connections = 1;
+}
+
+// Request to patch one catalog row.
+message UpdateConnectionRequest {
+  // The row to merge. connection_id is required. Empty secret fields leave
+  // the stored secret unchanged.
+  Connection connection = 1;
+}
+
+// The stored row after the patch (secrets omitted).
+message UpdateConnectionResponse {
+  // The stored row.
+  Connection connection = 1;
+}
+
+// Request to delete one catalog row.
+message DeleteConnectionRequest {
+  // The connection_id to delete.
+  string connection_id = 1;
+}
+
+// Confirmation that the catalog row is gone.
+message DeleteConnectionResponse {
+  // The id that was removed.
+  string connection_id = 1;
+}
+
+// Request to record a live probe against the upstream site.
+message RecordProbeRequest {
+  // The connection_id that was probed.
+  string connection_id = 1;
+  // True when the probe reached the upstream API successfully.
+  bool ok = 2;
+  // Failure detail when ok is false. Must not contain secrets.
+  string error_message = 3;
+}
+
+// The catalog row after the probe was recorded.
+message RecordProbeResponse {
+  // The stored row (secrets omitted).
+  Connection connection = 1;
+}

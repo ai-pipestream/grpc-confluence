@@ -68,6 +68,22 @@ public final class WarcWriter {
     }
 
     /**
+     * Serializes records to gzip bytes.
+     *
+     * @param records records
+     * @return {@code .warc.gz} bytes
+     */
+    public static byte[] toGzipBytes(List<WarcRecord> records) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (GZIPOutputStream gzip = new GZIPOutputStream(out)) {
+            write(gzip, records);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+        return out.toByteArray();
+    }
+
+    /**
      * Serializes records to uncompressed bytes (tests).
      *
      * @param records records

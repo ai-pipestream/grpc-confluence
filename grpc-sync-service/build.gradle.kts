@@ -6,6 +6,7 @@ dependencies {
     implementation(project(":grpc-sync-api"))
     implementation(libs.grpc.netty.shaded)
     implementation(libs.grpc.services)
+    implementation(libs.sqlite.jdbc)
     runtimeOnly(libs.log4j.core)
 
     testImplementation(libs.grpc.inprocess)

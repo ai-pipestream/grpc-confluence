@@ -61,6 +61,11 @@ service ConfluenceService {
   // idiom): a continuously-tailing Watch rpc is a possible additive later,
   // not part of this surface.
   rpc Sync(SyncRequest) returns (stream SyncResponse);
+
+  // Hit ListSpaces with a catalog connection (or inline credentials) and
+  // report whether the token works. A future UI uses this as "Test
+  // connection". Does not start a crawl.
+  rpc ProbeConnection(ProbeConnectionRequest) returns (ProbeConnectionResponse);
 }
 
 // Request to list spaces.
@@ -69,6 +74,8 @@ message ListSpacesRequest {
   repeated string keys = 1;
   // Maximum number of spaces to return; 0 = no cap (walks all REST pages).
   int32 limit = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -88,6 +95,8 @@ message GetPageRequest {
   // The body representation to fetch. UNSPECIFIED = BODY_FORMAT_STORAGE_XHTML
   // (unlike the list rpcs, where UNSPECIFIED means metadata-only).
   BodyFormat body_format = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -107,6 +116,8 @@ message GetBlogPostRequest {
   // The body representation to fetch. UNSPECIFIED = BODY_FORMAT_STORAGE_XHTML
   // (unlike the list rpcs, where UNSPECIFIED means metadata-only).
   BodyFormat body_format = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -127,6 +138,8 @@ message ListPagesRequest {
   // listing: no body-format is requested from the API and bodies stay unset,
   // which keeps the stream cheap.
   BodyFormat body_format = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -144,6 +157,8 @@ message ListBlogPostsRequest {
   // The body representation to fetch per blog post. UNSPECIFIED =
   // metadata-only listing: no body-format is requested and bodies stay unset.
   BodyFormat body_format = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -163,6 +178,8 @@ message GetAttachmentRequest {
   // the attachment exceeds the server's size cap (CONFLUENCE_ATTACHMENT_MAX_BYTES,
   // default 25 MiB): bulk bytes do not belong on a unary rpc.
   bool include_content = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -174,6 +191,8 @@ message ListAttachmentsRequest {
   string page_id = 1;
   // Blog post id to list when page_id is empty.
   string blog_post_id = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -205,8 +224,37 @@ message SyncRequest {
   // streamed changes (metadata-only sync; the crawl still runs the same
   // sweep).
   bool include_bodies = 3;
+  // Catalog connection to crawl. Empty = the process-default (env) connection.
+  string connection_id = 4;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
+}
+
+// Request to probe whether a catalog (or inline) connection can list spaces.
+message ProbeConnectionRequest {
+  // Catalog connection to probe. Empty = use inline fields or the process
+  // default.
+  string connection_id = 1;
+  // Inline base URL for a probe that has not been saved yet.
+  string base_url = 2;
+  // Inline email for an unsaved probe.
+  string email = 3;
+  // Inline API token for an unsaved probe. Never logged or echoed.
+  string token = 4;
+  // Max spaces to return as evidence the token works; 0 = 5.
+  int32 limit = 5;
+}
+
+// Result of a connection probe (ListSpaces succeeded or failed).
+message ProbeConnectionResponse {
+  // True when ListSpaces succeeded.
+  bool ok = 1;
+  // Catalog id that was probed; empty for a purely inline probe.
+  string connection_id = 2;
+  // Space keys the token can see (capped by the request limit).
+  repeated string space_keys = 3;
+  // Failure detail when ok is false. Never contains the token.
+  string error_message = 4;
 }
 
 // One streamed sync event. The stream is exactly one bounded pass: zero or

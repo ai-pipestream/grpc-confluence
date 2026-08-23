@@ -4,10 +4,15 @@ import ai.pipestream.sync.v1.Asset;
 import ai.pipestream.sync.v1.AssetPhase;
 import ai.pipestream.sync.v1.AssetSyncStatus;
 import ai.pipestream.sync.v1.Checkpoint;
+import ai.pipestream.sync.v1.Connection;
+import ai.pipestream.sync.v1.ConnectionKind;
+import ai.pipestream.sync.v1.ConnectionOutput;
+import ai.pipestream.sync.v1.ConnectionStatus;
 import com.google.protobuf.Timestamp;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -16,10 +21,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 /**
- * In-memory ledger. Thread-safe for virtual-thread crawlers. This
- * <em>is</em> the current database of source assets.
+ * In-memory ledger and connection catalog. Thread-safe for virtual-thread
+ * crawlers. Production uses {@link JdbcLedger}; tests keep this store.
  */
-public final class AssetStore {
+public final class AssetStore implements Ledger {
 
     /**
      * Observer notified after each successful {@link #upsert(Asset)} or
@@ -30,6 +35,7 @@ public final class AssetStore {
 
     private final ConcurrentHashMap<String, Asset> assets = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Checkpoint> checkpoints = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Connection> connections = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<Watcher> watchers = new CopyOnWriteArrayList<>();
 
     /** Creates an empty in-memory ledger. */
@@ -128,7 +134,14 @@ public final class AssetStore {
      */
     public List<Asset> list(String source, String kind, String parentAssetId,
             boolean attachmentsOnly, AssetSyncStatus status, int limit) {
+        return list(source, kind, parentAssetId, attachmentsOnly, status, limit, "");
+    }
+
+    @Override
+    public List<Asset> list(String source, String kind, String parentAssetId,
+            boolean attachmentsOnly, AssetSyncStatus status, int limit, String connectionId) {
         List<Asset> out = new ArrayList<>();
+        String connection = connectionId == null ? "" : connectionId;
         for (Asset asset : assets.values()) {
             if (!source.isEmpty() && !source.equals(asset.getSource())) {
                 continue;
@@ -137,6 +150,9 @@ public final class AssetStore {
                 continue;
             }
             if (!parentAssetId.isEmpty() && !parentAssetId.equals(asset.getParentAssetId())) {
+                continue;
+            }
+            if (!connection.isEmpty() && !connection.equals(asset.getConnectionId())) {
                 continue;
             }
             if (attachmentsOnly && !asset.getAttachment()) {
@@ -201,12 +217,21 @@ public final class AssetStore {
      * @return number of rows newly marked deleted
      */
     public int reconcile(String source, String runId, String kind) {
+        return reconcile(source, runId, kind, "");
+    }
+
+    @Override
+    public int reconcile(String source, String runId, String kind, String connectionId) {
         if (source.isBlank() || runId.isBlank()) {
             throw new IllegalArgumentException("source and run_id are required");
         }
+        String connection = connectionId == null ? "" : connectionId;
         int deleted = 0;
         for (Asset asset : List.copyOf(assets.values())) {
             if (!source.equals(asset.getSource())) {
+                continue;
+            }
+            if (!connection.isEmpty() && !connection.equals(asset.getConnectionId())) {
                 continue;
             }
             if (!kind.isEmpty() && !kind.equals(asset.getKind())) {
@@ -241,7 +266,8 @@ public final class AssetStore {
         Checkpoint stored = checkpoint.toBuilder()
                 .setUpdatedAt(timestamp(Instant.now()))
                 .build();
-        checkpoints.put(key(stored.getSource(), stored.getScope()), stored);
+        checkpoints.put(key(stored.getSource(), stored.getScope(), stored.getConnectionId()),
+                stored);
         return stored;
     }
 
@@ -253,7 +279,135 @@ public final class AssetStore {
      * @return the checkpoint, or empty when unknown
      */
     public Optional<Checkpoint> getCheckpoint(String source, String scope) {
-        return Optional.ofNullable(checkpoints.get(key(source, scope)));
+        return getCheckpoint(source, scope, "");
+    }
+
+    @Override
+    public Optional<Checkpoint> getCheckpoint(String source, String scope, String connectionId) {
+        return Optional.ofNullable(checkpoints.get(key(source, scope, connectionId)));
+    }
+
+    @Override
+    public Connection putConnection(Connection incoming, boolean creating) {
+        Objects.requireNonNull(incoming, "connection");
+        if (incoming.getConnectionId().isBlank()) {
+            throw new IllegalArgumentException("connection_id is required");
+        }
+        if (incoming.getKind() == ConnectionKind.CONNECTION_KIND_UNSPECIFIED) {
+            throw new IllegalArgumentException("connection.kind is required");
+        }
+        Instant now = Instant.now();
+        Connection existing = connections.get(incoming.getConnectionId());
+        if (creating && existing != null) {
+            throw new IllegalStateException("connection already exists: "
+                    + incoming.getConnectionId());
+        }
+        if (!creating && existing == null) {
+            throw new IllegalStateException("connection not found: "
+                    + incoming.getConnectionId());
+        }
+        Connection stored = connections.compute(incoming.getConnectionId(), (id, current) -> {
+            Connection.Builder next = incoming.toBuilder();
+            if (existing != null) {
+                if (next.getToken().isEmpty()) {
+                    next.setToken(existing.getToken());
+                }
+                if (next.getClientSecret().isEmpty()) {
+                    next.setClientSecret(existing.getClientSecret());
+                }
+                if (next.getDisplayName().isEmpty()) {
+                    next.setDisplayName(existing.getDisplayName());
+                }
+                if (next.getBaseUrl().isEmpty()) {
+                    next.setBaseUrl(existing.getBaseUrl());
+                }
+                if (next.getEmail().isEmpty()) {
+                    next.setEmail(existing.getEmail());
+                }
+                if (next.getTenantId().isEmpty()) {
+                    next.setTenantId(existing.getTenantId());
+                }
+                if (next.getClientId().isEmpty()) {
+                    next.setClientId(existing.getClientId());
+                }
+                if (next.getSiteId().isEmpty()) {
+                    next.setSiteId(existing.getSiteId());
+                }
+                if (next.getSpaceKeysList().isEmpty()) {
+                    next.addAllSpaceKeys(existing.getSpaceKeysList());
+                }
+                if (next.getDriveIdsList().isEmpty()) {
+                    next.addAllDriveIds(existing.getDriveIdsList());
+                }
+                if (!next.hasOutput() || isEmptyOutput(next.getOutput())) {
+                    next.setOutput(existing.getOutput());
+                }
+                if (existing.hasCreatedAt()) {
+                    next.setCreatedAt(existing.getCreatedAt());
+                }
+                if (!next.hasLastTestedAt() && existing.hasLastTestedAt()) {
+                    next.setLastTestedAt(existing.getLastTestedAt());
+                }
+                if (next.getStatus() == ConnectionStatus.CONNECTION_STATUS_UNSPECIFIED) {
+                    next.setStatus(existing.getStatus());
+                }
+                if (next.getLastError().isEmpty()) {
+                    next.setLastError(existing.getLastError());
+                }
+            } else if (!next.hasCreatedAt()) {
+                next.setCreatedAt(timestamp(now));
+            }
+            if (next.getStatus() == ConnectionStatus.CONNECTION_STATUS_UNSPECIFIED) {
+                next.setStatus(ConnectionStatus.CONNECTION_STATUS_PENDING);
+            }
+            next.setHasToken(!next.getToken().isEmpty());
+            next.setHasClientSecret(!next.getClientSecret().isEmpty());
+            next.setUpdatedAt(timestamp(now));
+            return next.build();
+        });
+        return stored;
+    }
+
+    @Override
+    public Optional<Connection> getConnection(String connectionId) {
+        return Optional.ofNullable(connections.get(connectionId));
+    }
+
+    @Override
+    public List<Connection> listConnections(ConnectionKind kind) {
+        List<Connection> out = new ArrayList<>();
+        for (Connection connection : connections.values()) {
+            if (kind != ConnectionKind.CONNECTION_KIND_UNSPECIFIED
+                    && connection.getKind() != kind) {
+                continue;
+            }
+            out.add(connection);
+        }
+        out.sort(Comparator.comparing(Connection::getConnectionId));
+        return out;
+    }
+
+    @Override
+    public boolean deleteConnection(String connectionId) {
+        return connections.remove(connectionId) != null;
+    }
+
+    @Override
+    public Connection recordProbe(String connectionId, boolean ok, String errorMessage) {
+        Connection existing = connections.get(connectionId);
+        if (existing == null) {
+            throw new IllegalStateException("connection not found: " + connectionId);
+        }
+        Instant now = Instant.now();
+        Connection stored = existing.toBuilder()
+                .setStatus(ok ? ConnectionStatus.CONNECTION_STATUS_READY
+                        : ConnectionStatus.CONNECTION_STATUS_ERROR)
+                .setLastError(ok ? "" : Objects.toString(errorMessage, ""))
+                .setLastTestedAt(timestamp(now))
+                .setUpdatedAt(timestamp(now))
+                .build();
+        connections.put(connectionId, stored);
+        return stored;
     }
 
     /**
@@ -273,8 +427,15 @@ public final class AssetStore {
         }
     }
 
-    private static String key(String source, String scope) {
-        return source + "\0" + (scope == null ? "" : scope);
+    private static boolean isEmptyOutput(ConnectionOutput output) {
+        return output.getStore().isEmpty() && output.getFormatsList().isEmpty()
+                && output.getDirectory().isEmpty() && output.getPrefix().isEmpty()
+                && output.getS3Bucket().isEmpty();
+    }
+
+    private static String key(String source, String scope, String connectionId) {
+        return source + "\0" + (connectionId == null ? "" : connectionId) + "\0"
+                + (scope == null ? "" : scope);
     }
 
     static Timestamp timestamp(Instant instant) {

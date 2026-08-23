@@ -29,7 +29,8 @@ class SyncTableChangeSinkTest {
                         .setPage(Page.newBuilder().setId("200").setSpaceId("100").setTitle("Doc")))
                 .build();
         Asset pageAsset = SyncTableChangeSink.toAsset(page);
-        assertThat(pageAsset.getAssetId()).isEqualTo("confluence:page:200");
+        assertThat(pageAsset.getAssetId()).isEqualTo("confluence:default:page:200");
+        assertThat(pageAsset.getConnectionId()).isEqualTo("default");
         assertThat(pageAsset.getPhase()).isEqualTo(ai.pipestream.sync.v1.AssetPhase.ASSET_PHASE_INITIAL_CRAWL);
         assertThat(pageAsset.getAttachment()).isFalse();
 
@@ -50,7 +51,7 @@ class SyncTableChangeSinkTest {
                 .build();
         Asset file = SyncTableChangeSink.toAsset(attachment);
         assertThat(file.getAttachment()).isTrue();
-        assertThat(file.getParentAssetId()).isEqualTo("confluence:page:200");
+        assertThat(file.getParentAssetId()).isEqualTo("confluence:default:page:200");
         assertThat(file.getPhase()).isEqualTo(ai.pipestream.sync.v1.AssetPhase.ASSET_PHASE_UPDATE);
         assertThat(file.getContentBytes()).isEqualTo(12);
     }
@@ -67,7 +68,7 @@ class SyncTableChangeSinkTest {
                         .setSpace(Space.newBuilder().setId("100").setKey("ENG").setName("Engineering")
                                 .setWebUrl("https://example/wiki/spaces/ENG")))
                 .build());
-        assertThat(space.getAssetId()).isEqualTo("confluence:space:100");
+        assertThat(space.getAssetId()).isEqualTo("confluence:default:space:100");
         assertThat(space.getTitle()).isEqualTo("Engineering");
 
         Asset blog = SyncTableChangeSink.toAsset(ConfluenceChange.newBuilder()
