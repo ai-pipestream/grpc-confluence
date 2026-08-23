@@ -32,11 +32,12 @@ import java.util.concurrent.TimeUnit;
  *   {@code CONFLUENCE_KAFKA_TOPIC} / {@code CONFLUENCE_KAFKA_SNAPSHOTS_TOPIC}):
  *   every change a sync emits also publishes through {@link KafkaChangeSink}</li>
  *   <li>{@code SYNC_TABLE_TARGET} (plus optional {@code SYNC_TABLE_PLAINTEXT}):
-   *   every change also upserts into the generic {@code SyncTableService}</li>
-   *   <li>{@code OKF_DIR} (plus optional {@code OKF_ZIP} / {@code OKF_WARC}):
-   *   every completed Sync writes an OKF v0.2 directory, zip, and sibling
-   *   WARC 1.1 file</li>
-   * </ul>
+ *   every change also upserts into the generic {@code SyncTableService}</li>
+ *   <li>{@code OUTPUT_DIR} / {@code OKF_DIR} or {@code OUTPUT_S3_BUCKET}:
+ *   crawl artifacts through the output SPI (filesystem default, S3 when
+ *   {@code grpc-output-s3} is loaded). {@code OUTPUT_FORMATS} selects
+ *   protobuf, json, okf, microsoft-connector</li>
+ * </ul>
  */
 public final class ConfluenceServer {
 
@@ -77,7 +78,11 @@ public final class ConfluenceServer {
             LOG.log(System.Logger.Level.INFO, "confluence-proxy sync-table sink active on {0}",
                     System.getenv(SyncTableChangeSink.ENV_TARGET));
         }
-        if (OkfChangeSink.enabled()) {
+        if (OutputChangeSink.enabled()) {
+            OutputChangeSink output = OutputChangeSink.fromEnvironment();
+            sinks.add(output);
+            closables.add(output);
+        } else if (OkfChangeSink.enabled()) {
             sinks.add(OkfChangeSink.fromEnvironment());
             LOG.log(System.Logger.Level.INFO, "confluence-proxy OKF sink active dir={0} zip={1} warc={2}",
                     System.getenv(ai.pipestream.okf.OkfOutput.ENV_DIR),

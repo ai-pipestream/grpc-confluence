@@ -38,11 +38,14 @@ When `SYNC_TABLE_TARGET` is set, each Confluence / Microsoft `Sync` also
 writes the ledger (attachments included) and calls `Reconcile` after a
 full crawl so rows not seen in that run become `DELETED`.
 
-When `OKF_DIR` is set, each completed `Sync` also writes an OKF v0.2
-directory tree, a zip, and a sibling WARC 1.1 (`.warc.gz`). WARC holds one
-`resource` per live URI plus `conversion` records for the markdown; the zip
-stays a sibling, never a WARC payload. Microsoft can additionally upload
-that payload to a SharePoint folder (`OKF_SPO_DRIVE_ID`).
+When `OUTPUT_DIR` / `OKF_DIR` or `OUTPUT_S3_BUCKET` is set, each completed
+`Sync` writes crawl artifacts through the output SPI. `OutputStore`
+implementations are ServiceLoader jars: filesystem is the default;
+`grpc-output-s3` is optional (`OutputStores.has("s3")`). `OUTPUT_FORMATS`
+selects protobuf (the same binary Kafka already publishes), JSON (file
+export), OKF markdown + sibling WARC, and microsoft-connector. S3 keys
+follow Confluence / Graph hierarchy. Microsoft can additionally upload an
+OKF payload to a SharePoint folder (`OKF_SPO_DRIVE_ID`).
 
 ## Processes
 
