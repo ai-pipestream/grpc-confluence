@@ -1,0 +1,11 @@
+FROM eclipse-temurin:25-jdk AS build
+WORKDIR /src
+COPY . .
+RUN ./gradlew --no-daemon build :grpc-mcp:installDist
+
+FROM eclipse-temurin:25-jre
+COPY --from=build /src/grpc-mcp/build/install/grpc-mcp /opt/mcp
+RUN useradd --system --no-create-home mcp
+USER mcp
+EXPOSE 8090
+ENTRYPOINT ["/opt/mcp/bin/grpc-mcp"]

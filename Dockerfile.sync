@@ -1,0 +1,11 @@
+FROM eclipse-temurin:25-jdk AS build
+WORKDIR /src
+COPY . .
+RUN ./gradlew --no-daemon build :grpc-sync-service:installDist
+
+FROM eclipse-temurin:25-jre
+COPY --from=build /src/grpc-sync-service/build/install/grpc-sync-service /opt/sync
+RUN useradd --system --no-create-home sync
+USER sync
+EXPOSE 9097
+ENTRYPOINT ["/opt/sync/bin/grpc-sync-service"]

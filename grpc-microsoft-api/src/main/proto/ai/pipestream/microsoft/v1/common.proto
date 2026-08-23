@@ -1,0 +1,214 @@
+syntax = "proto3";
+
+package ai.pipestream.microsoft.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "ai.pipestream.microsoft.v1";
+
+// A Microsoft Graph identity: user, device, or application.
+message Identity {
+  // Graph object id of the identity.
+  string id = 1;
+  // Display name of the identity.
+  string display_name = 2;
+}
+
+// Identity set on a drive item (createdBy / lastModifiedBy).
+message IdentitySet {
+  // User identity, when the actor is a user.
+  Identity user = 1;
+  // Application identity, when the actor is an app.
+  Identity application = 2;
+  // Device identity, when the actor is a device.
+  Identity device = 3;
+}
+
+// A Microsoft Graph user (the /me or /users shape we keep).
+message GraphUser {
+  // Graph object id.
+  string id = 1;
+  // Display name.
+  string display_name = 2;
+  // User principal name (email-shaped).
+  string user_principal_name = 3;
+  // Mail address when present; empty when omitted.
+  string mail = 4;
+}
+
+// A SharePoint site.
+message Site {
+  // Site id.
+  string id = 1;
+  // Site name.
+  string name = 2;
+  // Site display name.
+  string display_name = 3;
+  // Web URL of the site.
+  string web_url = 4;
+}
+
+// A drive (OneDrive or a SharePoint document library).
+message Drive {
+  // Drive id.
+  string id = 1;
+  // Drive name.
+  string name = 2;
+  // Drive type: personal, business, documentLibrary.
+  string drive_type = 3;
+  // Web URL of the drive.
+  string web_url = 4;
+  // Owning site id when the drive belongs to a SharePoint site.
+  string site_id = 5;
+}
+
+// Content hashes Graph reports on a file (the `file.hashes` object).
+message FileHashes {
+  // SHA-1 hex digest, empty when Graph omitted it.
+  string sha1 = 1;
+  // SHA-256 hex digest, empty when Graph omitted it.
+  string sha256 = 2;
+  // QuickXOR hash (Graph's SharePoint hash), empty when omitted.
+  string quick_xor = 3;
+  // CRC32 hash, empty when omitted.
+  string crc32 = 4;
+}
+
+// One SharePoint list-item column. Nested objects are flattened one level
+// (`Parent.Child`); `@odata.*` annotations are skipped. No JSON/Struct arm:
+// Graph column values are scalars or one-level objects of scalars.
+message ListColumn {
+  // SharePoint internal column name (for example `FileLeafRef`).
+  string name = 1;
+  // The column value. Exactly one arm is set when the column has a value.
+  oneof value {
+    // Text, choice, lookup display name, or a joined multi-value list.
+    string string_value = 2;
+    // Integral number (Graph integer / whole JSON number).
+    int64 int_value = 3;
+    // Floating-point number.
+    double double_value = 4;
+    // Boolean column.
+    bool bool_value = 5;
+    // Date-only or date-time column parsed as RFC3339.
+    google.protobuf.Timestamp timestamp_value = 6;
+  }
+}
+
+// A file or folder in a drive.
+message DriveItem {
+  // Item id.
+  string id = 1;
+  // File or folder name.
+  string name = 2;
+  // Parent drive id.
+  string drive_id = 3;
+  // Parent item id, empty for the drive root.
+  string parent_id = 4;
+  // Web URL of the item.
+  string web_url = 5;
+  // Download URL for the binary (content pointer, not navigation).
+  string download_url = 6;
+  // MIME type when the item is a file.
+  string mime_type = 7;
+  // File size in bytes; 0 for folders or when unknown.
+  int64 size = 8;
+  // True when the item is a folder.
+  bool folder = 9;
+  // When the item was created.
+  google.protobuf.Timestamp created_at = 10;
+  // When the item was last modified.
+  google.protobuf.Timestamp last_modified_at = 11;
+  // Who created the item.
+  IdentitySet created_by = 12;
+  // Who last modified the item.
+  IdentitySet last_modified_by = 13;
+  // Item description, empty when Graph omitted it.
+  string description = 14;
+  // Graph eTag of the item, empty when omitted.
+  string etag = 15;
+  // Folder child count; 0 when the item is not a folder or Graph omitted it.
+  int32 child_count = 16;
+  // File content hashes; unset when Graph omitted `file.hashes`.
+  FileHashes hashes = 17;
+  // SharePoint list-item columns behind this document, flattened and typed.
+  repeated ListColumn list_columns = 18;
+  // File bytes when a download was requested and the size cap allows it.
+  optional bytes content = 21;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One Microsoft Graph entity as the crawler read it.
+message MicrosoftEntity {
+  // Graph id of the wrapped entity.
+  string entity_id = 1;
+  // When the crawler ingested this record.
+  google.protobuf.Timestamp ingested_at = 2;
+  // The wrapped entity. Exactly one arm is set.
+  oneof entity {
+    // Set when the wrapped entity is a SharePoint site.
+    Site site = 10;
+    // Set when the wrapped entity is a drive.
+    Drive drive = 11;
+    // Set when the wrapped entity is a file or folder.
+    DriveItem drive_item = 12;
+    // Set when the wrapped entity is a Graph user.
+    GraphUser user = 13;
+  }
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Where a change record came from.
+enum ChangeSource {
+  // Zero value; the change source is unknown or was not recorded.
+  CHANGE_SOURCE_UNSPECIFIED = 0;
+  // Full crawl of the drive.
+  CHANGE_SOURCE_CRAWL = 1;
+  // Incremental sync driven by a Graph delta token.
+  CHANGE_SOURCE_DELTA = 2;
+}
+
+// The kind of change applied to the wrapped entity.
+enum ChangeOperation {
+  // Zero value; the operation is unknown or was not recorded.
+  CHANGE_OPERATION_UNSPECIFIED = 0;
+  // The entity was created or updated; the entity payload is present.
+  CHANGE_OPERATION_UPSERT = 1;
+  // The entity was deleted; only the identity fields are meaningful.
+  CHANGE_OPERATION_DELETE = 2;
+}
+
+// A full-sync marker for one completed drive sweep.
+message MicrosoftSnapshot {
+  // Unique id of this snapshot run (run id plus drive id).
+  string snapshot_id = 1;
+  // Drive the sweep covered.
+  string drive_id = 2;
+  // Number of entities emitted per kind (e.g. "file": 12, "folder": 3).
+  map<string, int64> entity_counts = 3;
+  // Opaque cursor the sweep ended on.
+  string cursor = 4;
+  // When the sweep started.
+  google.protobuf.Timestamp started_at = 5;
+  // When the sweep completed (unset while the sweep is running).
+  optional google.protobuf.Timestamp completed_at = 6;
+}
+
+// One upsert or delete against the Microsoft Graph mirror.
+message MicrosoftChange {
+  // Unique id of this change record.
+  string change_id = 1;
+  // The kind of change (UPSERT carries the entity; DELETE is identity-only).
+  ChangeOperation operation = 2;
+  // The entity payload (full for UPSERT; identity-only for DELETE).
+  MicrosoftEntity entity = 3;
+  // The crawl run id (full crawl) or delta token (incremental).
+  string cursor = 4;
+  // Where this change record came from.
+  ChangeSource source = 5;
+  // When the change was observed.
+  google.protobuf.Timestamp occurred_at = 6;
+}

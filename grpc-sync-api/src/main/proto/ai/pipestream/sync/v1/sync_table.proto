@@ -1,0 +1,245 @@
+syntax = "proto3";
+
+package ai.pipestream.sync.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "ai.pipestream.sync.v1";
+
+// Generic asset ledger. Source-agnostic: Confluence, Microsoft Graph, or
+// any later connector records where an asset lives, its phase (initial
+// crawl / update / delete), and whether it is an attachment.
+service SyncTableService {
+  // Create or update one asset row. Idempotent on asset_id.
+  rpc UpsertAsset(UpsertAssetRequest) returns (UpsertAssetResponse);
+
+  // One asset by id.
+  rpc GetAsset(GetAssetRequest) returns (GetAssetResponse);
+
+  // Stream matching rows. Pagination stays hidden.
+  rpc ListAssets(ListAssetsRequest) returns (stream ListAssetsResponse);
+
+  // Live stream of ledger mutations after an optional snapshot.
+  rpc Watch(WatchRequest) returns (stream WatchResponse);
+
+  // Mark an asset deleted (soft). The row stays so history is queryable.
+  rpc DeleteAsset(DeleteAssetRequest) returns (DeleteAssetResponse);
+
+  // After a crawl run, mark source-scoped rows not seen in that run deleted.
+  rpc Reconcile(ReconcileRequest) returns (ReconcileResponse);
+
+  // Resume cursor for a (source, scope) pair.
+  rpc GetCheckpoint(GetCheckpointRequest) returns (GetCheckpointResponse);
+
+  // Store the resume cursor for a (source, scope) pair.
+  rpc PutCheckpoint(PutCheckpointRequest) returns (PutCheckpointResponse);
+}
+
+// Where the asset is in its lifecycle for this ledger.
+enum AssetPhase {
+  // Zero value; the ledger has not classified this row yet.
+  ASSET_PHASE_UNSPECIFIED = 0;
+  // First time this asset_id was written (full crawl).
+  ASSET_PHASE_INITIAL_CRAWL = 1;
+  // Subsequent upsert of an already-known asset.
+  ASSET_PHASE_UPDATE = 2;
+  // Explicit or reconciled delete.
+  ASSET_PHASE_DELETE = 3;
+  // A crawl-run snapshot marker (not a source entity).
+  ASSET_PHASE_SNAPSHOT = 4;
+}
+
+// Sync processing status of the row.
+enum AssetSyncStatus {
+  // Zero value; processing status was not recorded.
+  ASSET_SYNC_STATUS_UNSPECIFIED = 0;
+  // Queued, not yet written.
+  ASSET_SYNC_STATUS_PENDING = 1;
+  // A crawler is currently touching this row.
+  ASSET_SYNC_STATUS_IN_PROGRESS = 2;
+  // Last write succeeded.
+  ASSET_SYNC_STATUS_SYNCED = 3;
+  // Last write failed; see error_message.
+  ASSET_SYNC_STATUS_FAILED = 4;
+  // Soft-deleted (explicit DeleteAsset or Reconcile).
+  ASSET_SYNC_STATUS_DELETED = 5;
+}
+
+// One source asset as the ledger currently knows it.
+message Asset {
+  // Stable id: "{source}:{kind}:{native_id}".
+  string asset_id = 1;
+  // Connector family: "confluence", "microsoft", ...
+  string source = 2;
+  // Native id in the source system.
+  string native_id = 3;
+  // Entity kind: page, attachment, drive_item, ...
+  string kind = 4;
+  // Where the asset lives upstream (web URL or REST path).
+  string source_uri = 5;
+  // Optional parent asset_id (attachments point at their page/folder).
+  string parent_asset_id = 6;
+  // True when this row is an attachment / file binary.
+  bool attachment = 7;
+  // Lifecycle phase the ledger assigned on the last write.
+  AssetPhase phase = 8;
+  // Processing status of the last write.
+  AssetSyncStatus status = 9;
+  // Last crawl run that touched this row.
+  string run_id = 10;
+  // Source cursor associated with the last write (CQL timestamp, Graph
+  // delta token, or the crawl run id).
+  string cursor = 11;
+  // Declared size of the binary, when known; 0 otherwise.
+  int64 content_bytes = 12;
+  // Content hash when the crawler computed one; empty otherwise.
+  string content_hash = 13;
+  // MIME type of an attachment / file; empty for non-binaries.
+  string media_type = 14;
+  // Human title or filename.
+  string title = 15;
+  // When this asset_id first appeared in the ledger.
+  google.protobuf.Timestamp first_seen_at = 16;
+  // When this row was last written.
+  google.protobuf.Timestamp last_seen_at = 17;
+  // Upstream last-modified, when the source provided one.
+  google.protobuf.Timestamp last_modified_at = 18;
+  // When the row was marked deleted; unset while the asset is live.
+  google.protobuf.Timestamp deleted_at = 19;
+  // Failure detail when status is FAILED.
+  string error_message = 20;
+  // Connector-specific attributes (change_id, operation name, ...).
+  map<string, string> attributes = 99;
+}
+
+// Request to create or update one ledger row.
+message UpsertAssetRequest {
+  // The row to write. asset_id is required; the ledger fills phase and
+  // timestamps that the caller leaves unset.
+  Asset asset = 1;
+}
+
+// The row as stored after the upsert (with ledger-owned phase/timestamps).
+message UpsertAssetResponse {
+  // The stored row.
+  Asset asset = 1;
+}
+
+// Request to read one row by id.
+message GetAssetRequest {
+  // The asset_id to fetch.
+  string asset_id = 1;
+}
+
+// The requested row.
+message GetAssetResponse {
+  // The stored row.
+  Asset asset = 1;
+}
+
+// Filters for a ListAssets stream. Empty filters match every row.
+message ListAssetsRequest {
+  // Connector family filter; empty = every source.
+  string source = 1;
+  // Entity kind filter; empty = every kind.
+  string kind = 2;
+  // Parent asset_id filter; empty = no parent constraint.
+  string parent_asset_id = 3;
+  // When true, only attachment rows.
+  bool attachments_only = 4;
+  // When set, only this status.
+  AssetSyncStatus status = 5;
+  // Maximum rows to emit; 0 = no cap.
+  int32 limit = 6;
+}
+
+// One streamed ledger row.
+message ListAssetsResponse {
+  // The matching row.
+  Asset asset = 1;
+}
+
+// Request to watch ledger mutations.
+message WatchRequest {
+  // Connector family filter; empty = every source.
+  string source = 1;
+  // When true, emit current matching rows before live mutations.
+  bool include_snapshot = 2;
+}
+
+// One streamed mutation (or snapshot row when include_snapshot is set).
+message WatchResponse {
+  // The row after the mutation (or a current snapshot row).
+  Asset asset = 1;
+}
+
+// Request to mark one row deleted.
+message DeleteAssetRequest {
+  // The asset_id to mark deleted.
+  string asset_id = 1;
+  // Crawl run that observed the delete; empty keeps the existing run_id.
+  string run_id = 2;
+  // Source cursor of the delete; empty keeps the existing cursor.
+  string cursor = 3;
+}
+
+// The row after it was marked deleted.
+message DeleteAssetResponse {
+  // The stored row (phase DELETE, status DELETED).
+  Asset asset = 1;
+}
+
+// Request to mark source-scoped rows not seen in this run as deleted.
+message ReconcileRequest {
+  // Connector family to reconcile.
+  string source = 1;
+  // Rows whose run_id is not this value are marked deleted.
+  string run_id = 2;
+  // Optional kind filter (empty = every kind of the source).
+  string kind = 3;
+}
+
+// How many rows Reconcile marked deleted.
+message ReconcileResponse {
+  // Count of rows newly marked deleted.
+  int32 deleted = 1;
+}
+
+// Resume cursor for a (source, scope) pair (a space key, a drive id, ...).
+message Checkpoint {
+  // Connector family.
+  string source = 1;
+  // Scope within the source (space key, drive id). Empty = source-wide.
+  string scope = 2;
+  // Opaque resume cursor to hand back to the next Sync.
+  string cursor = 3;
+  // When this checkpoint was last written.
+  google.protobuf.Timestamp updated_at = 4;
+}
+
+// Request to read one checkpoint.
+message GetCheckpointRequest {
+  // Connector family.
+  string source = 1;
+  // Scope within the source; empty = source-wide.
+  string scope = 2;
+}
+
+// The stored checkpoint.
+message GetCheckpointResponse {
+  // The stored checkpoint.
+  Checkpoint checkpoint = 1;
+}
+
+// Request to write one checkpoint.
+message PutCheckpointRequest {
+  // The checkpoint to store. source is required.
+  Checkpoint checkpoint = 1;
+}
+
+// The checkpoint as stored (updated_at filled by the ledger).
+message PutCheckpointResponse {
+  // The stored checkpoint.
+  Checkpoint checkpoint = 1;
+}
