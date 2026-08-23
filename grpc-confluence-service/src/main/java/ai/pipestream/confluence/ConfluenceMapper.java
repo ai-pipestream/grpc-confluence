@@ -71,6 +71,8 @@ public final class ConfluenceMapper {
     private final String origin;
 
     /**
+     * Creates a mapper bound to one tenant origin.
+     *
      * @param baseUrl the tenant base URL including {@code /wiki} (e.g.
      *        {@code https://pipestreamai.atlassian.net/wiki}); used to compose
      *        absolute {@code web_url} / {@code download_url} values
@@ -86,7 +88,12 @@ public final class ConfluenceMapper {
     // SPACES
     // ======================================================================
 
-    /** Maps a Space (Bulk or Single read shape; the Single-only fields stay unset on Bulk). */
+    /**
+     * Maps a REST v2 {@code Space} JSON object to the domain proto.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
     public Space toSpace(JsonNode node) {
         Space.Builder b = Space.newBuilder()
                 .setId(text(node, "id"))
@@ -133,7 +140,12 @@ public final class ConfluenceMapper {
     // PAGES AND BLOG POSTS
     // ======================================================================
 
-    /** Maps a Page (Bulk or Single read shape). */
+    /**
+     * Maps a REST v2 {@code Page} JSON object to the domain proto.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
     public Page toPage(JsonNode node) {
         Page.Builder b = Page.newBuilder()
                 .setId(text(node, "id"))
@@ -164,7 +176,12 @@ public final class ConfluenceMapper {
         return b.build();
     }
 
-    /** Maps a BlogPost (Bulk or Single read shape). */
+    /**
+     * Maps a REST v2 {@code BlogPost} JSON object to the domain proto.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
     public BlogPost toBlogPost(JsonNode node) {
         BlogPost.Builder b = BlogPost.newBuilder()
                 .setId(text(node, "id"))
@@ -185,8 +202,12 @@ public final class ConfluenceMapper {
     // ======================================================================
 
     /**
-     * Maps a footer or inline comment; one proto covers both, the inline-only
-     * fields stay unset on footer comments.
+     * Maps a REST v2 {@code Comment} JSON object to the domain proto.
+     * One proto covers footer and inline comments; inline-only fields stay
+     * unset on footer comments.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
      */
     public Comment toComment(JsonNode node) {
         Comment.Builder b = Comment.newBuilder()
@@ -235,10 +256,13 @@ public final class ConfluenceMapper {
     // ======================================================================
 
     /**
-     * Maps an attachment metadata record (Bulk or Single). Bytes are not part
-     * of list responses; the crawler fills {@code content} from a separate
-     * {@link ConfluenceClient#downloadAttachmentBytes} call when it wants the
-     * binary.
+     * Maps a REST v2 {@code Attachment} JSON object to the domain proto.
+     * Bytes are not part of list responses; the crawler fills {@code content}
+     * from a separate {@link ConfluenceClient#downloadAttachmentBytes} call
+     * when it wants the binary.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
      */
     public Attachment toAttachment(JsonNode node) {
         Attachment.Builder b = Attachment.newBuilder()
@@ -271,6 +295,12 @@ public final class ConfluenceMapper {
     // LABELS, TASKS, USERS
     // ======================================================================
 
+    /**
+     * Maps a REST v2 {@code Label} JSON object to the domain proto.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
     public Label toLabel(JsonNode node) {
         return Label.newBuilder()
                 .setId(text(node, "id"))
@@ -279,6 +309,12 @@ public final class ConfluenceMapper {
                 .build();
     }
 
+    /**
+     * Maps a REST v2 {@code Task} JSON object to the domain proto.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
     public Task toTask(JsonNode node) {
         Task.Builder b = Task.newBuilder()
                 .setId(text(node, "id"))
@@ -315,6 +351,12 @@ public final class ConfluenceMapper {
         return b.build();
     }
 
+    /**
+     * Maps a REST v2 {@code User} JSON object to the domain proto.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
     public User toUser(JsonNode node) {
         User.Builder b = User.newBuilder()
                 .setAccountId(text(node, "accountId"))
@@ -344,6 +386,12 @@ public final class ConfluenceMapper {
     // HIERARCHICAL CONTENT
     // ======================================================================
 
+    /**
+     * Maps a REST v2 {@code Whiteboard} JSON object to the domain proto.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
     public Whiteboard toWhiteboard(JsonNode node) {
         Whiteboard.Builder b = Whiteboard.newBuilder()
                 .setId(text(node, "id"))
@@ -366,6 +414,12 @@ public final class ConfluenceMapper {
         return b.build();
     }
 
+    /**
+     * Maps a REST v2 {@code Database} JSON object to the domain proto.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
     public Database toDatabase(JsonNode node) {
         Database.Builder b = Database.newBuilder()
                 .setId(text(node, "id"))
@@ -388,6 +442,12 @@ public final class ConfluenceMapper {
         return b.build();
     }
 
+    /**
+     * Maps a REST v2 {@code Folder} JSON object to the domain proto.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
     public Folder toFolder(JsonNode node) {
         Folder.Builder b = Folder.newBuilder()
                 .setId(text(node, "id"))
@@ -410,6 +470,12 @@ public final class ConfluenceMapper {
         return b.build();
     }
 
+    /**
+     * Maps a REST v2 {@code CustomContent} JSON object to the domain proto.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
     public CustomContent toCustomContent(JsonNode node) {
         CustomContent.Builder b = CustomContent.newBuilder()
                 .setId(text(node, "id"))
@@ -433,6 +499,12 @@ public final class ConfluenceMapper {
     // PROPERTIES
     // ======================================================================
 
+    /**
+     * Maps a REST v2 {@code ContentProperty} JSON object to the domain proto.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
     public ContentProperty toContentProperty(JsonNode node) {
         ContentProperty.Builder b = ContentProperty.newBuilder()
                 .setId(text(node, "id"));
@@ -442,6 +514,12 @@ public final class ConfluenceMapper {
         return b.build();
     }
 
+    /**
+     * Maps a REST v2 {@code SpaceProperty} JSON object to the domain proto.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
     public SpaceProperty toSpaceProperty(JsonNode node) {
         SpaceProperty.Builder b = SpaceProperty.newBuilder()
                 .setId(text(node, "id"))
@@ -512,6 +590,12 @@ public final class ConfluenceMapper {
     // VERSIONS AND CLASSIFICATION LEVELS
     // ======================================================================
 
+    /**
+     * Maps a REST v2 {@code Version} JSON object to the domain proto.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
     public Version toVersion(JsonNode node) {
         Version.Builder b = Version.newBuilder()
                 .setMessage(text(node, "message"))
@@ -523,6 +607,12 @@ public final class ConfluenceMapper {
         return b.build();
     }
 
+    /**
+     * Maps a REST v2 {@code ClassificationLevel} JSON object to the domain proto.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
     public ClassificationLevel toClassificationLevel(JsonNode node) {
         ClassificationLevel.Builder b = ClassificationLevel.newBuilder()
                 .setId(text(node, "id"))
@@ -578,7 +668,12 @@ public final class ConfluenceMapper {
                 .build();
     }
 
-    /** The API's representation strings to the BodyFormat enum; unknown maps to UNSPECIFIED. */
+    /**
+     * The API's representation strings to the BodyFormat enum; unknown maps to UNSPECIFIED.
+     *
+     * @param representation the API {@code representation} string, or {@code null}
+     * @return the matching {@link BodyFormat}; unknown values are {@code UNSPECIFIED}
+     */
     public static BodyFormat bodyFormat(String representation) {
         return switch (representation == null ? ""
                 : representation.trim().toLowerCase(Locale.ROOT)) {
@@ -615,6 +710,9 @@ public final class ConfluenceMapper {
      * RFC3339 / ISO-8601 to Timestamp. Tolerant of offset forms
      * ({@code +00:00} as well as {@code Z}); blank or unparseable input
      * yields null so the field stays unset.
+     *
+     * @param rfc3339 an RFC3339 / ISO-8601 timestamp, or blank
+     * @return the proto timestamp, or {@code null} when input is blank or unparseable
      */
     public static Timestamp timestamp(String rfc3339) {
         if (rfc3339 == null || rfc3339.isBlank()) {
@@ -643,6 +741,9 @@ public final class ConfluenceMapper {
      * {@code _links.next} with it, so both forms are handled: paths already
      * carrying the base path resolve against the origin, bare paths against
      * the full base URL.
+     *
+     * @param url a relative or absolute URL, or blank
+     * @return the absolute URL, or empty when {@code url} is blank
      */
     public String absolute(String url) {
         if (url == null || url.isBlank()) {

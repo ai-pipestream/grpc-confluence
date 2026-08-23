@@ -61,6 +61,7 @@ public record ConfluenceConnectorConfig(
     /** Default body representation: Confluence storage format (XHTML). */
     public static final String DEFAULT_BODY_FORMAT = "storage";
 
+    /** Validates and normalizes fields. */
     public ConfluenceConnectorConfig {
         if (baseUrl == null || baseUrl.isBlank()) {
             throw new IllegalArgumentException(ENV_BASE_URL + " is required"
@@ -133,6 +134,11 @@ public record ConfluenceConnectorConfig(
                 .build();
     }
 
+    /**
+     * A builder with every field optional until {@link Builder#build()} validates.
+     *
+     * @return a new builder
+     */
     public static Builder builder() {
         return new Builder();
     }
@@ -162,7 +168,11 @@ public record ConfluenceConnectorConfig(
         }
     }
 
-    /** Secrets stay out of any log line this record lands in. */
+    /**
+     * Secrets stay out of any log line this record lands in.
+     *
+     * @return a summary with {@code apiToken} redacted
+     */
     @Override
     public String toString() {
         return "ConfluenceConnectorConfig{baseUrl=" + baseUrl
@@ -185,41 +195,88 @@ public record ConfluenceConnectorConfig(
         private Builder() {
         }
 
+        /**
+         * Sets {@code baseUrl}.
+         *
+         * @param baseUrl the Confluence Cloud base URL including {@code /wiki}
+         * @return this builder
+         */
         public Builder baseUrl(String baseUrl) {
             this.baseUrl = baseUrl;
             return this;
         }
 
+        /**
+         * Sets {@code email}.
+         *
+         * @param email the Atlassian account email for basic auth
+         * @return this builder
+         */
         public Builder email(String email) {
             this.email = email;
             return this;
         }
 
+        /**
+         * Sets {@code apiToken}.
+         *
+         * @param apiToken the Atlassian API token for basic auth
+         * @return this builder
+         */
         public Builder apiToken(String apiToken) {
             this.apiToken = apiToken;
             return this;
         }
 
+        /**
+         * Sets {@code spaces}.
+         *
+         * @param spaces space keys to crawl; empty means every visible space
+         * @return this builder
+         */
         public Builder spaces(List<String> spaces) {
             this.spaces = Objects.requireNonNullElse(spaces, List.of());
             return this;
         }
 
+        /**
+         * Sets {@code spaces} from varargs.
+         *
+         * @param spaces space keys to crawl
+         * @return this builder
+         */
         public Builder spaces(String... spaces) {
             this.spaces = List.of(spaces);
             return this;
         }
 
+        /**
+         * Sets {@code pageSize}.
+         *
+         * @param pageSize the list-endpoint page size
+         * @return this builder
+         */
         public Builder pageSize(int pageSize) {
             this.pageSize = pageSize;
             return this;
         }
 
+        /**
+         * Sets {@code bodyFormat}.
+         *
+         * @param bodyFormat {@code storage} or {@code atlas_doc_format}
+         * @return this builder
+         */
         public Builder bodyFormat(String bodyFormat) {
             this.bodyFormat = bodyFormat;
             return this;
         }
 
+        /**
+         * Builds a config; the record compact constructor validates and normalizes.
+         *
+         * @return the config
+         */
         public ConfluenceConnectorConfig build() {
             return new ConfluenceConnectorConfig(baseUrl, email, apiToken, spaces, pageSize,
                     bodyFormat);

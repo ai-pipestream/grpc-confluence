@@ -24,10 +24,15 @@ import java.util.Properties;
  */
 public final class KafkaChangeSink implements ChangeSink, AutoCloseable {
 
+    /** Environment variable for the Kafka bootstrap servers. */
     public static final String ENV_BOOTSTRAP_SERVERS = "CONFLUENCE_KAFKA_BOOTSTRAP_SERVERS";
+    /** Environment variable for the changes topic. */
     public static final String ENV_TOPIC = "CONFLUENCE_KAFKA_TOPIC";
+    /** Environment variable for the snapshots topic. */
     public static final String ENV_SNAPSHOTS_TOPIC = "CONFLUENCE_KAFKA_SNAPSHOTS_TOPIC";
+    /** Default changes topic when {@link #ENV_TOPIC} is unset. */
     public static final String DEFAULT_TOPIC = "confluence-events";
+    /** Default snapshots topic when {@link #ENV_SNAPSHOTS_TOPIC} is unset. */
     public static final String DEFAULT_SNAPSHOTS_TOPIC = "confluence-snapshots";
 
     private static final System.Logger LOG = System.getLogger(KafkaChangeSink.class.getName());
@@ -37,6 +42,13 @@ public final class KafkaChangeSink implements ChangeSink, AutoCloseable {
     private final String topic;
     private final String snapshotsTopic;
 
+    /**
+     * Creates a sink that publishes through {@code producer}.
+     *
+     * @param producer the Kafka producer; not closed by this constructor
+     * @param topic the changes topic
+     * @param snapshotsTopic the snapshots topic
+     */
     public KafkaChangeSink(KafkaProducer<String, byte[]> producer, String topic,
             String snapshotsTopic) {
         this.producer = Objects.requireNonNull(producer, "producer");
@@ -50,11 +62,21 @@ public final class KafkaChangeSink implements ChangeSink, AutoCloseable {
         this.snapshotsTopic = snapshotsTopic;
     }
 
+    /**
+     * Whether Kafka publishing is configured in the process environment.
+     *
+     * @return {@code true} when {@link #ENV_BOOTSTRAP_SERVERS} is set
+     */
     public static boolean enabled() {
         String servers = System.getenv(ENV_BOOTSTRAP_SERVERS);
         return servers != null && !servers.isBlank();
     }
 
+    /**
+     * Builds a sink from {@code CONFLUENCE_KAFKA_*} environment variables.
+     *
+     * @return a sink connected to the configured bootstrap servers
+     */
     public static KafkaChangeSink fromEnvironment() {
         return fromEnvironment(System.getenv());
     }
@@ -69,6 +91,12 @@ public final class KafkaChangeSink implements ChangeSink, AutoCloseable {
         return new KafkaChangeSink(newProducer(servers), topic, snapshots);
     }
 
+    /**
+     * Builds a producer with idempotent {@code acks=all} and byte-array values.
+     *
+     * @param bootstrapServers Kafka bootstrap servers
+     * @return a new producer
+     */
     public static KafkaProducer<String, byte[]> newProducer(String bootstrapServers) {
         Properties props = new Properties();
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -108,6 +136,7 @@ public final class KafkaChangeSink implements ChangeSink, AutoCloseable {
         }
     }
 
+    /** Closes the underlying producer. */
     @Override
     public void close() {
         producer.close();

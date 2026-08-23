@@ -32,10 +32,13 @@ public final class ConfluenceClient {
 
     /** A Confluence API error, carrying the service's status and raw body. */
     public static final class ConfluenceApiException extends IOException {
+        /** Serialization identifier. */
         @java.io.Serial
         private static final long serialVersionUID = 1L;
 
+        /** HTTP status of the failing response. */
         private final int status;
+        /** Raw error response body. */
         private final String body;
 
         ConfluenceApiException(int status, String body) {
@@ -44,12 +47,20 @@ public final class ConfluenceClient {
             this.body = body == null ? "" : body;
         }
 
-        /** The HTTP status of the failing response. */
+        /**
+         * The HTTP status of the failing response.
+         *
+         * @return the status code
+         */
         public int status() {
             return status;
         }
 
-        /** The raw error response body. */
+        /**
+         * The raw error response body.
+         *
+         * @return the body, empty when the service sent none
+         */
         public String body() {
             return body;
         }
@@ -76,15 +87,35 @@ public final class ConfluenceClient {
 
     private long lastRequestNanos;
 
+    /**
+     * Creates a client from connector config (default politeness interval).
+     *
+     * @param config the crawler config supplying base URL and credentials
+     */
     public ConfluenceClient(ConfluenceConnectorConfig config) {
         this(config.baseUrl(), config.email(), config.apiToken());
     }
 
+    /**
+     * Creates a client with the default politeness interval.
+     *
+     * @param baseUrl the Confluence Cloud base URL including {@code /wiki}
+     * @param email the Atlassian account email for basic auth
+     * @param apiToken the Atlassian API token for basic auth
+     */
     public ConfluenceClient(String baseUrl, String email, String apiToken) {
         this(baseUrl, email, apiToken, DEFAULT_MIN_REQUEST_INTERVAL);
     }
 
-    /** {@code minRequestInterval} is overridable for tests (zero disables politeness). */
+    /**
+     * Creates a client. {@code minRequestInterval} is overridable for tests
+     * (zero disables politeness).
+     *
+     * @param baseUrl the Confluence Cloud base URL including {@code /wiki}
+     * @param email the Atlassian account email for basic auth
+     * @param apiToken the Atlassian API token for basic auth
+     * @param minRequestInterval minimum gap between requests; {@link Duration#ZERO} disables
+     */
     public ConfluenceClient(String baseUrl, String email, String apiToken,
             Duration minRequestInterval) {
         String normalized = Objects.requireNonNull(baseUrl, "baseUrl").replaceAll("/+$", "");
@@ -100,13 +131,24 @@ public final class ConfluenceClient {
         this.minRequestInterval = Objects.requireNonNull(minRequestInterval);
     }
 
-    /** One page of a list response: the body plus the resolved next-page URL, if any. */
+    /**
+     * One page of a list response: the body plus the resolved next-page URL, if any.
+     *
+     * @param body the JSON list body
+     * @param nextUrl the absolute next-page URL, or {@code null} when this page is last
+     */
     public record ResultPage(JsonNode body, String nextUrl) {
     }
 
     /**
      * GET a v2 route (e.g. {@code /api/v2/pages}) or an absolute URL taken
      * from a {@code _links.next} cursor, with query parameters.
+     *
+     * @param pathOrUrl a v2 path or an absolute URL
+     * @param query query parameters; empty when the URL already carries them
+     * @return the parsed JSON body
+     * @throws IOException if the request fails or the service returns an error status
+     * @throws InterruptedException if the calling thread is interrupted while waiting
      */
     public JsonNode get(String pathOrUrl, Map<String, String> query)
             throws IOException, InterruptedException {
@@ -114,7 +156,14 @@ public final class ConfluenceClient {
                 HttpResponse.BodyHandlers.ofString()));
     }
 
-    /** GET with no query parameters. */
+    /**
+     * GET with no query parameters.
+     *
+     * @param pathOrUrl a v2 path or an absolute URL
+     * @return the parsed JSON body
+     * @throws IOException if the request fails or the service returns an error status
+     * @throws InterruptedException if the calling thread is interrupted while waiting
+     */
     public JsonNode get(String pathOrUrl) throws IOException, InterruptedException {
         return get(pathOrUrl, Map.of());
     }
@@ -123,6 +172,12 @@ public final class ConfluenceClient {
      * GET one page of a cursor-paginated list endpoint. The next-page URL
      * comes from the body's {@code _links.next} (relative against the tenant
      * origin) or, failing that, a {@code Link: <...>; rel="next"} header.
+     *
+     * @param pathOrUrl a v2 path or an absolute URL
+     * @param query query parameters; empty when the URL already carries them
+     * @return the page body and resolved next-page URL
+     * @throws IOException if the request fails or the service returns an error status
+     * @throws InterruptedException if the calling thread is interrupted while waiting
      */
     public ResultPage getPage(String pathOrUrl, Map<String, String> query)
             throws IOException, InterruptedException {
@@ -139,6 +194,11 @@ public final class ConfluenceClient {
      * Download an attachment binary. {@code downloadUrl} may be the relative
      * {@code downloadLink} of an attachment; it is resolved against the
      * tenant origin.
+     *
+     * @param downloadUrl a relative or absolute attachment download URL
+     * @return the response body bytes
+     * @throws IOException if the request fails or the service returns an error status
+     * @throws InterruptedException if the calling thread is interrupted while waiting
      */
     public byte[] downloadAttachmentBytes(String downloadUrl)
             throws IOException, InterruptedException {
@@ -156,6 +216,7 @@ public final class ConfluenceClient {
      * The absolute URL of the next result page, from the body's
      * {@code _links.next} (relative against the tenant origin).
      *
+     * @param body a list-endpoint JSON body
      * @return the absolute next-page URL, or empty when the page is the last
      */
     public Optional<String> nextPageUrl(JsonNode body) {

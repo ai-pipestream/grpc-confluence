@@ -13,15 +13,25 @@ import ai.pipestream.confluence.v1.ConfluenceSnapshot;
  */
 public interface ChangeSink {
 
-    /** One upsert or delete against the Confluence mirror. */
+    /**
+     * One upsert or delete against the Confluence mirror.
+     *
+     * @param change the change to emit
+     */
     void emit(ConfluenceChange change);
 
-    /** The full-sync marker for one completed space crawl. */
+    /**
+     * The full-sync marker for one completed space crawl.
+     *
+     * @param snapshot the snapshot to emit
+     */
     void snapshot(ConfluenceSnapshot snapshot);
 
     /**
      * A full crawl run finished. Sync-table sinks reconcile rows not seen
      * in {@code runId}; others ignore.
+     *
+     * @param runId the crawl run identifier
      */
     default void completeRun(String runId) {
     }

@@ -55,6 +55,13 @@ public final class ConfluenceCrawler {
     private final ConfluenceMapper mapper;
     private final ChangeSink sink;
 
+    /**
+     * Creates a crawler that maps REST entities and emits them to {@code sink}.
+     *
+     * @param config crawl scope and credentials
+     * @param client the authorized REST client
+     * @param sink where changes and snapshots go
+     */
     public ConfluenceCrawler(ConfluenceConnectorConfig config, ConfluenceClient client,
             ChangeSink sink) {
         this.config = Objects.requireNonNull(config, "config");
@@ -66,6 +73,9 @@ public final class ConfluenceCrawler {
     /**
      * A full crawl of every space the credentials can see, or of the
      * configured space-key allowlist.
+     *
+     * @throws IOException if a REST call fails
+     * @throws InterruptedException if the calling thread is interrupted while waiting
      */
     public void crawl() throws IOException, InterruptedException {
         String runId = UUID.randomUUID().toString();
@@ -89,6 +99,8 @@ public final class ConfluenceCrawler {
      *        (an RFC3339 timestamp)
      * @return the new cursor: the newest modification timestamp observed, or
      *         {@code sinceRfc3339} unchanged when nothing moved
+     * @throws IOException if a REST call fails
+     * @throws InterruptedException if the calling thread is interrupted while waiting
      */
     public String crawlIncremental(String sinceRfc3339) throws IOException, InterruptedException {
         Objects.requireNonNull(sinceRfc3339, "sinceRfc3339");

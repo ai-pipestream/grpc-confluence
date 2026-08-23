@@ -12,6 +12,9 @@ public final class LoggingChangeSink implements ChangeSink {
 
     private static final System.Logger LOG = System.getLogger(LoggingChangeSink.class.getName());
 
+    /** Creates a sink that logs each emission. */
+    public LoggingChangeSink() {}
+
     @Override
     public void emit(ConfluenceChange change) {
         LOG.log(System.Logger.Level.INFO, "confluence change id={0} op={1} source={2} entity={3}",

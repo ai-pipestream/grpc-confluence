@@ -15,6 +15,11 @@ public final class CompositeChangeSink implements ChangeSink {
 
     private final List<ChangeSink> sinks;
 
+    /**
+     * Creates a fan-out sink that forwards to {@code sinks} in list order.
+     *
+     * @param sinks the sinks to compose; copied
+     */
     public CompositeChangeSink(List<ChangeSink> sinks) {
         this.sinks = List.copyOf(sinks);
     }

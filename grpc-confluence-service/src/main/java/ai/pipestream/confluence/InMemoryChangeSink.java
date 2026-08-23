@@ -16,6 +16,9 @@ public final class InMemoryChangeSink implements ChangeSink {
     private final List<ConfluenceSnapshot> snapshots = new CopyOnWriteArrayList<>();
     private final List<String> completedRuns = new CopyOnWriteArrayList<>();
 
+    /** Creates an empty collector. */
+    public InMemoryChangeSink() {}
+
     @Override
     public void emit(ConfluenceChange change) {
         changes.add(change);
@@ -31,20 +34,34 @@ public final class InMemoryChangeSink implements ChangeSink {
         completedRuns.add(runId);
     }
 
-    /** The changes collected so far, in emission order. */
+    /**
+     * The changes collected so far, in emission order.
+     *
+     * @return a snapshot copy of the collected changes
+     */
     public List<ConfluenceChange> changes() {
         return List.copyOf(changes);
     }
 
-    /** The snapshots collected so far, in emission order. */
+    /**
+     * The snapshots collected so far, in emission order.
+     *
+     * @return a snapshot copy of the collected snapshots
+     */
     public List<ConfluenceSnapshot> snapshots() {
         return List.copyOf(snapshots);
     }
 
+    /**
+     * The run ids passed to {@link #completeRun(String)}, in call order.
+     *
+     * @return a snapshot copy of the completed run ids
+     */
     public List<String> completedRuns() {
         return List.copyOf(completedRuns);
     }
 
+    /** Drops every collected change, snapshot, and completed run id. */
     public void clear() {
         changes.clear();
         snapshots.clear();

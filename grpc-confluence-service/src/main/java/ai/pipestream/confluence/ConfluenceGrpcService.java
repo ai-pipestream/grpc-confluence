@@ -61,11 +61,27 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     private final long attachmentMaxBytes;
     private final ChangeSink downstream;
 
+    /**
+     * Creates a service with no downstream {@link ChangeSink}.
+     *
+     * @param config connector config
+     * @param client the authorized REST client
+     * @param attachmentMaxBytes inline attachment byte cap; must be positive
+     */
     public ConfluenceGrpcService(ConfluenceConnectorConfig config, ConfluenceClient client,
             long attachmentMaxBytes) {
         this(config, client, attachmentMaxBytes, null);
     }
 
+    /**
+     * Creates a service. When {@code downstream} is non-null, {@code Sync} also
+     * fans out to that sink.
+     *
+     * @param config connector config
+     * @param client the authorized REST client
+     * @param attachmentMaxBytes inline attachment byte cap; must be positive
+     * @param downstream optional extra sink for {@code Sync} emissions; {@code null} for none
+     */
     public ConfluenceGrpcService(ConfluenceConnectorConfig config, ConfluenceClient client,
             long attachmentMaxBytes, ChangeSink downstream) {
         this.config = Objects.requireNonNull(config, "config");
