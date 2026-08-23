@@ -1,0 +1,122 @@
+package ai.pipestream.confluence;
+
+import io.grpc.BindableService;
+import io.grpc.Server;
+import io.grpc.health.v1.HealthCheckResponse;
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
+import io.grpc.protobuf.services.ProtoReflectionService;
+import io.grpc.protobuf.services.ProtoReflectionServiceV1;
+import io.grpc.services.HealthStatusManager;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * Standalone Confluence gRPC proxy. Config comes from the environment; the
+ * facade sits on Netty with reflection and health on, handlers on virtual
+ * threads.
+ *
+ * <p>Environment:</p>
+ * <ul>
+ *   <li>{@code CONFLUENCE_BASE_URL}, {@code CONFLUENCE_EMAIL} (or
+ *   {@code CONFLUENCE_USER}), {@code CONFLUENCE_API_TOKEN} (or
+ *   {@code CONFLUENCE_TOKEN}) and the rest of the crawler config, per
+ *   {@link ConfluenceConnectorConfig#fromEnvironment()}</li>
+ *   <li>{@code CONFLUENCE_GRPC_PORT}: listen port, default 9095</li>
+ *   <li>{@code CONFLUENCE_ATTACHMENT_MAX_BYTES}: inline attachment cap,
+ *   default 25 MiB</li>
+ *   <li>{@code CONFLUENCE_KAFKA_BOOTSTRAP_SERVERS} (plus optional
+ *   {@code CONFLUENCE_KAFKA_TOPIC} / {@code CONFLUENCE_KAFKA_SNAPSHOTS_TOPIC}):
+ *   every change a sync emits also publishes through {@link KafkaChangeSink}</li>
+ * </ul>
+ */
+public final class ConfluenceServer {
+
+    public static final String ENV_GRPC_PORT = "CONFLUENCE_GRPC_PORT";
+    public static final String ENV_ATTACHMENT_MAX_BYTES = "CONFLUENCE_ATTACHMENT_MAX_BYTES";
+    public static final int DEFAULT_GRPC_PORT = 9095;
+
+    private static final System.Logger LOG = System.getLogger(ConfluenceServer.class.getName());
+
+    private ConfluenceServer() {
+    }
+
+    public static void main(String[] args) throws Exception {
+        ConfluenceConnectorConfig config = ConfluenceConnectorConfig.fromEnvironment();
+        List<AutoCloseable> closables = new ArrayList<>();
+        ChangeSink downstream = null;
+        if (KafkaChangeSink.enabled()) {
+            KafkaChangeSink kafka = KafkaChangeSink.fromEnvironment();
+            downstream = kafka;
+            closables.add(kafka);
+            LOG.log(System.Logger.Level.INFO, "confluence-proxy kafka sink active on {0}",
+                    System.getenv(KafkaChangeSink.ENV_BOOTSTRAP_SERVERS));
+        }
+        ConfluenceGrpcService service = new ConfluenceGrpcService(config,
+                new ConfluenceClient(config),
+                parseLong(System.getenv(ENV_ATTACHMENT_MAX_BYTES),
+                        ConfluenceGrpcService.DEFAULT_ATTACHMENT_MAX_BYTES),
+                downstream);
+        Server server = startNetty(service, parseInt(System.getenv(ENV_GRPC_PORT),
+                DEFAULT_GRPC_PORT));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            server.shutdown();
+            try {
+                if (!server.awaitTermination(10, TimeUnit.SECONDS)) {
+                    server.shutdownNow();
+                }
+                for (AutoCloseable closable : closables) {
+                    closable.close();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                server.shutdownNow();
+            } catch (Exception e) {
+                LOG.log(System.Logger.Level.WARNING, "sink close failed: {0}", e.toString());
+            }
+        }, "confluence-proxy-shutdown"));
+        LOG.log(System.Logger.Level.INFO,
+                "confluence-proxy listening on port {0} (base url {1}, spaces {2})",
+                server.getPort(), config.baseUrl(),
+                config.hasSpaceAllowlist() ? config.spaces() : "all");
+        server.awaitTermination();
+    }
+
+    public static Server startNetty(BindableService service, int port) throws IOException {
+        HealthStatusManager health = new HealthStatusManager();
+        Server server = NettyServerBuilder.forPort(port)
+                .executor(Executors.newVirtualThreadPerTaskExecutor())
+                .addService(service)
+                .addService(health.getHealthService())
+                .addService(ProtoReflectionService.newInstance())
+                .addService(ProtoReflectionServiceV1.newInstance())
+                .build().start();
+        health.setStatus("", HealthCheckResponse.ServingStatus.SERVING);
+        return server;
+    }
+
+    private static int parseInt(String value, int fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
+    private static long parseLong(String value, long fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+}

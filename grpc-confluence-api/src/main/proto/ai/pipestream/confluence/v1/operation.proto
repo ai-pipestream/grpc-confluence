@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package ai.pipestream.confluence.v1;
+
+option java_multiple_files = true;
+option java_package = "ai.pipestream.confluence.v1";
+
+// ============================================================================
+// OPERATION - permitted-operations checks on entities.
+// ============================================================================
+
+// One operation permitted on an entity.
+message Operation {
+  // The type of operation (e.g. "read", "update", "delete").
+  string operation = 1;
+  // The type of entity the operation type targets.
+  string target_type = 2;
+}
+
+// The list of operations permitted on an entity.
+message PermittedOperationsResponse {
+  // The operations permitted on the entity.
+  repeated Operation operations = 1;
+}
