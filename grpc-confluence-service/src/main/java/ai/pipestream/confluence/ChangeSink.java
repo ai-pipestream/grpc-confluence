@@ -8,6 +8,7 @@ import ai.pipestream.confluence.v1.ConfluenceSnapshot;
  * crawler emits from virtual threads concurrently. The shipped
  * implementations: {@link KafkaChangeSink} (raw protobuf bytes on Kafka,
  * activated by {@code CONFLUENCE_KAFKA_BOOTSTRAP_SERVERS}),
+ * {@link OkfChangeSink} (OKF v0.2 directory + zip + sibling WARC),
  * {@link CompositeChangeSink} (fan-out when several are active), plus
  * {@link LoggingChangeSink} and {@link InMemoryChangeSink} for tests.
  */

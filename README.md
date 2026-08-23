@@ -26,6 +26,7 @@ The Microsoft Copilot connector wire contracts are copied from
 | `grpc-connect` | — | Kafka Connect sources (protobuf bytes) |
 | `grpc-sync-api` | — | Generic `SyncTableService` protos |
 | `grpc-sync-service` | 9097 | In-memory asset ledger (Watch stream) |
+| `grpc-okf` | — | OKF v0.2 + WARC 1.1 producer (both crawlers) |
 | `grpc-mcp` | 8090 | MCP 2.0 Streamable HTTP tools over the gRPC jars |
 
 ## Confluence proxy
@@ -57,6 +58,19 @@ SYNC_TABLE_TARGET=localhost:9097
 SYNC_TABLE_PLAINTEXT=true
 ```
 
+Completed `Sync` runs can also write an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+v0.2 bundle (directory + zip) and a **sibling** WARC 1.1 file. WARC is a
+per-URI archive (ISO 28500): one `resource` record per live `web_url`, a
+`conversion` record for the OKF markdown, and an HTML collection page whose
+links are those same URIs. The zip is **not** stored inside the WARC.
+
+```
+OKF_DIR=/data/okf/confluence-run
+# optional overrides; default beside the directory:
+# OKF_ZIP=/data/okf/confluence-run.zip
+# OKF_WARC=/data/okf/confluence-run.warc.gz
+```
+
 ## Microsoft Graph proxy
 
 ```
@@ -74,7 +88,23 @@ MICROSOFT_GRPC_PORT=9096
 
 RPCs: `GetMe`, `ListSites`, `ListDrives`, `ListChildren` (stream), `GetItem`,
 `DownloadItem`, `Sync` (stream). Same `SYNC_TABLE_TARGET` / `SYNC_TABLE_PLAINTEXT`
-env as Confluence. Handlers run on virtual threads.
+env as Confluence. Same `OKF_DIR` / `OKF_ZIP` / `OKF_WARC` as Confluence.
+Handlers run on virtual threads.
+
+`GetItem`, `DownloadItem`, and `Sync` flatten SharePoint list-item columns
+into typed `ListColumn`s (scalars and one-level nested objects; `@odata.*`
+skipped). `ListChildren` stays a listing RPC and does not fetch columns.
+
+To land the OKF payload **on** a SharePoint library (markdown tree + zip +
+`.warc.gz`), set a destination drive. Files larger than 4 MiB use a Graph
+upload session; the session URL is called **without** `Authorization`.
+Needs `Files.ReadWrite.All` (or equivalent) on the app. Live CI smokes stay
+read-only and do not set these.
+
+```
+OKF_SPO_DRIVE_ID=b!...
+OKF_SPO_FOLDER_PATH=/Knowledge/okf-run
+```
 
 ## Copilot connector (GCA)
 

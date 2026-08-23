@@ -38,6 +38,12 @@ When `SYNC_TABLE_TARGET` is set, each Confluence / Microsoft `Sync` also
 writes the ledger (attachments included) and calls `Reconcile` after a
 full crawl so rows not seen in that run become `DELETED`.
 
+When `OKF_DIR` is set, each completed `Sync` also writes an OKF v0.2
+directory tree, a zip, and a sibling WARC 1.1 (`.warc.gz`). WARC holds one
+`resource` per live URI plus `conversion` records for the markdown; the zip
+stays a sibling, never a WARC payload. Microsoft can additionally upload
+that payload to a SharePoint folder (`OKF_SPO_DRIVE_ID`).
+
 ## Processes
 
 | Process | Port | Threading | Streaming |
