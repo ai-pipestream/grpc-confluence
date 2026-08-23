@@ -54,4 +54,13 @@ class CompositeChangeSinkTest {
                 .isInstanceOf(IllegalStateException.class);
         assertThat(later.changes()).isEmpty();
     }
+
+    @Test
+    void completeRunFansOut() {
+        InMemoryChangeSink first = new InMemoryChangeSink();
+        InMemoryChangeSink second = new InMemoryChangeSink();
+        new CompositeChangeSink(List.of(first, second)).completeRun("run-9");
+        assertThat(first.completedRuns()).containsExactly("run-9");
+        assertThat(second.completedRuns()).containsExactly("run-9");
+    }
 }

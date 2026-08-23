@@ -126,4 +126,21 @@ class ConfluenceValidationTest {
                         .setIngestedAt(Timestamp.newBuilder().setSeconds(1_753_000_000)))
                 .build());
     }
+
+    @Test
+    void attachmentAndBlogIdentity() {
+        assertViolation(ai.pipestream.confluence.v1.Attachment.getDefaultInstance(), "id", "required");
+        assertViolation(ai.pipestream.confluence.v1.Attachment.newBuilder()
+                        .setId("a1")
+                        .setFileSize(-1)
+                        .build(),
+                "file_size", "int64.gte");
+        assertValid(ai.pipestream.confluence.v1.Attachment.newBuilder().setId("a1").build());
+        assertViolation(ai.pipestream.confluence.v1.BlogPost.getDefaultInstance(), "id", "required");
+        assertViolation(ai.pipestream.confluence.v1.BlogPost.getDefaultInstance(), "space_id", "required");
+        assertValid(ai.pipestream.confluence.v1.BlogPost.newBuilder()
+                .setId("300")
+                .setSpaceId("100")
+                .build());
+    }
 }

@@ -14,6 +14,7 @@ public final class InMemoryChangeSink implements ChangeSink {
 
     private final List<ConfluenceChange> changes = new CopyOnWriteArrayList<>();
     private final List<ConfluenceSnapshot> snapshots = new CopyOnWriteArrayList<>();
+    private final List<String> completedRuns = new CopyOnWriteArrayList<>();
 
     @Override
     public void emit(ConfluenceChange change) {
@@ -23,6 +24,11 @@ public final class InMemoryChangeSink implements ChangeSink {
     @Override
     public void snapshot(ConfluenceSnapshot snapshot) {
         snapshots.add(snapshot);
+    }
+
+    @Override
+    public void completeRun(String runId) {
+        completedRuns.add(runId);
     }
 
     /** The changes collected so far, in emission order. */
@@ -35,8 +41,13 @@ public final class InMemoryChangeSink implements ChangeSink {
         return List.copyOf(snapshots);
     }
 
+    public List<String> completedRuns() {
+        return List.copyOf(completedRuns);
+    }
+
     public void clear() {
         changes.clear();
         snapshots.clear();
+        completedRuns.clear();
     }
 }

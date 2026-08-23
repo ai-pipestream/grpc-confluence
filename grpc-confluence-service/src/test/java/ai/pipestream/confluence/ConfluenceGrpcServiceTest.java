@@ -276,6 +276,28 @@ class ConfluenceGrpcServiceTest {
         assertThat(VALIDATOR.validate(items.get(0).getAttachment()).violations()).isEmpty();
     }
 
+    @Test
+    void listAttachmentsStreamsBlogPostAttachments() {
+        fake.stub("/wiki/api/v2/blogposts/300/attachments",
+                ConfluenceFixtures.listJson(null, "",
+                        ConfluenceFixtures.attachmentJson("a2", "300")));
+
+        List<ListAttachmentsResponse> items = new ArrayList<>();
+        stub.listAttachments(ListAttachmentsRequest.newBuilder().setBlogPostId("300").build())
+                .forEachRemaining(items::add);
+
+        assertThat(items).extracting(r -> r.getAttachment().getId()).containsExactly("a2");
+    }
+
+    @Test
+    void listAttachmentsRequiresAContainer() {
+        assertThatThrownBy(() -> stub.listAttachments(ListAttachmentsRequest.getDefaultInstance())
+                .hasNext())
+                .isInstanceOfSatisfying(StatusRuntimeException.class,
+                        e -> assertThat(e.getStatus().getCode())
+                                .isEqualTo(Status.Code.INVALID_ARGUMENT));
+    }
+
     // ======================================================================
     // SYNC
     // ======================================================================

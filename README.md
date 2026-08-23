@@ -183,10 +183,58 @@ Tools: `confluence_list_spaces`, `confluence_get_page`,
 `microsoft_sync`, `sync_table_get_asset`, `sync_table_list_assets`.
 Do not call unbounded `Watch` from a tool; use `ListAssets`.
 
-## Build
+## Build and tests
 
-Java 25 toolchain (same as gRPOIc). Live smoke tests are excluded from
-`test` and run only as `liveSmokeTest` when credentials are present.
+Java 25 toolchain (same as gRPOIc). `./gradlew build` is the fake/unit
+suite and never talks to Atlassian or Graph.
+
+Live smokes are **read-only**, excluded from `test`, and skip unless
+credentials are in the environment:
+
+```
+./gradlew :grpc-confluence-service:liveSmokeTest
+./gradlew :grpc-microsoft-service:liveSmokeTest
+```
+
+Confluence live smoke: `ListSpaces` (limit 1), then the space homepage
+`GetPage` and `ListAttachments`. It never runs a full `Sync` and never
+downloads attachment bytes.
+
+Microsoft live smoke uses **Entra application** (client credentials),
+not a user mailbox login. `/me` does not exist on an app-only token, so
+the probe is `ListSites` and, when a site id is known, `ListDrives`.
+Create an app registration in the M365 tenant with application
+permissions `Sites.Read.All` and `Files.Read.All` (admin consent), then
+a client secret.
+
+### GitHub Actions secrets
+
+Repo secrets help **CI**, not a local agent checkout. After they are
+set, `live-confluence` and `live-microsoft` run on same-repo PRs and
+pushes (fork PRs never receive secrets). Missing secrets skip the job
+step so the repo stays green until you add them.
+
+Confluence (Settings → Secrets and variables → Actions):
+
+| Secret | Required |
+|---|---|
+| `CONFLUENCE_EMAIL` | yes |
+| `CONFLUENCE_API_TOKEN` | yes |
+| `CONFLUENCE_BASE_URL` | no (defaults in the smoke test) |
+| `CONFLUENCE_SPACES` | no |
+
+Microsoft:
+
+| Secret | Required |
+|---|---|
+| `MICROSOFT_TENANT_ID` | yes |
+| `MICROSOFT_CLIENT_ID` | yes |
+| `MICROSOFT_CLIENT_SECRET` | yes |
+| `MICROSOFT_SITE_ID` | no (first `ListSites` hit is used for drives) |
+| `MICROSOFT_DRIVE_IDS` | no |
+
+Do not paste tokens into issues, PR text, or agent chat. GitHub redacts
+exact secret values in logs; the tests never print them.
 
 ```
 ./gradlew build

@@ -26,6 +26,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SyncTableGrpcServiceTest {
 
@@ -152,5 +153,29 @@ class SyncTableGrpcServiceTest {
                 .build());
         assertThat(first.await(2, TimeUnit.SECONDS)).isTrue();
         assertThat(seen).extracting(Asset::getAssetId).contains("microsoft:drive_item:f1");
+    }
+
+    @Test
+    void checkpointsAndMissingAsset() {
+        stub.putCheckpoint(ai.pipestream.sync.v1.PutCheckpointRequest.newBuilder()
+                .setCheckpoint(ai.pipestream.sync.v1.Checkpoint.newBuilder()
+                        .setSource("microsoft")
+                        .setScope("drive-1")
+                        .setCursor("cursor-9"))
+                .build());
+        assertThat(stub.getCheckpoint(ai.pipestream.sync.v1.GetCheckpointRequest.newBuilder()
+                .setSource("microsoft")
+                .setScope("drive-1")
+                .build()).getCheckpoint().getCursor()).isEqualTo("cursor-9");
+        assertThatThrownBy(() -> stub.getAsset(GetAssetRequest.newBuilder()
+                .setAssetId("missing").build()))
+                .isInstanceOf(io.grpc.StatusRuntimeException.class)
+                .hasMessageContaining("NOT_FOUND");
+        Asset deleted = stub.deleteAsset(ai.pipestream.sync.v1.DeleteAssetRequest.newBuilder()
+                .setAssetId("microsoft:drive_item:gone")
+                .setRunId("run-x")
+                .build()).getAsset();
+        assertThat(deleted.getStatus()).isEqualTo(AssetSyncStatus.ASSET_SYNC_STATUS_DELETED);
+        assertThat(deleted.getPhase()).isEqualTo(AssetPhase.ASSET_PHASE_DELETE);
     }
 }
