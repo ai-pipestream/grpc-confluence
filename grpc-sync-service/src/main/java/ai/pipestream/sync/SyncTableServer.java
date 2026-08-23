@@ -19,7 +19,9 @@ import java.util.concurrent.TimeUnit;
  */
 public final class SyncTableServer {
 
+    /** Environment variable for the gRPC listen port. */
     public static final String ENV_GRPC_PORT = "SYNC_TABLE_GRPC_PORT";
+    /** Fallback listen port when {@link #ENV_GRPC_PORT} is unset or not a number. */
     public static final int DEFAULT_GRPC_PORT = 9097;
 
     private static final System.Logger LOG = System.getLogger(SyncTableServer.class.getName());
@@ -27,6 +29,13 @@ public final class SyncTableServer {
     private SyncTableServer() {
     }
 
+    /**
+     * Starts {@link SyncTableGrpcService} on {@link #ENV_GRPC_PORT} (default
+     * {@link #DEFAULT_GRPC_PORT}) and blocks until shutdown.
+     *
+     * @param args unused
+     * @throws Exception if the Netty server fails to start or wait is interrupted
+     */
     public static void main(String[] args) throws Exception {
         Server server = startNetty(new SyncTableGrpcService(new AssetStore()),
                 parseInt(System.getenv(ENV_GRPC_PORT), DEFAULT_GRPC_PORT));
@@ -45,6 +54,15 @@ public final class SyncTableServer {
         server.awaitTermination();
     }
 
+    /**
+     * Binds {@code service} on {@code port} with health, reflection, and a
+     * virtual-thread executor.
+     *
+     * @param service gRPC bindable service, typically {@link SyncTableGrpcService}
+     * @param port listen port; {@code 0} selects an ephemeral port
+     * @return the started server
+     * @throws IOException if the port cannot be bound
+     */
     public static Server startNetty(BindableService service, int port) throws IOException {
         HealthStatusManager health = new HealthStatusManager();
         Server server = NettyServerBuilder.forPort(port)

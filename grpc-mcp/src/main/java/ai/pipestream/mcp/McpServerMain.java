@@ -20,7 +20,9 @@ import java.util.concurrent.CountDownLatch;
  */
 public final class McpServerMain {
 
+    /** Environment variable for the HTTP listen port. */
     public static final String ENV_PORT = "MCP_PORT";
+    /** Fallback listen port when {@link #ENV_PORT} is unset or not a number. */
     public static final int DEFAULT_PORT = 8090;
 
     private static final System.Logger LOG = System.getLogger(McpServerMain.class.getName());
@@ -28,6 +30,14 @@ public final class McpServerMain {
     private McpServerMain() {
     }
 
+    /**
+     * Dials the Confluence, Microsoft, and SyncTable gRPC targets, starts
+     * streamable HTTP MCP on {@link #ENV_PORT} (default {@link #DEFAULT_PORT}),
+     * and blocks until the process is killed.
+     *
+     * @param args unused
+     * @throws Exception if the HTTP server fails to start
+     */
     public static void main(String[] args) throws Exception {
         ManagedChannel confluence = GrpcTargets.channel(GrpcTargets.ENV_CONFLUENCE,
                 GrpcTargets.DEFAULT_CONFLUENCE);

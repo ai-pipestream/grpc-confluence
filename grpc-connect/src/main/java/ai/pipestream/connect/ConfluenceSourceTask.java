@@ -29,6 +29,10 @@ public final class ConfluenceSourceTask extends SourceTask {
 
     static final Map<String, String> PARTITION = Map.of("source", "confluence");
 
+    /** Kafka Connect task that pulls ConfluenceChange protobuf bytes. */
+    public ConfluenceSourceTask() {
+    }
+
     private String topic;
     private String grpcTarget;
     private boolean plaintext;

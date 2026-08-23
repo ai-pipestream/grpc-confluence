@@ -19,6 +19,7 @@ import java.util.List;
  */
 public final class McpHttpServer implements AutoCloseable {
 
+    /** Streamable HTTP path served by Jetty. */
     public static final String ENDPOINT = "/mcp";
 
     private final Server jetty;
@@ -31,10 +32,25 @@ public final class McpHttpServer implements AutoCloseable {
         this.port = port;
     }
 
+    /**
+     * Returns the port Jetty actually bound.
+     *
+     * @return the local listen port, which may differ from the requested port when that was {@code 0}
+     */
     public int port() {
         return port;
     }
 
+    /**
+     * Starts Jetty on {@code 0.0.0.0:port} and registers {@code tools} under
+     * {@link #ENDPOINT} using the MCP Java SDK {@code sync} API.
+     *
+     * @param port listen port; {@code 0} selects an ephemeral port
+     * @param name MCP {@code serverInfo} name
+     * @param tools MCP tool specifications to expose
+     * @return a running server whose {@link #port()} is the bound port
+     * @throws Exception if Jetty fails to start
+     */
     public static McpHttpServer start(int port, String name,
             List<McpServerFeatures.SyncToolSpecification> tools) throws Exception {
         HttpServletStreamableServerTransportProvider transport =

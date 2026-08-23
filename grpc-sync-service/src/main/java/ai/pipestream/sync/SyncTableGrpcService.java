@@ -32,10 +32,20 @@ public final class SyncTableGrpcService extends SyncTableServiceGrpc.SyncTableSe
 
     private final AssetStore store;
 
+    /**
+     * Serves {@code SyncTableService} from {@code store}.
+     *
+     * @param store in-memory ledger; must not be {@code null}
+     */
     public SyncTableGrpcService(AssetStore store) {
         this.store = Objects.requireNonNull(store, "store");
     }
 
+    /**
+     * Returns the ledger this service reads and writes.
+     *
+     * @return the {@link AssetStore} passed to the constructor
+     */
     public AssetStore store() {
         return store;
     }

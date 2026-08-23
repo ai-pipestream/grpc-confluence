@@ -13,16 +13,28 @@ import java.util.Map;
  */
 public final class ConfluenceSourceConnector extends SourceConnector {
 
+    /** Config key for the Kafka topic that receives {@code ConfluenceChange} bytes. */
     public static final String TOPIC = "topic";
+    /** Config key for the Confluence gRPC {@code host:port}; empty means in-process crawler. */
     public static final String GRPC_TARGET = "grpc.target";
+    /** Config key: use plaintext when {@link #GRPC_TARGET} is set. */
     public static final String GRPC_PLAINTEXT = "grpc.plaintext";
+    /** Config key: include page, blog, and comment bodies in the crawl. */
     public static final String INCLUDE_BODIES = "include.bodies";
+    /** Config key for the Confluence Cloud base URL with {@code /wiki} (direct mode). */
     public static final String BASE_URL = "confluence.base.url";
+    /** Config key for the Atlassian account email (direct mode). */
     public static final String EMAIL = "confluence.email";
+    /** Config key for the Atlassian API token (direct mode). */
     public static final String API_TOKEN = "confluence.api.token";
+    /** Config key for comma-separated space keys; empty means all spaces. */
     public static final String SPACES = "confluence.spaces";
 
     private Map<String, String> props;
+
+    /** Creates a Confluence Cloud Kafka Connect source connector. */
+    public ConfluenceSourceConnector() {
+    }
 
     static ConfigDef definition() {
         return new ConfigDef()
