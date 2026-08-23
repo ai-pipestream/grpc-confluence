@@ -1,6 +1,12 @@
 package ai.pipestream.confluence;
 
+import ai.pipestream.sync.v1.Connection;
+import ai.pipestream.sync.v1.ConnectionKind;
+import ai.pipestream.sync.v1.ConnectionServiceGrpc;
+import ai.pipestream.sync.v1.CreateConnectionRequest;
 import io.grpc.BindableService;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
 import io.grpc.Server;
 import io.grpc.health.v1.HealthCheckResponse;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
@@ -60,10 +66,13 @@ public final class ConfluenceServer {
      * @throws Exception if the server cannot start or is interrupted
      */
     public static void main(String[] args) throws Exception {
-        ConfluenceConnectorConfig config = ConfluenceConnectorConfig.fromEnvironment();
+        ConfluenceConnectorConfig config = ConfluenceConnectorConfig
+                .tryFromEnvironment(System.getenv()).orElse(null);
         List<AutoCloseable> closables = new ArrayList<>();
         ChangeSink downstream = null;
         List<ChangeSink> sinks = new ArrayList<>();
+        SyncTableChangeSink ledgerSink = null;
+        ConnectionServiceGrpc.ConnectionServiceBlockingStub connections = null;
         if (KafkaChangeSink.enabled()) {
             KafkaChangeSink kafka = KafkaChangeSink.fromEnvironment();
             sinks.add(kafka);
@@ -72,11 +81,22 @@ public final class ConfluenceServer {
                     System.getenv(KafkaChangeSink.ENV_BOOTSTRAP_SERVERS));
         }
         if (SyncTableChangeSink.enabled()) {
-            SyncTableChangeSink syncTable = SyncTableChangeSink.fromEnvironment();
-            sinks.add(syncTable);
-            closables.add(syncTable);
-            LOG.log(System.Logger.Level.INFO, "confluence-proxy sync-table sink active on {0}",
-                    System.getenv(SyncTableChangeSink.ENV_TARGET));
+            String target = System.getenv(SyncTableChangeSink.ENV_TARGET);
+            boolean plaintext = !"false".equalsIgnoreCase(
+                    java.util.Objects.toString(System.getenv(SyncTableChangeSink.ENV_PLAINTEXT),
+                            "true"));
+            ManagedChannelBuilder<?> builder = ManagedChannelBuilder.forTarget(target.trim());
+            if (plaintext) {
+                builder.usePlaintext();
+            }
+            ManagedChannel catalog = builder.build();
+            closables.add(catalog::shutdownNow);
+            connections = ConnectionServiceGrpc.newBlockingStub(catalog);
+            ledgerSink = new SyncTableChangeSink(catalog);
+            closables.add(ledgerSink);
+            seedDefaultConnection(connections, config);
+            LOG.log(System.Logger.Level.INFO, "confluence-proxy ConnectionService + ledger on {0}",
+                    target);
         }
         if (OutputChangeSink.enabled()) {
             OutputChangeSink output = OutputChangeSink.fromEnvironment();
@@ -92,11 +112,14 @@ public final class ConfluenceServer {
         if (!sinks.isEmpty()) {
             downstream = sinks.size() == 1 ? sinks.get(0) : new CompositeChangeSink(sinks);
         }
-        ConfluenceGrpcService service = new ConfluenceGrpcService(config,
-                new ConfluenceClient(config),
+        if (config == null && connections == null) {
+            throw new IllegalStateException("CONFLUENCE_BASE_URL or SYNC_TABLE_TARGET is required");
+        }
+        ConfluenceClient client = config == null ? null : new ConfluenceClient(config);
+        ConfluenceGrpcService service = new ConfluenceGrpcService(config, client,
                 parseLong(System.getenv(ENV_ATTACHMENT_MAX_BYTES),
                         ConfluenceGrpcService.DEFAULT_ATTACHMENT_MAX_BYTES),
-                downstream);
+                downstream, connections, ledgerSink);
         Server server = startNetty(service, parseInt(System.getenv(ENV_GRPC_PORT),
                 DEFAULT_GRPC_PORT));
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -117,9 +140,32 @@ public final class ConfluenceServer {
         }, "confluence-proxy-shutdown"));
         LOG.log(System.Logger.Level.INFO,
                 "confluence-proxy listening on port {0} (base url {1}, spaces {2})",
-                server.getPort(), config.baseUrl(),
-                config.hasSpaceAllowlist() ? config.spaces() : "all");
+                server.getPort(),
+                config == null ? "catalog-only" : config.baseUrl(),
+                config == null ? "catalog" : (config.hasSpaceAllowlist() ? config.spaces() : "all"));
         server.awaitTermination();
+    }
+
+    private static void seedDefaultConnection(
+            ConnectionServiceGrpc.ConnectionServiceBlockingStub connections,
+            ConfluenceConnectorConfig config) {
+        if (config == null) {
+            return;
+        }
+        try {
+            connections.createConnection(CreateConnectionRequest.newBuilder()
+                    .setConnection(Connection.newBuilder()
+                            .setConnectionId(SyncTableChangeSink.DEFAULT_CONNECTION_ID)
+                            .setKind(ConnectionKind.CONNECTION_KIND_CONFLUENCE)
+                            .setDisplayName("default")
+                            .setBaseUrl(config.baseUrl())
+                            .setEmail(config.email())
+                            .setToken(config.apiToken())
+                            .addAllSpaceKeys(config.spaces()))
+                    .build());
+        } catch (RuntimeException e) {
+            LOG.log(System.Logger.Level.INFO, "default connection seed: {0}", e.getMessage());
+        }
     }
 
     /**

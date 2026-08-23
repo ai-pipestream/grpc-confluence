@@ -25,28 +25,28 @@ import io.grpc.stub.StreamObserver;
 import java.util.Objects;
 
 /**
- * {@code SyncTableService} over {@link AssetStore}. List and Watch are
+ * {@code SyncTableService} over a {@link Ledger}. List and Watch are
  * server-streaming; handlers run on the server's virtual-thread executor.
  */
 public final class SyncTableGrpcService extends SyncTableServiceGrpc.SyncTableServiceImplBase {
 
-    private final AssetStore store;
+    private final Ledger store;
 
     /**
      * Serves {@code SyncTableService} from {@code store}.
      *
-     * @param store in-memory ledger; must not be {@code null}
+     * @param store ledger (memory or JDBC); must not be {@code null}
      */
-    public SyncTableGrpcService(AssetStore store) {
+    public SyncTableGrpcService(Ledger store) {
         this.store = Objects.requireNonNull(store, "store");
     }
 
     /**
      * Returns the ledger this service reads and writes.
      *
-     * @return the {@link AssetStore} passed to the constructor
+     * @return the {@link Ledger} passed to the constructor
      */
-    public AssetStore store() {
+    public Ledger store() {
         return store;
     }
 
@@ -80,7 +80,7 @@ public final class SyncTableGrpcService extends SyncTableServiceGrpc.SyncTableSe
         try {
             for (Asset asset : store.list(request.getSource(), request.getKind(),
                     request.getParentAssetId(), request.getAttachmentsOnly(), request.getStatus(),
-                    request.getLimit())) {
+                    request.getLimit(), request.getConnectionId())) {
                 observer.onNext(ListAssetsResponse.newBuilder().setAsset(asset).build());
             }
             observer.onCompleted();
@@ -97,6 +97,10 @@ public final class SyncTableGrpcService extends SyncTableServiceGrpc.SyncTableSe
             if (!request.getSource().isEmpty() && !request.getSource().equals(asset.getSource())) {
                 return;
             }
+            if (!request.getConnectionId().isEmpty()
+                    && !request.getConnectionId().equals(asset.getConnectionId())) {
+                return;
+            }
             try {
                 observer.onNext(WatchResponse.newBuilder().setAsset(asset).build());
             } catch (Throwable ignored) {
@@ -107,7 +111,8 @@ public final class SyncTableGrpcService extends SyncTableServiceGrpc.SyncTableSe
         try {
             if (request.getIncludeSnapshot()) {
                 for (Asset asset : store.list(request.getSource(), "", "", false,
-                        ai.pipestream.sync.v1.AssetSyncStatus.ASSET_SYNC_STATUS_UNSPECIFIED, 0)) {
+                        ai.pipestream.sync.v1.AssetSyncStatus.ASSET_SYNC_STATUS_UNSPECIFIED, 0,
+                        request.getConnectionId())) {
                     observer.onNext(WatchResponse.newBuilder().setAsset(asset).build());
                 }
             }
@@ -134,7 +139,8 @@ public final class SyncTableGrpcService extends SyncTableServiceGrpc.SyncTableSe
     @Override
     public void reconcile(ReconcileRequest request, StreamObserver<ReconcileResponse> observer) {
         try {
-            int deleted = store.reconcile(request.getSource(), request.getRunId(), request.getKind());
+            int deleted = store.reconcile(request.getSource(), request.getRunId(), request.getKind(),
+                    request.getConnectionId());
             observer.onNext(ReconcileResponse.newBuilder().setDeleted(deleted).build());
             observer.onCompleted();
         } catch (Throwable t) {
@@ -146,7 +152,8 @@ public final class SyncTableGrpcService extends SyncTableServiceGrpc.SyncTableSe
     public void getCheckpoint(GetCheckpointRequest request,
             StreamObserver<GetCheckpointResponse> observer) {
         try {
-            store.getCheckpoint(request.getSource(), request.getScope()).ifPresentOrElse(cp -> {
+            store.getCheckpoint(request.getSource(), request.getScope(), request.getConnectionId())
+                    .ifPresentOrElse(cp -> {
                 observer.onNext(GetCheckpointResponse.newBuilder().setCheckpoint(cp).build());
                 observer.onCompleted();
             }, () -> observer.onError(Status.NOT_FOUND

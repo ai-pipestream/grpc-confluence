@@ -20,9 +20,16 @@ import ai.pipestream.confluence.v1.ListPagesRequest;
 import ai.pipestream.confluence.v1.ListPagesResponse;
 import ai.pipestream.confluence.v1.ListSpacesRequest;
 import ai.pipestream.confluence.v1.ListSpacesResponse;
+import ai.pipestream.confluence.v1.ProbeConnectionRequest;
+import ai.pipestream.confluence.v1.ProbeConnectionResponse;
 import ai.pipestream.confluence.v1.Space;
 import ai.pipestream.confluence.v1.SyncRequest;
 import ai.pipestream.confluence.v1.SyncResponse;
+import ai.pipestream.sync.v1.Connection;
+import ai.pipestream.sync.v1.ConnectionKind;
+import ai.pipestream.sync.v1.ConnectionServiceGrpc;
+import ai.pipestream.sync.v1.GetConnectionRequest;
+import ai.pipestream.sync.v1.RecordProbeRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
@@ -60,6 +67,8 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     private final ConfluenceMapper mapper;
     private final long attachmentMaxBytes;
     private final ChangeSink downstream;
+    private final ConnectionServiceGrpc.ConnectionServiceBlockingStub connections;
+    private final SyncTableChangeSink ledgerSink;
 
     /**
      * Creates a service with no downstream {@link ChangeSink}.
@@ -84,31 +93,59 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
      */
     public ConfluenceGrpcService(ConfluenceConnectorConfig config, ConfluenceClient client,
             long attachmentMaxBytes, ChangeSink downstream) {
-        this.config = Objects.requireNonNull(config, "config");
-        this.client = Objects.requireNonNull(client, "client");
-        this.mapper = new ConfluenceMapper(config.baseUrl());
+        this(config, client, attachmentMaxBytes, downstream, null, null);
+    }
+
+    /**
+     * Creates a service that can resolve catalog connections over
+     * {@code ConnectionService}. The default {@code config}/{@code client}
+     * are used when {@code connection_id} is empty.
+     *
+     * @param config process-default connector config; {@code null} when only
+     *        catalog connections are used
+     * @param client process-default REST client; {@code null} when {@code config} is
+     * @param attachmentMaxBytes inline attachment byte cap; must be positive
+     * @param downstream optional extra sink for {@code Sync}
+     * @param connections generated {@code ConnectionService} stub; {@code null}
+     *        when the catalog is not configured
+     * @param ledgerSink optional ledger sink so {@code Sync} can stamp
+     *        {@code connection_id}; {@code null} if the ledger is not wired
+     */
+    public ConfluenceGrpcService(ConfluenceConnectorConfig config, ConfluenceClient client,
+            long attachmentMaxBytes, ChangeSink downstream,
+            ConnectionServiceGrpc.ConnectionServiceBlockingStub connections,
+            SyncTableChangeSink ledgerSink) {
+        if (config == null && connections == null) {
+            throw new IllegalArgumentException("config or ConnectionService stub is required");
+        }
+        this.config = config;
+        this.client = client;
+        this.mapper = config == null ? null : new ConfluenceMapper(config.baseUrl());
         if (attachmentMaxBytes <= 0) {
             throw new IllegalArgumentException("attachmentMaxBytes must be positive");
         }
         this.attachmentMaxBytes = attachmentMaxBytes;
         this.downstream = downstream;
+        this.connections = connections;
+        this.ledgerSink = ledgerSink;
     }
 
     @Override
     public void listSpaces(ListSpacesRequest request,
             StreamObserver<ListSpacesResponse> observer) {
         try {
+            Session session = session(request.getConnectionId());
             Map<String, String> query = new TreeMap<>();
-            query.put("limit", String.valueOf(config.pageSize()));
+            query.put("limit", String.valueOf(session.config.pageSize()));
             query.put("description-format", "view");
             if (!request.getKeysList().isEmpty()) {
                 query.put("keys", String.join(",", request.getKeysList()));
             }
             int cap = request.getLimit();
             List<Space> spaces = new ArrayList<>();
-            walk("/api/v2/spaces", query, node -> {
+            walk(session, "/api/v2/spaces", query, node -> {
                 if (cap <= 0 || spaces.size() < cap) {
-                    spaces.add(requireValid(mapper.toSpace(node)));
+                    spaces.add(requireValid(session.mapper.toSpace(node)));
                 }
             }, cap > 0 ? () -> spaces.size() >= cap : () -> false);
             observer.onNext(ListSpacesResponse.newBuilder().addAllSpaces(spaces).build());
@@ -121,10 +158,11 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     @Override
     public void getPage(GetPageRequest request, StreamObserver<GetPageResponse> observer) {
         try {
-            JsonNode node = client.get("/api/v2/pages/" + request.getId(),
+            Session session = session(request.getConnectionId());
+            JsonNode node = session.client.get("/api/v2/pages/" + request.getId(),
                     Map.of("body-format", bodyFormatOrStorage(request.getBodyFormat())));
             observer.onNext(GetPageResponse.newBuilder()
-                    .setPage(requireValid(mapper.toPage(node))).build());
+                    .setPage(requireValid(session.mapper.toPage(node))).build());
             observer.onCompleted();
         } catch (Throwable t) {
             fail(observer, t);
@@ -135,10 +173,11 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     public void getBlogPost(GetBlogPostRequest request,
             StreamObserver<GetBlogPostResponse> observer) {
         try {
-            JsonNode node = client.get("/api/v2/blogposts/" + request.getId(),
+            Session session = session(request.getConnectionId());
+            JsonNode node = session.client.get("/api/v2/blogposts/" + request.getId(),
                     Map.of("body-format", bodyFormatOrStorage(request.getBodyFormat())));
             observer.onNext(GetBlogPostResponse.newBuilder()
-                    .setBlogPost(requireValid(mapper.toBlogPost(node))).build());
+                    .setBlogPost(requireValid(session.mapper.toBlogPost(node))).build());
             observer.onCompleted();
         } catch (Throwable t) {
             fail(observer, t);
@@ -148,9 +187,11 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     @Override
     public void listPages(ListPagesRequest request, StreamObserver<ListPagesResponse> observer) {
         try {
-            walk("/api/v2/pages", contentQuery(request.getSpaceId(), request.getBodyFormat()),
+            Session session = session(request.getConnectionId());
+            walk(session, "/api/v2/pages",
+                    contentQuery(session, request.getSpaceId(), request.getBodyFormat()),
                     node -> observer.onNext(ListPagesResponse.newBuilder()
-                            .setPage(requireValid(mapper.toPage(node))).build()));
+                            .setPage(requireValid(session.mapper.toPage(node))).build()));
             observer.onCompleted();
         } catch (Throwable t) {
             fail(observer, t);
@@ -161,9 +202,11 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     public void listBlogPosts(ListBlogPostsRequest request,
             StreamObserver<ListBlogPostsResponse> observer) {
         try {
-            walk("/api/v2/blogposts", contentQuery(request.getSpaceId(), request.getBodyFormat()),
+            Session session = session(request.getConnectionId());
+            walk(session, "/api/v2/blogposts",
+                    contentQuery(session, request.getSpaceId(), request.getBodyFormat()),
                     node -> observer.onNext(ListBlogPostsResponse.newBuilder()
-                            .setBlogPost(requireValid(mapper.toBlogPost(node))).build()));
+                            .setBlogPost(requireValid(session.mapper.toBlogPost(node))).build()));
             observer.onCompleted();
         } catch (Throwable t) {
             fail(observer, t);
@@ -174,10 +217,11 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     public void getAttachment(GetAttachmentRequest request,
             StreamObserver<GetAttachmentResponse> observer) {
         try {
-            JsonNode node = client.get("/api/v2/attachments/" + request.getId());
-            Attachment attachment = requireValid(mapper.toAttachment(node));
+            Session session = session(request.getConnectionId());
+            JsonNode node = session.client.get("/api/v2/attachments/" + request.getId());
+            Attachment attachment = requireValid(session.mapper.toAttachment(node));
             if (request.getIncludeContent()) {
-                attachment = requireValid(withContent(attachment));
+                attachment = requireValid(withContent(session, attachment));
             }
             observer.onNext(GetAttachmentResponse.newBuilder().setAttachment(attachment).build());
             observer.onCompleted();
@@ -190,6 +234,7 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     public void listAttachments(ListAttachmentsRequest request,
             StreamObserver<ListAttachmentsResponse> observer) {
         try {
+            Session session = session(request.getConnectionId());
             String path;
             if (!request.getPageId().isBlank()) {
                 path = "/api/v2/pages/" + request.getPageId() + "/attachments";
@@ -200,9 +245,9 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
                         .withDescription("page_id or blog_post_id is required")
                         .asRuntimeException();
             }
-            walk(path, Map.of("limit", String.valueOf(config.pageSize())), node ->
+            walk(session, path, Map.of("limit", String.valueOf(session.config.pageSize())), node ->
                     observer.onNext(ListAttachmentsResponse.newBuilder()
-                            .setAttachment(requireValid(mapper.toAttachment(node))).build()));
+                            .setAttachment(requireValid(session.mapper.toAttachment(node))).build()));
             observer.onCompleted();
         } catch (Throwable t) {
             fail(observer, t);
@@ -212,11 +257,12 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     @Override
     public void sync(SyncRequest request, StreamObserver<SyncResponse> observer) {
         try {
+            Session session = session(request.getConnectionId());
             ConfluenceConnectorConfig effective = request.getSpaceKeysList().isEmpty()
-                    ? config
-                    : new ConfluenceConnectorConfig(config.baseUrl(), config.email(),
-                            config.apiToken(), request.getSpaceKeysList(), config.pageSize(),
-                            config.bodyFormat());
+                    ? session.config
+                    : new ConfluenceConnectorConfig(session.config.baseUrl(), session.config.email(),
+                            session.config.apiToken(), request.getSpaceKeysList(),
+                            session.config.pageSize(), session.config.bodyFormat());
             Object lock = new Object();
             AtomicReference<String> newestSnapshotCursor = new AtomicReference<>("");
             AtomicReference<String> runId = new AtomicReference<>("");
@@ -241,9 +287,16 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
                     }
                 }
             };
-            ChangeSink sink = downstream == null ? observerSink
-                    : new CompositeChangeSink(List.of(observerSink, downstream));
-            ConfluenceCrawler crawler = new ConfluenceCrawler(effective, client, sink);
+            List<ChangeSink> extras = new ArrayList<>();
+            extras.add(observerSink);
+            if (ledgerSink != null) {
+                extras.add(ledgerSink.boundTo(session.connectionId));
+            }
+            if (downstream != null) {
+                extras.add(downstream);
+            }
+            ChangeSink sink = extras.size() == 1 ? extras.get(0) : new CompositeChangeSink(extras);
+            ConfluenceCrawler crawler = new ConfluenceCrawler(effective, session.client, sink);
             String resumeCursor;
             if (request.getSinceCursor().isBlank()) {
                 crawler.crawl();
@@ -261,7 +314,64 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
         }
     }
 
-    private Attachment withContent(Attachment attachment) throws IOException, InterruptedException {
+    @Override
+    public void probeConnection(ProbeConnectionRequest request,
+            StreamObserver<ProbeConnectionResponse> observer) {
+        String connectionId = request.getConnectionId();
+        try {
+            Session session;
+            if (!request.getBaseUrl().isBlank() && !request.getEmail().isBlank()
+                    && !request.getToken().isBlank()) {
+                ConfluenceConnectorConfig inline = ConfluenceConnectorConfig.builder()
+                        .baseUrl(request.getBaseUrl())
+                        .email(request.getEmail())
+                        .apiToken(request.getToken())
+                        .build();
+                session = new Session(connectionId, inline, new ConfluenceClient(inline),
+                        new ConfluenceMapper(inline.baseUrl()));
+            } else {
+                session = session(connectionId);
+            }
+            int cap = request.getLimit() > 0 ? request.getLimit() : 5;
+            List<String> keys = new ArrayList<>();
+            walk(session, "/api/v2/spaces", Map.of(
+                    "limit", String.valueOf(session.config.pageSize()),
+                    "description-format", "view"), node -> {
+                if (keys.size() < cap) {
+                    Space space = requireValid(session.mapper.toSpace(node));
+                    keys.add(space.getKey().isBlank() ? space.getId() : space.getKey());
+                }
+            }, () -> keys.size() >= cap);
+            if (connections != null && !connectionId.isBlank()) {
+                connections.recordProbe(RecordProbeRequest.newBuilder()
+                        .setConnectionId(connectionId)
+                        .setOk(true)
+                        .build());
+            }
+            observer.onNext(ProbeConnectionResponse.newBuilder()
+                    .setOk(true)
+                    .setConnectionId(connectionId)
+                    .addAllSpaceKeys(keys)
+                    .build());
+            observer.onCompleted();
+        } catch (Throwable t) {
+            if (connections != null && !connectionId.isBlank()) {
+                try {
+                    connections.recordProbe(RecordProbeRequest.newBuilder()
+                            .setConnectionId(connectionId)
+                            .setOk(false)
+                            .setErrorMessage(String.valueOf(t.getMessage()))
+                            .build());
+                } catch (RuntimeException ignored) {
+                    // catalog update is best-effort
+                }
+            }
+            fail(observer, t);
+        }
+    }
+
+    private Attachment withContent(Session session, Attachment attachment)
+            throws IOException, InterruptedException {
         if (attachment.getFileSize() > attachmentMaxBytes) {
             throw Status.FAILED_PRECONDITION
                     .withDescription("attachment " + attachment.getId() + " is "
@@ -274,7 +384,7 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
                     .withDescription("attachment " + attachment.getId() + " has no download link")
                     .asRuntimeException();
         }
-        byte[] bytes = client.downloadAttachmentBytes(attachment.getDownloadUrl());
+        byte[] bytes = session.client.downloadAttachmentBytes(attachment.getDownloadUrl());
         if (bytes.length > attachmentMaxBytes) {
             throw Status.FAILED_PRECONDITION
                     .withDescription("attachment " + attachment.getId() + " downloaded to "
@@ -285,9 +395,9 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
         return attachment.toBuilder().setContent(ByteString.copyFrom(bytes)).build();
     }
 
-    private Map<String, String> contentQuery(String spaceId, BodyFormat bodyFormat) {
+    private Map<String, String> contentQuery(Session session, String spaceId, BodyFormat bodyFormat) {
         Map<String, String> query = new TreeMap<>();
-        query.put("limit", String.valueOf(config.pageSize()));
+        query.put("limit", String.valueOf(session.config.pageSize()));
         if (!spaceId.isBlank()) {
             query.put("space-id", spaceId);
         }
@@ -297,21 +407,67 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
         return query;
     }
 
-    private void walk(String path, Map<String, String> query, Consumer<JsonNode> onNode,
-            java.util.function.BooleanSupplier done) throws IOException, InterruptedException {
+    private void walk(Session session, String path, Map<String, String> query,
+            Consumer<JsonNode> onNode, java.util.function.BooleanSupplier done)
+            throws IOException, InterruptedException {
         String url = path;
         Map<String, String> params = query;
         while (url != null && !done.getAsBoolean()) {
-            ConfluenceClient.ResultPage resultPage = client.getPage(url, params);
+            ConfluenceClient.ResultPage resultPage = session.client.getPage(url, params);
             resultPage.body().path("results").forEach(onNode);
             url = resultPage.nextUrl();
             params = Map.of();
         }
     }
 
-    private void walk(String path, Map<String, String> query, Consumer<JsonNode> onNode)
-            throws IOException, InterruptedException {
-        walk(path, query, onNode, () -> false);
+    private void walk(Session session, String path, Map<String, String> query,
+            Consumer<JsonNode> onNode) throws IOException, InterruptedException {
+        walk(session, path, query, onNode, () -> false);
+    }
+
+    private Session session(String connectionId) {
+        if (connectionId == null || connectionId.isBlank()
+                || connectionId.equals(SyncTableChangeSink.DEFAULT_CONNECTION_ID)) {
+            if (config == null || client == null) {
+                throw Status.FAILED_PRECONDITION
+                        .withDescription("connection_id is required")
+                        .asRuntimeException();
+            }
+            return new Session(SyncTableChangeSink.DEFAULT_CONNECTION_ID, config, client,
+                    mapper);
+        }
+        if (connections == null) {
+            throw Status.FAILED_PRECONDITION
+                    .withDescription("ConnectionService is not configured")
+                    .asRuntimeException();
+        }
+        Connection row = connections.getConnection(GetConnectionRequest.newBuilder()
+                .setConnectionId(connectionId)
+                .setIncludeSecret(true)
+                .build()).getConnection();
+        if (row.getKind() != ConnectionKind.CONNECTION_KIND_UNSPECIFIED
+                && row.getKind() != ConnectionKind.CONNECTION_KIND_CONFLUENCE) {
+            throw Status.INVALID_ARGUMENT
+                    .withDescription("connection " + connectionId + " is not Confluence")
+                    .asRuntimeException();
+        }
+        if (row.getBaseUrl().isBlank() || row.getEmail().isBlank() || row.getToken().isBlank()) {
+            throw Status.FAILED_PRECONDITION
+                    .withDescription("connection " + connectionId + " is missing credentials")
+                    .asRuntimeException();
+        }
+        ConfluenceConnectorConfig resolved = ConfluenceConnectorConfig.builder()
+                .baseUrl(row.getBaseUrl())
+                .email(row.getEmail())
+                .apiToken(row.getToken())
+                .spaces(row.getSpaceKeysList())
+                .build();
+        return new Session(row.getConnectionId(), resolved, new ConfluenceClient(resolved),
+                new ConfluenceMapper(resolved.baseUrl()));
+    }
+
+    private record Session(String connectionId, ConfluenceConnectorConfig config,
+            ConfluenceClient client, ConfluenceMapper mapper) {
     }
 
     private static String bodyFormatOrStorage(BodyFormat format) {

@@ -35,19 +35,53 @@ public final class SyncTableChangeSink implements ChangeSink, AutoCloseable {
     /** Environment variable; {@code false} disables plaintext on the channel. */
     public static final String ENV_PLAINTEXT = "SYNC_TABLE_PLAINTEXT";
 
+    /** Catalog id used when the caller does not name a connection. */
+    public static final String DEFAULT_CONNECTION_ID = "default";
+
     private static final System.Logger LOG = System.getLogger(SyncTableChangeSink.class.getName());
 
     private final ManagedChannel channel;
     private final SyncTableServiceGrpc.SyncTableServiceBlockingStub stub;
+    private final String connectionId;
+    private final boolean ownsChannel;
 
     /**
      * Creates a sink over an existing channel (takes ownership for {@link #close()}).
+     * Rows are stamped {@link #DEFAULT_CONNECTION_ID}.
      *
      * @param channel the gRPC channel to {@code SyncTableService}
      */
     public SyncTableChangeSink(ManagedChannel channel) {
+        this(channel, DEFAULT_CONNECTION_ID, true);
+    }
+
+    /**
+     * Creates a sink that stamps {@code connectionId} on every row.
+     *
+     * @param channel the gRPC channel to {@code SyncTableService}
+     * @param connectionId catalog connection; blank becomes {@link #DEFAULT_CONNECTION_ID}
+     */
+    public SyncTableChangeSink(ManagedChannel channel, String connectionId) {
+        this(channel, connectionId, true);
+    }
+
+    private SyncTableChangeSink(ManagedChannel channel, String connectionId, boolean ownsChannel) {
         this.channel = Objects.requireNonNull(channel, "channel");
         this.stub = SyncTableServiceGrpc.newBlockingStub(channel);
+        this.connectionId = connectionId == null || connectionId.isBlank()
+                ? DEFAULT_CONNECTION_ID : connectionId;
+        this.ownsChannel = ownsChannel;
+    }
+
+    /**
+     * Same channel, different catalog connection. The returned sink does not
+     * own the channel ({@link #close()} is a no-op).
+     *
+     * @param connectionId catalog connection
+     * @return a sink that stamps that id
+     */
+    public SyncTableChangeSink boundTo(String connectionId) {
+        return new SyncTableChangeSink(channel, connectionId, false);
     }
 
     /**
@@ -84,14 +118,14 @@ public final class SyncTableChangeSink implements ChangeSink, AutoCloseable {
         try {
             if (change.getOperation() == ChangeOperation.CHANGE_OPERATION_DELETE) {
                 stub.deleteAsset(DeleteAssetRequest.newBuilder()
-                        .setAssetId(assetId(change.getEntity()))
+                        .setAssetId(assetId(connectionId, change.getEntity()))
                         .setRunId(change.getCursor())
                         .setCursor(change.getCursor())
                         .build());
                 return;
             }
             stub.upsertAsset(UpsertAssetRequest.newBuilder()
-                    .setAsset(toAsset(change))
+                    .setAsset(toAsset(connectionId, change))
                     .build());
         } catch (RuntimeException e) {
             LOG.log(System.Logger.Level.WARNING, "sync-table emit failed: {0}", e.toString());
@@ -104,6 +138,7 @@ public final class SyncTableChangeSink implements ChangeSink, AutoCloseable {
             stub.putCheckpoint(PutCheckpointRequest.newBuilder()
                     .setCheckpoint(Checkpoint.newBuilder()
                             .setSource(SOURCE)
+                            .setConnectionId(connectionId)
                             .setScope(snapshot.getSpaceKey())
                             .setCursor(snapshot.getCursor()))
                     .build());
@@ -121,6 +156,7 @@ public final class SyncTableChangeSink implements ChangeSink, AutoCloseable {
         try {
             stub.reconcile(ReconcileRequest.newBuilder()
                     .setSource(SOURCE)
+                    .setConnectionId(connectionId)
                     .setRunId(runId)
                     .build());
         } catch (RuntimeException e) {
@@ -129,11 +165,18 @@ public final class SyncTableChangeSink implements ChangeSink, AutoCloseable {
     }
 
     static Asset toAsset(ConfluenceChange change) {
+        return toAsset(DEFAULT_CONNECTION_ID, change);
+    }
+
+    static Asset toAsset(String connectionId, ConfluenceChange change) {
         ConfluenceEntity entity = change.getEntity();
         String kind = kind(entity);
+        String connection = connectionId == null || connectionId.isBlank()
+                ? DEFAULT_CONNECTION_ID : connectionId;
         Asset.Builder asset = Asset.newBuilder()
-                .setAssetId(assetId(entity))
+                .setAssetId(assetId(connection, entity))
                 .setSource(SOURCE)
+                .setConnectionId(connection)
                 .setNativeId(entity.getEntityId())
                 .setKind(kind)
                 .setPhase(phase(change))
@@ -155,7 +198,7 @@ public final class SyncTableChangeSink implements ChangeSink, AutoCloseable {
             if (!parent.isEmpty()) {
                 String parentKind = !attachment.getPageId().isEmpty() ? "page"
                         : !attachment.getBlogPostId().isEmpty() ? "blog_post" : "custom_content";
-                asset.setParentAssetId(SOURCE + ":" + parentKind + ":" + parent);
+                asset.setParentAssetId(SOURCE + ":" + connection + ":" + parentKind + ":" + parent);
             }
         } else {
             asset.setTitle(title(entity)).setSourceUri(uri(entity));
@@ -166,7 +209,13 @@ public final class SyncTableChangeSink implements ChangeSink, AutoCloseable {
     }
 
     static String assetId(ConfluenceEntity entity) {
-        return SOURCE + ":" + kind(entity) + ":" + entity.getEntityId();
+        return assetId(DEFAULT_CONNECTION_ID, entity);
+    }
+
+    static String assetId(String connectionId, ConfluenceEntity entity) {
+        String connection = connectionId == null || connectionId.isBlank()
+                ? DEFAULT_CONNECTION_ID : connectionId;
+        return SOURCE + ":" + connection + ":" + kind(entity) + ":" + entity.getEntityId();
     }
 
     private static String kind(ConfluenceEntity entity) {
@@ -214,6 +263,9 @@ public final class SyncTableChangeSink implements ChangeSink, AutoCloseable {
     /** Shuts down the underlying channel. */
     @Override
     public void close() {
+        if (!ownsChannel) {
+            return;
+        }
         channel.shutdown();
         try {
             if (!channel.awaitTermination(5, TimeUnit.SECONDS)) {

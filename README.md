@@ -88,6 +88,32 @@ with `bundle.zip` and `bundle.warc.gz` beside them. Protobuf is the same
 binary Kafka Connect already publishes; JSON is a file export, not the
 gRPC wire.
 
+## Multiple connections
+
+The sync-table process hosts `ConnectionService` on the same port as
+`SyncTableService` (`:9097`). That gRPC service is the catalog: create,
+get, list, update, delete, record-probe. Confluence, MCP, and a future UI
+call the generated stub. They never open the SQLite file.
+
+```
+SYNC_TABLE_JDBC_URL=jdbc:sqlite:/data/sync-table.db
+# or SYNC_TABLE_DB=/data/sync-table.db
+```
+
+MCP setup tools (the same RPCs a frontend will call):
+
+```
+connection_create / connection_list / connection_get / connection_update
+connection_set_output / connection_test / connection_delete
+confluence_sync connectionId=...
+sync_table_list_assets connectionId=...
+```
+
+`connection_id` on Confluence `ListSpaces` / `Sync` / `ProbeConnection`
+selects the catalog row. Ledger `asset_id` is
+`{source}:{connection_id}:{kind}:{native_id}`. Env credentials still work
+as connection `default`.
+
 ## Microsoft Graph proxy
 
 ```

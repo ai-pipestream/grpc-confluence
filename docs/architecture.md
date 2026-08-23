@@ -36,7 +36,13 @@ leaves the process.
 
 When `SYNC_TABLE_TARGET` is set, each Confluence / Microsoft `Sync` also
 writes the ledger (attachments included) and calls `Reconcile` after a
-full crawl so rows not seen in that run become `DELETED`.
+full crawl so rows not seen in that run become `DELETED`. The same
+process exposes `ConnectionService`: create / get / list / update /
+delete / record-probe. Confluence, MCP, and a future UI call that gRPC
+service; they do not open the store. `connection_id` on `Sync` and
+`ListSpaces` selects which catalog row to use. `asset_id` is
+`{source}:{connection_id}:{kind}:{native_id}`. Reconcile is
+connection-scoped so two Confluence Clouds do not delete each other.
 
 When `OUTPUT_DIR` / `OKF_DIR` or `OUTPUT_S3_BUCKET` is set, each completed
 `Sync` writes crawl artifacts through the output SPI. `OutputStore`
@@ -54,7 +60,7 @@ OKF payload to a SharePoint folder (`OKF_SPO_DRIVE_ID`).
 | `grpc-confluence-service` | 9095 | Netty + virtual-thread executor | `ListPages`, `ListBlogPosts`, `ListAttachments`, `Sync` |
 | `grpc-microsoft-service` | 9096 | same | `ListChildren`, `Sync` |
 | `grpc-microsoft-connector` | 30303 | same | GCA crawl stream → `MicrosoftService.Sync` |
-| `grpc-sync-service` | 9097 | same | `ListAssets`, `Watch` |
+| `grpc-sync-service` | 9097 | same | `SyncTableService` + `ConnectionService` |
 | `grpc-mcp` | 8090 | Jetty `VirtualThreadPool` | Streamable HTTP; tools consume gRPC streams and return a bounded JSON summary |
 | `grpc-connect` | — | Connect worker threads | Pulls `Sync` streams; values are protobuf bytes |
 
@@ -73,12 +79,14 @@ Codegen is `protoc` via the Gradle protobuf plugin, not `buf generate`.
 
 ## Sync-table
 
-`asset_id` is `{source}:{kind}:{native_id}`. The ledger owns phase: a
-re-upsert is `UPDATE` even when a crawler still labels the write
-`INITIAL_CRAWL`. `DELETE` and `SNAPSHOT` stay caller-controlled.
-Attachments set `attachment=true` and `parent_asset_id`. The in-memory
-`AssetStore` is the current database (thread-safe for virtual-thread
-crawlers). A durable store is a later swap behind the same service.
+`asset_id` is `{source}:{connection_id}:{kind}:{native_id}`. The ledger
+owns phase: a re-upsert is `UPDATE` even when a crawler still labels the
+write `INITIAL_CRAWL`. `DELETE` and `SNAPSHOT` stay caller-controlled.
+Attachments set `attachment=true` and `parent_asset_id`. `AssetStore` is
+the in-memory store; `JdbcLedger` (SQLite via `SYNC_TABLE_JDBC_URL` or
+`SYNC_TABLE_DB`) is the durable one. Both sit behind
+`SyncTableService` and `ConnectionService` on the same port. Secrets on
+a connection are write-only; Get/List return `has_token` instead.
 
 ## Credentials
 

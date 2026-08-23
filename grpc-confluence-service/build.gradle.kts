@@ -16,6 +16,8 @@ dependencies {
     runtimeOnly(libs.log4j.core)
 
     testImplementation(project(":grpc-sync-service"))
+    testImplementation(project(":grpc-mcp"))
+    testImplementation(libs.mcp.core)
     testImplementation(project(":grpc-output-filesystem"))
     testImplementation(project(":grpc-output-s3"))
     testImplementation(libs.grpc.inprocess)

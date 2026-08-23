@@ -15,12 +15,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 
-final class SyncTableMcpTools {
+/** MCP tools over {@code SyncTableService}. */
+public final class SyncTableMcpTools {
 
     private SyncTableMcpTools() {
     }
 
-    static List<McpServerFeatures.SyncToolSpecification> of(
+    /**
+     * Ledger get/list tools.
+     *
+     * @param stub {@code SyncTableService} stub
+     * @return tool specs
+     */
+    public static List<McpServerFeatures.SyncToolSpecification> of(
             SyncTableServiceGrpc.SyncTableServiceBlockingStub stub) {
         return List.of(get(stub), list(stub));
     }
@@ -45,6 +52,7 @@ final class SyncTableMcpTools {
                 McpJson.objectSchema(Map.of(
                         "source", McpJson.stringProp("confluence or microsoft"),
                         "kind", McpJson.stringProp("page, attachment, drive_item, ..."),
+                        "connectionId", McpJson.stringProp("Catalog connection filter"),
                         "attachmentsOnly", McpJson.boolProp("Only attachment rows"),
                         "limit", McpJson.intProp("Max rows")),
                         List.of()),
@@ -53,6 +61,8 @@ final class SyncTableMcpTools {
                     Iterator<ListAssetsResponse> stream = stub.listAssets(ListAssetsRequest.newBuilder()
                             .setSource(McpJson.argString(request.arguments(), "source", ""))
                             .setKind(McpJson.argString(request.arguments(), "kind", ""))
+                            .setConnectionId(McpJson.argString(request.arguments(),
+                                    "connectionId", ""))
                             .setAttachmentsOnly(McpJson.argBool(request.arguments(),
                                     "attachmentsOnly", false))
                             .setLimit(limit)
@@ -77,6 +87,7 @@ final class SyncTableMcpTools {
         row.put("attachment", asset.getAttachment());
         row.put("parentAssetId", asset.getParentAssetId());
         row.put("runId", asset.getRunId());
+        row.put("connectionId", asset.getConnectionId());
         return row;
     }
 

@@ -87,8 +87,9 @@ class ConfluenceSyncTableWireTest {
                 SyncTableServiceGrpc.newBlockingStub(syncChannel);
         ledger.upsertAsset(UpsertAssetRequest.newBuilder()
                 .setAsset(Asset.newBuilder()
-                        .setAssetId("confluence:page:gone")
+                        .setAssetId("confluence:default:page:gone")
                         .setSource("confluence")
+                        .setConnectionId("default")
                         .setKind("page")
                         .setNativeId("gone")
                         .setRunId("stale-run")
@@ -116,24 +117,25 @@ class ConfluenceSyncTableWireTest {
                 });
 
         Asset page = ledger.getAsset(GetAssetRequest.newBuilder()
-                .setAssetId("confluence:page:200").build()).getAsset();
+                .setAssetId("confluence:default:page:200").build()).getAsset();
         assertThat(page.getTitle()).isEqualTo("Design Doc");
         assertThat(page.getSource()).isEqualTo("confluence");
 
         Asset attachment = ledger.getAsset(GetAssetRequest.newBuilder()
-                .setAssetId("confluence:attachment:a1").build()).getAsset();
+                .setAssetId("confluence:default:attachment:a1").build()).getAsset();
         assertThat(attachment.getAttachment()).isTrue();
-        assertThat(attachment.getParentAssetId()).isEqualTo("confluence:page:200");
+        assertThat(attachment.getParentAssetId()).isEqualTo("confluence:default:page:200");
+        assertThat(attachment.getConnectionId()).isEqualTo("default");
 
         List<String> attachmentIds = new ArrayList<>();
         ledger.listAssets(ListAssetsRequest.newBuilder()
                 .setSource("confluence")
                 .setAttachmentsOnly(true)
                 .build()).forEachRemaining(r -> attachmentIds.add(r.getAsset().getAssetId()));
-        assertThat(attachmentIds).containsExactly("confluence:attachment:a1");
+        assertThat(attachmentIds).containsExactly("confluence:default:attachment:a1");
 
         assertThat(ledger.getAsset(GetAssetRequest.newBuilder()
-                .setAssetId("confluence:page:gone").build()).getAsset().getStatus())
+                .setAssetId("confluence:default:page:gone").build()).getAsset().getStatus())
                 .isEqualTo(AssetSyncStatus.ASSET_SYNC_STATUS_DELETED);
     }
 }

@@ -114,6 +114,25 @@ public record ConfluenceConnectorConfig(
     }
 
     /**
+     * Same as {@link #fromEnvironment(Map)} when credentials are present,
+     * otherwise empty so the process can start against
+     * {@code ConnectionService} only.
+     *
+     * @param env environment
+     * @return config, or empty when base URL / email / token are missing
+     */
+    static java.util.Optional<ConfluenceConnectorConfig> tryFromEnvironment(Map<String, String> env) {
+        String baseUrl = env.get(ENV_BASE_URL);
+        String email = firstNonBlank(env.get(ENV_EMAIL), env.get(ENV_EMAIL_ALIAS));
+        String token = firstNonBlank(env.get(ENV_API_TOKEN), env.get(ENV_API_TOKEN_ALIAS));
+        if (baseUrl == null || baseUrl.isBlank() || email == null || email.isBlank()
+                || token == null || token.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of(fromEnvironment(env));
+    }
+
+    /**
      * Build the config from an explicit environment map; production calls
      * {@link #fromEnvironment()}, tests call this. {@code CONFLUENCE_USER}
      * and {@code CONFLUENCE_TOKEN} act as aliases for the canonical
