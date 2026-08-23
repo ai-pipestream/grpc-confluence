@@ -31,6 +31,8 @@ import java.util.concurrent.TimeUnit;
  *   <li>{@code CONFLUENCE_KAFKA_BOOTSTRAP_SERVERS} (plus optional
  *   {@code CONFLUENCE_KAFKA_TOPIC} / {@code CONFLUENCE_KAFKA_SNAPSHOTS_TOPIC}):
  *   every change a sync emits also publishes through {@link KafkaChangeSink}</li>
+ *   <li>{@code SYNC_TABLE_TARGET} (plus optional {@code SYNC_TABLE_PLAINTEXT}):
+ *   every change also upserts into the generic {@code SyncTableService}</li>
  * </ul>
  */
 public final class ConfluenceServer {
@@ -48,12 +50,23 @@ public final class ConfluenceServer {
         ConfluenceConnectorConfig config = ConfluenceConnectorConfig.fromEnvironment();
         List<AutoCloseable> closables = new ArrayList<>();
         ChangeSink downstream = null;
+        List<ChangeSink> sinks = new ArrayList<>();
         if (KafkaChangeSink.enabled()) {
             KafkaChangeSink kafka = KafkaChangeSink.fromEnvironment();
-            downstream = kafka;
+            sinks.add(kafka);
             closables.add(kafka);
             LOG.log(System.Logger.Level.INFO, "confluence-proxy kafka sink active on {0}",
                     System.getenv(KafkaChangeSink.ENV_BOOTSTRAP_SERVERS));
+        }
+        if (SyncTableChangeSink.enabled()) {
+            SyncTableChangeSink syncTable = SyncTableChangeSink.fromEnvironment();
+            sinks.add(syncTable);
+            closables.add(syncTable);
+            LOG.log(System.Logger.Level.INFO, "confluence-proxy sync-table sink active on {0}",
+                    System.getenv(SyncTableChangeSink.ENV_TARGET));
+        }
+        if (!sinks.isEmpty()) {
+            downstream = sinks.size() == 1 ? sinks.get(0) : new CompositeChangeSink(sinks);
         }
         ConfluenceGrpcService service = new ConfluenceGrpcService(config,
                 new ConfluenceClient(config),

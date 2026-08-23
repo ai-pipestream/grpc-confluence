@@ -8,6 +8,8 @@ import ai.pipestream.confluence.v1.ConfluenceServiceGrpc;
 import ai.pipestream.confluence.v1.ConfluenceSnapshot;
 import ai.pipestream.confluence.v1.GetAttachmentRequest;
 import ai.pipestream.confluence.v1.GetAttachmentResponse;
+import ai.pipestream.confluence.v1.ListAttachmentsRequest;
+import ai.pipestream.confluence.v1.ListAttachmentsResponse;
 import ai.pipestream.confluence.v1.GetBlogPostRequest;
 import ai.pipestream.confluence.v1.GetBlogPostResponse;
 import ai.pipestream.confluence.v1.GetPageRequest;
@@ -169,6 +171,29 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     }
 
     @Override
+    public void listAttachments(ListAttachmentsRequest request,
+            StreamObserver<ListAttachmentsResponse> observer) {
+        try {
+            String path;
+            if (!request.getPageId().isBlank()) {
+                path = "/api/v2/pages/" + request.getPageId() + "/attachments";
+            } else if (!request.getBlogPostId().isBlank()) {
+                path = "/api/v2/blogposts/" + request.getBlogPostId() + "/attachments";
+            } else {
+                throw Status.INVALID_ARGUMENT
+                        .withDescription("page_id or blog_post_id is required")
+                        .asRuntimeException();
+            }
+            walk(path, Map.of("limit", String.valueOf(config.pageSize())), node ->
+                    observer.onNext(ListAttachmentsResponse.newBuilder()
+                            .setAttachment(requireValid(mapper.toAttachment(node))).build()));
+            observer.onCompleted();
+        } catch (Throwable t) {
+            fail(observer, t);
+        }
+    }
+
+    @Override
     public void sync(SyncRequest request, StreamObserver<SyncResponse> observer) {
         try {
             ConfluenceConnectorConfig effective = request.getSpaceKeysList().isEmpty()
@@ -178,9 +203,11 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
                             config.bodyFormat());
             Object lock = new Object();
             AtomicReference<String> newestSnapshotCursor = new AtomicReference<>("");
+            AtomicReference<String> runId = new AtomicReference<>("");
             ChangeSink observerSink = new ChangeSink() {
                 @Override
                 public void emit(ConfluenceChange change) {
+                    runId.compareAndSet("", change.getCursor());
                     ConfluenceChange out = request.getIncludeBodies() ? change : stripBodies(change);
                     VALIDATOR.requireValid(out);
                     synchronized (lock) {
@@ -205,6 +232,7 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
             if (request.getSinceCursor().isBlank()) {
                 crawler.crawl();
                 resumeCursor = newestSnapshotCursor.get();
+                sink.completeRun(runId.get());
             } else {
                 resumeCursor = crawler.crawlIncremental(request.getSinceCursor());
             }

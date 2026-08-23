@@ -4,12 +4,14 @@ plugins {
 
 dependencies {
     implementation(project(":grpc-confluence-api"))
+    implementation(project(":grpc-sync-api"))
     implementation(libs.grpc.netty.shaded)
     implementation(libs.grpc.services)
     implementation(libs.jackson.databind)
     implementation(libs.kafka.clients)
     runtimeOnly(libs.log4j.core)
 
+    testImplementation(project(":grpc-sync-service"))
     testImplementation(libs.grpc.inprocess)
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.assertj)

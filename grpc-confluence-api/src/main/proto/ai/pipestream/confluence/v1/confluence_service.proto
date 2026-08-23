@@ -53,6 +53,9 @@ service ConfluenceService {
   // One attachment's metadata, plus its bytes when requested (size-capped).
   rpc GetAttachment(GetAttachmentRequest) returns (GetAttachmentResponse);
 
+  // Attachments of a page or blog post as a stream.
+  rpc ListAttachments(ListAttachmentsRequest) returns (stream ListAttachmentsResponse);
+
   // One bounded sync pass as a stream of ConfluenceChanges, closing with the
   // resume cursor for the next pass. Deliberately bounded (the resume-token
   // idiom): a continuously-tailing Watch rpc is a possible additive later,
@@ -162,6 +165,20 @@ message GetAttachmentRequest {
   bool include_content = 2;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
+}
+
+// Attachments of one container (page or blog post).
+message ListAttachmentsRequest {
+  // Page id to list; mutually exclusive with blog_post_id when both set
+  // (page wins).
+  string page_id = 1;
+  // Blog post id to list when page_id is empty.
+  string blog_post_id = 2;
+  map<string, string> metadata = 99;
+}
+
+message ListAttachmentsResponse {
+  Attachment attachment = 1;
 }
 
 // The requested attachment (metadata always; bytes when include_content).

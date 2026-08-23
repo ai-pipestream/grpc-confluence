@@ -7,6 +7,8 @@ import ai.pipestream.confluence.v1.ConfluenceServiceGrpc;
 import ai.pipestream.confluence.v1.ConfluenceSnapshot;
 import ai.pipestream.confluence.v1.GetAttachmentRequest;
 import ai.pipestream.confluence.v1.GetAttachmentResponse;
+import ai.pipestream.confluence.v1.ListAttachmentsRequest;
+import ai.pipestream.confluence.v1.ListAttachmentsResponse;
 import ai.pipestream.confluence.v1.GetBlogPostRequest;
 import ai.pipestream.confluence.v1.GetBlogPostResponse;
 import ai.pipestream.confluence.v1.GetPageRequest;
@@ -257,6 +259,21 @@ class ConfluenceGrpcServiceTest {
                                     .isEqualTo(Status.Code.FAILED_PRECONDITION);
                             assertThat(e.getStatus().getDescription()).contains("inline cap");
                         });
+    }
+
+    @Test
+    void listAttachmentsStreamsPageAttachments() {
+        fake.stub("/wiki/api/v2/pages/200/attachments",
+                ConfluenceFixtures.listJson(null, "",
+                        ConfluenceFixtures.attachmentJson("a1", "200")));
+
+        List<ListAttachmentsResponse> items = new ArrayList<>();
+        stub.listAttachments(ListAttachmentsRequest.newBuilder().setPageId("200").build())
+                .forEachRemaining(items::add);
+
+        assertThat(items).extracting(r -> r.getAttachment().getId()).containsExactly("a1");
+        assertThat(items.get(0).getAttachment().getTitle()).isEqualTo("diagram.png");
+        assertThat(VALIDATOR.validate(items.get(0).getAttachment()).violations()).isEmpty();
     }
 
     // ======================================================================

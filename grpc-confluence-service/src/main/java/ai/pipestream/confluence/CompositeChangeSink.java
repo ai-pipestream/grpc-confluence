@@ -32,4 +32,11 @@ public final class CompositeChangeSink implements ChangeSink {
             sink.snapshot(snapshot);
         }
     }
+
+    @Override
+    public void completeRun(String runId) {
+        for (ChangeSink sink : sinks) {
+            sink.completeRun(runId);
+        }
+    }
 }

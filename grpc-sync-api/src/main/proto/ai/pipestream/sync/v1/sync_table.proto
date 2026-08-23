@@ -1,0 +1,180 @@
+syntax = "proto3";
+
+package ai.pipestream.sync.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "ai.pipestream.sync.v1";
+
+// Generic asset ledger. Source-agnostic: Confluence, Microsoft Graph, or
+// any later connector records where an asset lives, its phase (initial
+// crawl / update / delete), and whether it is an attachment.
+service SyncTableService {
+  // Create or update one asset row. Idempotent on asset_id.
+  rpc UpsertAsset(UpsertAssetRequest) returns (UpsertAssetResponse);
+
+  // One asset by id.
+  rpc GetAsset(GetAssetRequest) returns (GetAssetResponse);
+
+  // Stream matching rows. Pagination stays hidden.
+  rpc ListAssets(ListAssetsRequest) returns (stream ListAssetsResponse);
+
+  // Live stream of ledger mutations after an optional snapshot.
+  rpc Watch(WatchRequest) returns (stream WatchResponse);
+
+  // Mark an asset deleted (soft). The row stays so history is queryable.
+  rpc DeleteAsset(DeleteAssetRequest) returns (DeleteAssetResponse);
+
+  // After a crawl run, mark source-scoped rows not seen in that run deleted.
+  rpc Reconcile(ReconcileRequest) returns (ReconcileResponse);
+
+  // Resume cursor for a (source, scope) pair.
+  rpc GetCheckpoint(GetCheckpointRequest) returns (GetCheckpointResponse);
+
+  rpc PutCheckpoint(PutCheckpointRequest) returns (PutCheckpointResponse);
+}
+
+// Where the asset is in its lifecycle for this ledger.
+enum AssetPhase {
+  ASSET_PHASE_UNSPECIFIED = 0;
+  // First time this asset_id was written (full crawl).
+  ASSET_PHASE_INITIAL_CRAWL = 1;
+  // Subsequent upsert of an already-known asset.
+  ASSET_PHASE_UPDATE = 2;
+  // Explicit or reconciled delete.
+  ASSET_PHASE_DELETE = 3;
+  // A crawl-run snapshot marker (not a source entity).
+  ASSET_PHASE_SNAPSHOT = 4;
+}
+
+// Sync processing status of the row.
+enum AssetSyncStatus {
+  ASSET_SYNC_STATUS_UNSPECIFIED = 0;
+  ASSET_SYNC_STATUS_PENDING = 1;
+  ASSET_SYNC_STATUS_IN_PROGRESS = 2;
+  ASSET_SYNC_STATUS_SYNCED = 3;
+  ASSET_SYNC_STATUS_FAILED = 4;
+  ASSET_SYNC_STATUS_DELETED = 5;
+}
+
+// One source asset as the ledger currently knows it.
+message Asset {
+  // Stable id: "{source}:{kind}:{native_id}".
+  string asset_id = 1;
+  // Connector family: "confluence", "microsoft", ...
+  string source = 2;
+  // Native id in the source system.
+  string native_id = 3;
+  // Entity kind: page, attachment, drive_item, ...
+  string kind = 4;
+  // Where the asset lives upstream (web URL or REST path).
+  string source_uri = 5;
+  // Optional parent asset_id (attachments point at their page/folder).
+  string parent_asset_id = 6;
+  // True when this row is an attachment / file binary.
+  bool attachment = 7;
+  AssetPhase phase = 8;
+  AssetSyncStatus status = 9;
+  // Last crawl run that touched this row.
+  string run_id = 10;
+  string cursor = 11;
+  int64 content_bytes = 12;
+  string content_hash = 13;
+  string media_type = 14;
+  string title = 15;
+  google.protobuf.Timestamp first_seen_at = 16;
+  google.protobuf.Timestamp last_seen_at = 17;
+  google.protobuf.Timestamp last_modified_at = 18;
+  google.protobuf.Timestamp deleted_at = 19;
+  // Failure detail when status is FAILED.
+  string error_message = 20;
+  map<string, string> attributes = 99;
+}
+
+message UpsertAssetRequest {
+  Asset asset = 1;
+}
+
+message UpsertAssetResponse {
+  Asset asset = 1;
+}
+
+message GetAssetRequest {
+  string asset_id = 1;
+}
+
+message GetAssetResponse {
+  Asset asset = 1;
+}
+
+message ListAssetsRequest {
+  string source = 1;
+  string kind = 2;
+  string parent_asset_id = 3;
+  // When true, only attachment rows.
+  bool attachments_only = 4;
+  // When set, only this status.
+  AssetSyncStatus status = 5;
+  int32 limit = 6;
+}
+
+message ListAssetsResponse {
+  Asset asset = 1;
+}
+
+message WatchRequest {
+  string source = 1;
+  // When true, emit current matching rows before live mutations.
+  bool include_snapshot = 2;
+}
+
+message WatchResponse {
+  Asset asset = 1;
+}
+
+message DeleteAssetRequest {
+  string asset_id = 1;
+  string run_id = 2;
+  string cursor = 3;
+}
+
+message DeleteAssetResponse {
+  Asset asset = 1;
+}
+
+message ReconcileRequest {
+  string source = 1;
+  // Rows whose run_id is not this value are marked deleted.
+  string run_id = 2;
+  // Optional kind filter (empty = every kind of the source).
+  string kind = 3;
+}
+
+message ReconcileResponse {
+  int32 deleted = 1;
+}
+
+message Checkpoint {
+  string source = 1;
+  string scope = 2;
+  string cursor = 3;
+  google.protobuf.Timestamp updated_at = 4;
+}
+
+message GetCheckpointRequest {
+  string source = 1;
+  string scope = 2;
+}
+
+message GetCheckpointResponse {
+  Checkpoint checkpoint = 1;
+}
+
+message PutCheckpointRequest {
+  Checkpoint checkpoint = 1;
+}
+
+message PutCheckpointResponse {
+  Checkpoint checkpoint = 1;
+}

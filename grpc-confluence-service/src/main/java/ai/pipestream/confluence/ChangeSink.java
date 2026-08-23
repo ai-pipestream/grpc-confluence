@@ -18,4 +18,11 @@ public interface ChangeSink {
 
     /** The full-sync marker for one completed space crawl. */
     void snapshot(ConfluenceSnapshot snapshot);
+
+    /**
+     * A full crawl run finished. Sync-table sinks reconcile rows not seen
+     * in {@code runId}; others ignore.
+     */
+    default void completeRun(String runId) {
+    }
 }
