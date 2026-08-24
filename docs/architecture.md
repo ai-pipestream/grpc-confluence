@@ -7,13 +7,12 @@ HTTP MCP endpoint. A generic **sync-table** gRPC service is the current
 database of where a source asset lives and whether it has been crawled,
 updated, or deleted.
 
-Nothing here depends on the ProtoMolt platform. Domain rules that used to
-live in proto options are enforced in Java validators before a message
-leaves the process.
+Domain rules that used to live in proto options are enforced in Java
+validators before a message leaves the process.
 
 ```
                     ┌─────────────┐
-   MCP clients ────►│  grpc-mcp   │  :8090  /mcp  (Jetty VT pool)
+   MCP clients ────►│  grpc-mcp   │  :8090  /mcp  (Netty + VT)
                     └──────┬──────┘
            gRPC plaintext  │
      ┌─────────────────────┼─────────────────────┐
@@ -61,11 +60,12 @@ OKF payload to a SharePoint folder (`OKF_SPO_DRIVE_ID`).
 | `grpc-microsoft-service` | 9096 | same | `ListChildren`, `Sync` |
 | `grpc-microsoft-connector` | 30303 | same | GCA crawl stream → `MicrosoftService.Sync` |
 | `grpc-sync-service` | 9097 | same | `SyncTableService` + `ConnectionService` |
-| `grpc-mcp` | 8090 | Jetty `VirtualThreadPool` | Streamable HTTP; tools consume gRPC streams and return a bounded JSON summary |
+| `grpc-mcp` | 8090 | Netty HTTP + virtual-thread handlers | Streamable HTTP; tools consume gRPC streams and return a bounded JSON summary |
 | `grpc-connect` | — | Connect worker threads | Pulls `Sync` streams; values are protobuf bytes |
 
 There is no JDK built-in MCP API. `grpc-mcp` uses MCP Java SDK 2.0.1
-(spec 2025-11-25). Do not call unbounded `Watch` from an MCP tool.
+(spec 2025-11-25) on the same shaded Netty as the gRPC processes. Do
+not call unbounded `Watch` from an MCP tool.
 
 ## Wire
 

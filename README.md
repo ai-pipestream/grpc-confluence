@@ -247,9 +247,9 @@ Handlers run on virtual threads.
 
 There is no JDK built-in MCP API. This jar uses the official MCP Java
 SDK 2.0.1 (spec 2025-11-25) with Streamable HTTP at `/mcp`, hosted on
-Jetty 12 with a virtual-thread pool. Tool handlers are the SDK's
-blocking `McpServer.sync` API (virtual-thread friendly) and consume
-the streaming gRPC RPCs, returning a bounded JSON summary.
+the same shaded Netty as the gRPC processes. Tool handlers run on
+virtual threads and consume the streaming gRPC RPCs, returning a
+bounded JSON summary.
 
 ```
 MCP_PORT=8090

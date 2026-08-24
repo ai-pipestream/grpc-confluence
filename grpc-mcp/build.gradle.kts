@@ -11,8 +11,6 @@ dependencies {
     implementation(libs.jackson.databind)
     implementation(libs.mcp.core)
     implementation(libs.mcp.json.jackson2)
-    implementation(libs.jetty.server)
-    implementation(libs.jetty.ee10.servlet)
     runtimeOnly(libs.slf4j.jdk14)
     runtimeOnly(libs.log4j.core)
     compileOnly(libs.tomcat.annotations)
