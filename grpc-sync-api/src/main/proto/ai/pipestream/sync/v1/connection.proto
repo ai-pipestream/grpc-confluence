@@ -41,6 +41,12 @@ service ConnectionService {
   // Confluence or Microsoft RPC; this rpc only updates catalog status so
   // a frontend can show last-tested without holding credentials.
   rpc RecordProbe(RecordProbeRequest) returns (RecordProbeResponse);
+
+  // Read process-wide runtime settings (default output and Kafka).
+  rpc GetSettings(GetSettingsRequest) returns (GetSettingsResponse);
+
+  // Patch process-wide runtime settings. Empty fields leave stored values.
+  rpc UpdateSettings(UpdateSettingsRequest) returns (UpdateSettingsResponse);
 }
 
 // Connector family this connection talks to.
@@ -207,4 +213,39 @@ message RecordProbeRequest {
 message RecordProbeResponse {
   // The stored row (secrets omitted).
   Connection connection = 1;
+}
+
+// Process-wide settings an LLM or UI can change at runtime without a restart.
+// Connection.output wins for that connection when it has a destination.
+message RuntimeSettings {
+  // Default output when a connection has no ConnectionOutput destination.
+  ConnectionOutput output = 1;
+  // Kafka bootstrap servers. Empty means do not open a Kafka sink from settings.
+  string kafka_bootstrap_servers = 2;
+  // Changes topic. Empty means confluence-events.
+  string kafka_topic = 3;
+  // Snapshots topic. Empty means confluence-snapshots.
+  string kafka_snapshots_topic = 4;
+}
+
+// Request to read process settings. No filters today.
+message GetSettingsRequest {
+}
+
+// The stored process settings (defaults if never written).
+message GetSettingsResponse {
+  // Current settings.
+  RuntimeSettings settings = 1;
+}
+
+// Request to patch process settings. Empty fields leave the stored value.
+message UpdateSettingsRequest {
+  // Fields to merge.
+  RuntimeSettings settings = 1;
+}
+
+// The stored process settings after the patch.
+message UpdateSettingsResponse {
+  // Current settings.
+  RuntimeSettings settings = 1;
 }

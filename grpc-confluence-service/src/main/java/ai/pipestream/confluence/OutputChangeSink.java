@@ -8,11 +8,13 @@ import ai.pipestream.output.OutputFormat;
 import ai.pipestream.output.OutputFormats;
 import ai.pipestream.output.OutputStore;
 import ai.pipestream.output.OutputStores;
+import ai.pipestream.sync.v1.ConnectionOutput;
 import com.google.protobuf.Message;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -62,6 +64,53 @@ public final class OutputChangeSink implements ChangeSink, AutoCloseable {
      */
     public static OutputChangeSink fromEnvironment() {
         return from(OutputEnv.process(), OutputStores.load(), OutputFormats.load());
+    }
+
+    /**
+     * Whether {@code output} names a filesystem directory or S3 bucket.
+     *
+     * @param output catalog or process output; {@code null} is unset
+     * @return true when a destination is present
+     */
+    public static boolean configured(ConnectionOutput output) {
+        return output != null
+                && (!output.getDirectory().isEmpty() || !output.getS3Bucket().isEmpty());
+    }
+
+    /**
+     * Opens a sink from a catalog or process {@link ConnectionOutput}.
+     *
+     * @param output destination binding
+     * @return the sink
+     */
+    public static OutputChangeSink from(ConnectionOutput output) {
+        Objects.requireNonNull(output, "output");
+        if (!configured(output)) {
+            throw new IllegalArgumentException("output directory or s3_bucket is required");
+        }
+        Map<String, String> env = new LinkedHashMap<>();
+        if (!output.getStore().isEmpty()) {
+            env.put(OutputEnv.STORE, output.getStore());
+        }
+        if (!output.getDirectory().isEmpty()) {
+            env.put(OutputEnv.DIR, output.getDirectory());
+        }
+        if (!output.getPrefix().isEmpty()) {
+            env.put(OutputEnv.PREFIX, output.getPrefix());
+        }
+        if (!output.getFormatsList().isEmpty()) {
+            env.put(OutputEnv.FORMATS, String.join(",", output.getFormatsList()));
+        }
+        if (!output.getS3Bucket().isEmpty()) {
+            env.put(OutputEnv.S3_BUCKET, output.getS3Bucket());
+        }
+        if (!output.getS3Prefix().isEmpty()) {
+            env.put(OutputEnv.S3_PREFIX, output.getS3Prefix());
+        }
+        if (!output.getS3Region().isEmpty()) {
+            env.put(OutputEnv.S3_REGION, output.getS3Region());
+        }
+        return from(env, OutputStores.load(), OutputFormats.load());
     }
 
     /**

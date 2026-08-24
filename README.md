@@ -1,11 +1,20 @@
 # grpc-confluence
 
-Standalone Java gRPC bundles for Confluence Cloud and Microsoft Graph, plus
-a Kafka Connect plugin, a Microsoft Graph Connector Agent (GCA) adapter, a
-generic sync-table ledger, and a Streamable HTTP MCP endpoint. Nothing here
-depends on the ProtoMolt platform: no index hints, no proto validate options,
-no Kafka serde module. Domain rules that used to live in proto options are
-enforced in Java validators before a message leaves the process.
+All-in-one gRPC interface for Confluence operations and Confluence
+synchronizing. Compatible as a Microsoft connector as well.
+
+This is a gRPC Confluence API that listens to Confluence data and sends it to a
+filesystem, S3, or Microsoft Graph. At runtime, Confluence connectivity
+utilizes the Kafka Connect standard.
+
+The gRPC interface was taken from the latest Confluence API spec and designed
+to have all of the same features. So there's no data loss: if the API sends it,
+gRPC also captures it.
+
+Attachments are supported and linked.
+
+An MCP endpoint is designed to help an LLM perform most of the setup and
+configuration at runtime.
 
 See [docs/architecture.md](docs/architecture.md) for process topology and
 [CONTRIBUTING.md](CONTRIBUTING.md) for the lint bar.
@@ -18,19 +27,19 @@ The Microsoft Copilot connector wire contracts are copied from
 
 | Module | Port | What it is |
 |---|---|---|
-| `grpc-confluence-api` | — | Confluence domain + `ConfluenceService` protos |
-| `grpc-confluence-service` | 9095 | REST v2 client, crawler, validator, Netty proxy |
-| `grpc-microsoft-api` | — | Graph domain + `MicrosoftService` protos |
-| `grpc-microsoft-service` | 9096 | Graph client, crawler, validator, Netty proxy |
-| `grpc-microsoft-connector` | 30303 | GCA SDK services → `MicrosoftService` |
-| `grpc-connect` | — | Kafka Connect sources (protobuf bytes) |
-| `grpc-sync-api` | — | Generic `SyncTableService` protos |
-| `grpc-sync-service` | 9097 | In-memory asset ledger (Watch stream) |
-| `grpc-okf` | — | OKF v0.2 + WARC 1.1 producer (both crawlers) |
-| `grpc-output-spi` | — | Swappable output SPI (`OutputStore` + `OutputFormat`) |
-| `grpc-output-filesystem` | — | Default ServiceLoader store (local directory) |
-| `grpc-output-s3` | — | Optional ServiceLoader store (S3, Confluence hierarchy keys) |
-| `grpc-mcp` | 8090 | MCP 2.0 Streamable HTTP tools over the gRPC jars |
+| `grpc-confluence-api` | | The API proto contract. 1:1 Confluence API fully validated for gRPC. |
+| `grpc-confluence-service` | 9095 | Live Confluence Cloud proxy. REST v2 in, typed gRPC out, plus crawl and sync. |
+| `grpc-microsoft-api` | | The API proto contract. 1:1 Microsoft Graph surface we crawl, validated for gRPC. |
+| `grpc-microsoft-service` | 9096 | Live Graph proxy for sites, drives, and files. |
+| `grpc-microsoft-connector` | 30303 | Microsoft Copilot / GCA adapter that forwards crawls to MicrosoftService. |
+| `grpc-connect` | | Kafka Connect source plugins. Pulls Sync streams as protobuf bytes. |
+| `grpc-sync-api` | | Ledger and connection catalog proto contract. |
+| `grpc-sync-service` | 9097 | Asset ledger plus ConnectionService. Memory or SQLite. |
+| `grpc-okf` | | Writes Open Knowledge Format v0.2 bundles and a sibling WARC 1.1 archive. |
+| `grpc-output-spi` | | How crawl output is written. Pick a store (filesystem, S3) and formats (OKF, protobuf, JSON). |
+| `grpc-output-filesystem` | | Writes artifacts to a local directory. |
+| `grpc-output-s3` | | Writes artifacts to S3 using Confluence or Graph path keys. |
+| `grpc-mcp` | 8090 | Streamable HTTP MCP tools so an LLM can set up connections, output, and run syncs. |
 
 ## Confluence proxy
 
@@ -51,7 +60,7 @@ CONFLUENCE_KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 
 RPCs: `ListSpaces`, `GetPage`, `GetBlogPost`, `ListPages`, `ListBlogPosts`,
 `GetAttachment` (`include_content`, 25 MiB cap), `ListAttachments` (stream),
-`Sync` (stream). Handlers run on virtual threads.
+`Sync` (stream), `ProbeConnection`. Handlers run on virtual threads.
 
 Point the proxy at a running sync-table to record crawl / update / delete
 rows (attachments included):
@@ -83,30 +92,24 @@ OUTPUT_DIR=/data/okf/confluence-run   # alias: OKF_DIR
 `OutputStores.load().has("s3")` is true only when the S3 jar is on the
 classpath. Filesystem is the default store. S3 object keys follow the
 Confluence hierarchy (`{space}/pages/{id}.md`,
-`pages/{pageId}/comments/{id}.pb`, …). OKF trees land under `{prefix}/okf/`
+`pages/{pageId}/comments/{id}.pb`, ...). OKF trees land under `{prefix}/okf/`
 with `bundle.zip` and `bundle.warc.gz` beside them. Protobuf is the same
 binary Kafka Connect already publishes; JSON is a file export, not the
 gRPC wire.
+
+Output can also be set at runtime through MCP (`app_set_output` or
+`connection_set_output`) without restarting the process.
 
 ## Multiple connections
 
 The sync-table process hosts `ConnectionService` on the same port as
 `SyncTableService` (`:9097`). That gRPC service is the catalog: create,
-get, list, update, delete, record-probe. Confluence, MCP, and a future UI
-call the generated stub. They never open the SQLite file.
+get, list, update, delete, record-probe, plus process settings. Confluence,
+MCP, and a future UI call the generated stub. They never open the SQLite file.
 
 ```
 SYNC_TABLE_JDBC_URL=jdbc:sqlite:/data/sync-table.db
 # or SYNC_TABLE_DB=/data/sync-table.db
-```
-
-MCP setup tools (the same RPCs a frontend will call):
-
-```
-connection_create / connection_list / connection_get / connection_update
-connection_set_output / connection_test / connection_delete
-confluence_sync connectionId=...
-sync_table_list_assets connectionId=...
 ```
 
 `connection_id` on Confluence `ListSpaces` / `Sync` / `ProbeConnection`
@@ -231,12 +234,14 @@ SYNC_TABLE_GRPC_PORT=9097
 
 RPCs: `UpsertAsset`, `GetAsset`, `ListAssets` (stream), `Watch` (stream),
 `DeleteAsset`, `Reconcile`, `GetCheckpoint`, `PutCheckpoint`.
+`ConnectionService` on the same port owns connections and runtime settings.
 
-`asset_id` is `{source}:{kind}:{native_id}`. After a full crawl the
-proxies call `Reconcile` with that run's id so rows not seen this pass
-become `DELETED` even when the upstream API only upserts. Attachments
-set `attachment=true` and `parent_asset_id`. The in-memory store is the
-current database; handlers run on virtual threads.
+`asset_id` is `{source}:{connection_id}:{kind}:{native_id}`. After a full
+crawl the proxies call `Reconcile` with that run's id so rows not seen
+this pass become `DELETED` even when the upstream API only upserts.
+Attachments set `attachment=true` and `parent_asset_id`. The store is
+in-memory unless `SYNC_TABLE_JDBC_URL` or `SYNC_TABLE_DB` points at SQLite.
+Handlers run on virtual threads.
 
 ## MCP (Streamable HTTP)
 
@@ -254,10 +259,27 @@ SYNC_TABLE_TARGET=localhost:9097
 ./gradlew :grpc-mcp:run
 ```
 
-Tools: `confluence_list_spaces`, `confluence_get_page`,
-`confluence_list_attachments`, `confluence_sync`, `microsoft_get_me`,
-`microsoft_sync`, `sync_table_get_asset`, `sync_table_list_assets`.
-Do not call unbounded `Watch` from a tool; use `ListAssets`.
+Setup and configure the running app (these call `ConnectionService`):
+
+```
+app_status
+app_set_output
+app_set_kafka
+connection_create / connection_list / connection_get / connection_update
+connection_set_output / connection_test / connection_delete
+```
+
+Read and sync:
+
+```
+confluence_list_spaces / confluence_get_page / confluence_list_attachments
+confluence_sync
+microsoft_get_me / microsoft_sync
+sync_table_get_asset / sync_table_list_assets
+```
+
+Do not call unbounded `Watch` from a tool; use `ListAssets`. Secrets are
+write-only. Get, list, and MCP rows return `hasToken`, never the token.
 
 ## Proto lint (Buf)
 
@@ -280,9 +302,9 @@ https://buf.build or use the version CI pins.
 
 ## Build and tests
 
-Java 25 toolchain (same as gRPOIc). `./gradlew build` is the fake/unit
-suite, javadoc (`-Xdoclint:all -Werror` on handwritten API), and never
-talks to Atlassian or Graph.
+Java 25 toolchain. `./gradlew build` is the fake/unit suite, javadoc
+(`-Xdoclint:all -Werror` on handwritten API), and never talks to Atlassian
+or Graph.
 
 Live smokes are **read-only**, excluded from `test`, and skip unless
 credentials are in the environment:
@@ -310,7 +332,7 @@ set, `live-confluence` and `live-microsoft` run on same-repo PRs and
 pushes (fork PRs never receive secrets). Missing secrets skip the job
 step so the repo stays green until you add them.
 
-Confluence (Settings → Secrets and variables → Actions):
+Confluence (Settings, Secrets and variables, Actions):
 
 | Secret | Required |
 |---|---|

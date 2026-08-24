@@ -7,6 +7,7 @@ import ai.pipestream.sync.v1.Checkpoint;
 import ai.pipestream.sync.v1.Connection;
 import ai.pipestream.sync.v1.ConnectionKind;
 import ai.pipestream.sync.v1.ConnectionStatus;
+import ai.pipestream.sync.v1.RuntimeSettings;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.sql.PreparedStatement;
@@ -76,6 +77,12 @@ public final class JdbcLedger implements Ledger {
                     CREATE TABLE IF NOT EXISTS connections (
                       connection_id TEXT PRIMARY KEY,
                       kind INTEGER NOT NULL DEFAULT 0,
+                      payload BLOB NOT NULL
+                    )
+                    """);
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS settings (
+                      id TEXT PRIMARY KEY,
                       payload BLOB NOT NULL
                     )
                     """);
@@ -389,6 +396,34 @@ public final class JdbcLedger implements Ledger {
     }
 
     @Override
+    public RuntimeSettings getSettings() {
+        lock.lock();
+        try {
+            return loadSettings().orElse(RuntimeSettings.getDefaultInstance());
+        } catch (SQLException e) {
+            throw new IllegalStateException("ledger settings get failed", e);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public RuntimeSettings putSettings(RuntimeSettings incoming) {
+        Objects.requireNonNull(incoming, "settings");
+        lock.lock();
+        try {
+            RuntimeSettings stored = AssetStore.mergeSettings(incoming,
+                    loadSettings().orElse(RuntimeSettings.getDefaultInstance()));
+            saveSettings(stored);
+            return stored;
+        } catch (SQLException e) {
+            throw new IllegalStateException("ledger settings put failed", e);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
     public void close() {
         lock.lock();
         try {
@@ -469,6 +504,35 @@ public final class JdbcLedger implements Ledger {
             statement.setString(1, connection.getConnectionId());
             statement.setInt(2, connection.getKindValue());
             statement.setBytes(3, connection.toByteArray());
+            statement.executeUpdate();
+        }
+    }
+
+    private static final String SETTINGS_ID = "runtime";
+
+    private Optional<RuntimeSettings> loadSettings() throws SQLException {
+        try (PreparedStatement statement = db.prepareStatement(
+                "SELECT payload FROM settings WHERE id = ?")) {
+            statement.setString(1, SETTINGS_ID);
+            try (ResultSet rows = statement.executeQuery()) {
+                if (!rows.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(RuntimeSettings.parseFrom(rows.getBytes(1)));
+            } catch (InvalidProtocolBufferException e) {
+                throw new IllegalStateException("corrupt settings row", e);
+            }
+        }
+    }
+
+    private void saveSettings(RuntimeSettings settings) throws SQLException {
+        try (PreparedStatement statement = db.prepareStatement("""
+                INSERT INTO settings(id, payload)
+                VALUES (?, ?)
+                ON CONFLICT(id) DO UPDATE SET payload = excluded.payload
+                """)) {
+            statement.setString(1, SETTINGS_ID);
+            statement.setBytes(2, settings.toByteArray());
             statement.executeUpdate();
         }
     }

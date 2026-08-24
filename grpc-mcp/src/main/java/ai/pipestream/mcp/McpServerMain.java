@@ -50,8 +50,9 @@ public final class McpServerMain {
         tools.addAll(ConfluenceMcpTools.of(confluenceStub));
         tools.addAll(MicrosoftMcpTools.of(MicrosoftServiceGrpc.newBlockingStub(microsoft)));
         tools.addAll(SyncTableMcpTools.of(SyncTableServiceGrpc.newBlockingStub(sync)));
-        tools.addAll(ConnectionMcpTools.of(ConnectionServiceGrpc.newBlockingStub(sync),
-                confluenceStub));
+        var connections = ConnectionServiceGrpc.newBlockingStub(sync);
+        tools.addAll(ConnectionMcpTools.of(connections, confluenceStub));
+        tools.addAll(AppMcpTools.of(connections));
 
         int port = parseInt(System.getenv(ENV_PORT), DEFAULT_PORT);
         McpHttpServer server = McpHttpServer.start(port, "pipestream-connectors", tools);

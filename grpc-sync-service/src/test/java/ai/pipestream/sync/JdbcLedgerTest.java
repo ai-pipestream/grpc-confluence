@@ -3,6 +3,8 @@ package ai.pipestream.sync;
 import ai.pipestream.sync.v1.Asset;
 import ai.pipestream.sync.v1.Connection;
 import ai.pipestream.sync.v1.ConnectionKind;
+import ai.pipestream.sync.v1.ConnectionOutput;
+import ai.pipestream.sync.v1.RuntimeSettings;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -34,6 +36,12 @@ class JdbcLedgerTest {
                     .setNativeId("1")
                     .setTitle("Design")
                     .build());
+            first.putSettings(RuntimeSettings.newBuilder()
+                    .setKafkaBootstrapServers("kafka:9092")
+                    .setOutput(ConnectionOutput.newBuilder()
+                            .setStore("s3")
+                            .setS3Bucket("knowledge"))
+                    .build());
         }
         try (JdbcLedger second = JdbcLedger.open(jdbc)) {
             Connection row = second.getConnection("acme").orElseThrow();
@@ -43,6 +51,8 @@ class JdbcLedgerTest {
             assertThat(second.list("confluence", "", "", false,
                     ai.pipestream.sync.v1.AssetSyncStatus.ASSET_SYNC_STATUS_UNSPECIFIED,
                     0, "acme")).hasSize(1);
+            assertThat(second.getSettings().getKafkaBootstrapServers()).isEqualTo("kafka:9092");
+            assertThat(second.getSettings().getOutput().getS3Bucket()).isEqualTo("knowledge");
         }
     }
 

@@ -8,12 +8,16 @@ import ai.pipestream.sync.v1.DeleteConnectionRequest;
 import ai.pipestream.sync.v1.DeleteConnectionResponse;
 import ai.pipestream.sync.v1.GetConnectionRequest;
 import ai.pipestream.sync.v1.GetConnectionResponse;
+import ai.pipestream.sync.v1.GetSettingsRequest;
+import ai.pipestream.sync.v1.GetSettingsResponse;
 import ai.pipestream.sync.v1.ListConnectionsRequest;
 import ai.pipestream.sync.v1.ListConnectionsResponse;
 import ai.pipestream.sync.v1.RecordProbeRequest;
 import ai.pipestream.sync.v1.RecordProbeResponse;
 import ai.pipestream.sync.v1.UpdateConnectionRequest;
 import ai.pipestream.sync.v1.UpdateConnectionResponse;
+import ai.pipestream.sync.v1.UpdateSettingsRequest;
+import ai.pipestream.sync.v1.UpdateSettingsResponse;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 
@@ -145,6 +149,32 @@ public final class ConnectionGrpcService extends ConnectionServiceGrpc.Connectio
                     request.getErrorMessage());
             observer.onNext(RecordProbeResponse.newBuilder()
                     .setConnection(ConnectionViews.redact(stored))
+                    .build());
+            observer.onCompleted();
+        } catch (Throwable t) {
+            fail(observer, t);
+        }
+    }
+
+    @Override
+    public void getSettings(GetSettingsRequest request,
+            StreamObserver<GetSettingsResponse> observer) {
+        try {
+            observer.onNext(GetSettingsResponse.newBuilder()
+                    .setSettings(ledger.getSettings())
+                    .build());
+            observer.onCompleted();
+        } catch (Throwable t) {
+            fail(observer, t);
+        }
+    }
+
+    @Override
+    public void updateSettings(UpdateSettingsRequest request,
+            StreamObserver<UpdateSettingsResponse> observer) {
+        try {
+            observer.onNext(UpdateSettingsResponse.newBuilder()
+                    .setSettings(ledger.putSettings(request.getSettings()))
                     .build());
             observer.onCompleted();
         } catch (Throwable t) {

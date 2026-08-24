@@ -8,6 +8,7 @@ import ai.pipestream.sync.v1.Connection;
 import ai.pipestream.sync.v1.ConnectionKind;
 import ai.pipestream.sync.v1.ConnectionOutput;
 import ai.pipestream.sync.v1.ConnectionStatus;
+import ai.pipestream.sync.v1.RuntimeSettings;
 import com.google.protobuf.Timestamp;
 
 import java.time.Instant;
@@ -36,6 +37,7 @@ public final class AssetStore implements Ledger {
     private final ConcurrentHashMap<String, Asset> assets = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Checkpoint> checkpoints = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Connection> connections = new ConcurrentHashMap<>();
+    private volatile RuntimeSettings settings = RuntimeSettings.getDefaultInstance();
     private final CopyOnWriteArrayList<Watcher> watchers = new CopyOnWriteArrayList<>();
 
     /** Creates an empty in-memory ledger. */
@@ -408,6 +410,38 @@ public final class AssetStore implements Ledger {
                 .build();
         connections.put(connectionId, stored);
         return stored;
+    }
+
+    @Override
+    public RuntimeSettings getSettings() {
+        return settings;
+    }
+
+    @Override
+    public RuntimeSettings putSettings(RuntimeSettings incoming) {
+        Objects.requireNonNull(incoming, "settings");
+        settings = mergeSettings(incoming, settings);
+        return settings;
+    }
+
+    static RuntimeSettings mergeSettings(RuntimeSettings incoming, RuntimeSettings existing) {
+        RuntimeSettings current = existing == null
+                ? RuntimeSettings.getDefaultInstance()
+                : existing;
+        RuntimeSettings.Builder next = incoming.toBuilder();
+        if (next.getKafkaBootstrapServers().isEmpty()) {
+            next.setKafkaBootstrapServers(current.getKafkaBootstrapServers());
+        }
+        if (next.getKafkaTopic().isEmpty()) {
+            next.setKafkaTopic(current.getKafkaTopic());
+        }
+        if (next.getKafkaSnapshotsTopic().isEmpty()) {
+            next.setKafkaSnapshotsTopic(current.getKafkaSnapshotsTopic());
+        }
+        if (!next.hasOutput() || isEmptyOutput(next.getOutput())) {
+            next.setOutput(current.getOutput());
+        }
+        return next.build();
     }
 
     /**

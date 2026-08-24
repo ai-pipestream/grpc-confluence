@@ -5,6 +5,7 @@ import ai.pipestream.sync.v1.AssetSyncStatus;
 import ai.pipestream.sync.v1.Checkpoint;
 import ai.pipestream.sync.v1.Connection;
 import ai.pipestream.sync.v1.ConnectionKind;
+import ai.pipestream.sync.v1.RuntimeSettings;
 
 import java.util.List;
 import java.util.Optional;
@@ -138,6 +139,21 @@ public interface Ledger extends AutoCloseable {
      * @return the updated row
      */
     Connection recordProbe(String connectionId, boolean ok, String errorMessage);
+
+    /**
+     * Reads process settings. Never empty: missing rows are defaults.
+     *
+     * @return the stored settings
+     */
+    RuntimeSettings getSettings();
+
+    /**
+     * Merges process settings. Empty fields leave stored values.
+     *
+     * @param incoming patch
+     * @return the stored settings
+     */
+    RuntimeSettings putSettings(RuntimeSettings incoming);
 
     /**
      * Releases store resources. Memory stores are a no-op.
