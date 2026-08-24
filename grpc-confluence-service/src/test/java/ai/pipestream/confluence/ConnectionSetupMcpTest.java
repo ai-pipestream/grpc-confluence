@@ -1,5 +1,6 @@
 package ai.pipestream.confluence;
 
+import ai.pipestream.mcp.AppMcpTools;
 import ai.pipestream.mcp.ConnectionMcpTools;
 import ai.pipestream.mcp.ConfluenceMcpTools;
 import ai.pipestream.mcp.McpHttpServer;
@@ -20,7 +21,9 @@ import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTranspor
 import io.modelcontextprotocol.spec.McpSchema;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -34,6 +37,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * {@code ConnectionService} / {@code ConfluenceService} gRPC — not the store.
  */
 class ConnectionSetupMcpTest {
+
+    @TempDir
+    Path outputDir;
 
     private FakeConfluenceServer acme;
     private FakeConfluenceServer globex;
@@ -92,6 +98,7 @@ class ConnectionSetupMcpTest {
         List<io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification> tools =
                 new ArrayList<>();
         tools.addAll(ConnectionMcpTools.of(connections, confluenceStub));
+        tools.addAll(AppMcpTools.of(connections));
         tools.addAll(ConfluenceMcpTools.of(confluenceStub));
         tools.addAll(SyncTableMcpTools.of(syncTable));
         mcp = McpHttpServer.start(0, "setup-mcp", tools);
@@ -108,7 +115,8 @@ class ConnectionSetupMcpTest {
                     .extracting(McpSchema.Tool::name)
                     .contains("connection_create", "connection_list", "connection_get",
                             "connection_update", "connection_set_output", "connection_test",
-                            "connection_delete", "confluence_sync", "sync_table_list_assets");
+                            "connection_delete", "app_status", "app_set_output", "app_set_kafka",
+                            "confluence_sync", "sync_table_list_assets");
 
             String acmeBody = text(client.callTool(tool("connection_create", Map.of(
                     "kind", "confluence",
@@ -141,11 +149,26 @@ class ConnectionSetupMcpTest {
                     "spaceKeys", "ENG,DOCS")))))
                     .contains("Acme");
 
+            String defaultDir = outputDir.resolve("default").toString();
+            String acmeDir = outputDir.resolve("acme").toString();
+            assertThat(text(client.callTool(tool("app_set_output", Map.of(
+                    "store", "filesystem",
+                    "formats", "okf",
+                    "directory", defaultDir)))))
+                    .contains("filesystem").contains(defaultDir);
+            assertThat(text(client.callTool(tool("app_set_kafka", Map.of(
+                    "bootstrapServers", "localhost:9092",
+                    "topic", "confluence.changes")))))
+                    .contains("localhost:9092").contains("confluence.changes");
+            assertThat(text(client.callTool(tool("app_status", Map.of()))))
+                    .contains("acme-wiki").contains("globex")
+                    .contains(defaultDir).contains("localhost:9092");
+
             assertThat(text(client.callTool(tool("connection_set_output", Map.of(
                     "connectionId", "acme-wiki",
                     "store", "filesystem",
                     "formats", "okf,protobuf",
-                    "directory", "/tmp/acme",
+                    "directory", acmeDir,
                     "prefix", "acme")))))
                     .contains("filesystem").contains("okf");
 

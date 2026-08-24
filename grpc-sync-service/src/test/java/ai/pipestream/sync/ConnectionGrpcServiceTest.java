@@ -9,7 +9,10 @@ import ai.pipestream.sync.v1.DeleteConnectionRequest;
 import ai.pipestream.sync.v1.GetConnectionRequest;
 import ai.pipestream.sync.v1.ListConnectionsRequest;
 import ai.pipestream.sync.v1.RecordProbeRequest;
+import ai.pipestream.sync.v1.GetSettingsRequest;
+import ai.pipestream.sync.v1.RuntimeSettings;
 import ai.pipestream.sync.v1.UpdateConnectionRequest;
+import ai.pipestream.sync.v1.UpdateSettingsRequest;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.StatusRuntimeException;
@@ -117,5 +120,31 @@ class ConnectionGrpcServiceTest {
                 .setConnectionId("eng").build()))
                 .isInstanceOf(StatusRuntimeException.class)
                 .hasMessageContaining("NOT_FOUND");
+    }
+
+    @Test
+    void getAndUpdateSettingsMergeEmptyFields() {
+        assertThat(stub.getSettings(GetSettingsRequest.getDefaultInstance())
+                .getSettings().getKafkaBootstrapServers()).isEmpty();
+
+        RuntimeSettings first = stub.updateSettings(UpdateSettingsRequest.newBuilder()
+                .setSettings(RuntimeSettings.newBuilder()
+                        .setKafkaBootstrapServers("localhost:9092")
+                        .setKafkaTopic("confluence.changes")
+                        .setOutput(ai.pipestream.sync.v1.ConnectionOutput.newBuilder()
+                                .setStore("filesystem")
+                                .setDirectory("/tmp/okf")
+                                .addFormats("okf")))
+                .build()).getSettings();
+        assertThat(first.getKafkaBootstrapServers()).isEqualTo("localhost:9092");
+        assertThat(first.getOutput().getDirectory()).isEqualTo("/tmp/okf");
+
+        RuntimeSettings patched = stub.updateSettings(UpdateSettingsRequest.newBuilder()
+                .setSettings(RuntimeSettings.newBuilder()
+                        .setKafkaTopic("events"))
+                .build()).getSettings();
+        assertThat(patched.getKafkaBootstrapServers()).isEqualTo("localhost:9092");
+        assertThat(patched.getKafkaTopic()).isEqualTo("events");
+        assertThat(patched.getOutput().getDirectory()).isEqualTo("/tmp/okf");
     }
 }

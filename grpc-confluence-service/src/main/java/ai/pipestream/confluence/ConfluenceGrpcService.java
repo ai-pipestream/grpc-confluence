@@ -28,7 +28,9 @@ import ai.pipestream.confluence.v1.SyncResponse;
 import ai.pipestream.sync.v1.Connection;
 import ai.pipestream.sync.v1.ConnectionKind;
 import ai.pipestream.sync.v1.ConnectionServiceGrpc;
+import ai.pipestream.sync.v1.ConnectionOutput;
 import ai.pipestream.sync.v1.GetConnectionRequest;
+import ai.pipestream.sync.v1.GetSettingsRequest;
 import ai.pipestream.sync.v1.RecordProbeRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.protobuf.ByteString;
@@ -292,22 +294,32 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
             if (ledgerSink != null) {
                 extras.add(ledgerSink.boundTo(session.connectionId));
             }
+            OutputChangeSink runtimeOutput = bindOutput(session);
+            if (runtimeOutput != null) {
+                extras.add(runtimeOutput);
+            }
             if (downstream != null) {
                 extras.add(downstream);
             }
             ChangeSink sink = extras.size() == 1 ? extras.get(0) : new CompositeChangeSink(extras);
             ConfluenceCrawler crawler = new ConfluenceCrawler(effective, session.client, sink);
-            String resumeCursor;
-            if (request.getSinceCursor().isBlank()) {
-                crawler.crawl();
-                resumeCursor = newestSnapshotCursor.get();
-                sink.completeRun(runId.get());
-            } else {
-                resumeCursor = crawler.crawlIncremental(request.getSinceCursor());
-            }
-            synchronized (lock) {
-                observer.onNext(SyncResponse.newBuilder().setResumeCursor(resumeCursor).build());
-                observer.onCompleted();
+            try {
+                String resumeCursor;
+                if (request.getSinceCursor().isBlank()) {
+                    crawler.crawl();
+                    resumeCursor = newestSnapshotCursor.get();
+                    sink.completeRun(runId.get());
+                } else {
+                    resumeCursor = crawler.crawlIncremental(request.getSinceCursor());
+                }
+                synchronized (lock) {
+                    observer.onNext(SyncResponse.newBuilder().setResumeCursor(resumeCursor).build());
+                    observer.onCompleted();
+                }
+            } finally {
+                if (runtimeOutput != null) {
+                    runtimeOutput.close();
+                }
             }
         } catch (Throwable t) {
             fail(observer, t);
@@ -328,7 +340,8 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
                         .apiToken(request.getToken())
                         .build();
                 session = new Session(connectionId, inline, new ConfluenceClient(inline),
-                        new ConfluenceMapper(inline.baseUrl()));
+                        new ConfluenceMapper(inline.baseUrl()),
+                        ConnectionOutput.getDefaultInstance());
             } else {
                 session = session(connectionId);
             }
@@ -434,7 +447,7 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
                         .asRuntimeException();
             }
             return new Session(SyncTableChangeSink.DEFAULT_CONNECTION_ID, config, client,
-                    mapper);
+                    mapper, ConnectionOutput.getDefaultInstance());
         }
         if (connections == null) {
             throw Status.FAILED_PRECONDITION
@@ -463,11 +476,28 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
                 .spaces(row.getSpaceKeysList())
                 .build();
         return new Session(row.getConnectionId(), resolved, new ConfluenceClient(resolved),
-                new ConfluenceMapper(resolved.baseUrl()));
+                new ConfluenceMapper(resolved.baseUrl()), row.getOutput());
+    }
+
+    private OutputChangeSink bindOutput(Session session) {
+        if (OutputChangeSink.configured(session.output)) {
+            return OutputChangeSink.from(session.output);
+        }
+        if (connections == null) {
+            return null;
+        }
+        try {
+            ConnectionOutput output = connections.getSettings(GetSettingsRequest.getDefaultInstance())
+                    .getSettings()
+                    .getOutput();
+            return OutputChangeSink.configured(output) ? OutputChangeSink.from(output) : null;
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     private record Session(String connectionId, ConfluenceConnectorConfig config,
-            ConfluenceClient client, ConfluenceMapper mapper) {
+            ConfluenceClient client, ConfluenceMapper mapper, ConnectionOutput output) {
     }
 
     private static String bodyFormatOrStorage(BodyFormat format) {
