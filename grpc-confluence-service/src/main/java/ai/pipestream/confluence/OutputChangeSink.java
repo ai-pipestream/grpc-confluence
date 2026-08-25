@@ -132,7 +132,8 @@ public final class OutputChangeSink implements ChangeSink, AutoCloseable {
             }
             LOG.log(System.Logger.Level.INFO,
                     "confluence-proxy output store={0} loadedStores={1} formats={2} prefix={3}",
-                    store.id(), stores.ids(), formats.ids(), OutputEnv.prefix(env));
+                    store.id(), stores.ids(),
+                    selected.stream().map(OutputFormat::id).toList(), OutputEnv.prefix(env));
             return new OutputChangeSink(store, selected, OutputEnv.prefix(env));
         } catch (IOException e) {
             throw new UncheckedIOException("output store failed to open", e);

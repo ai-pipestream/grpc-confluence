@@ -292,7 +292,25 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
             List<ChangeSink> extras = new ArrayList<>();
             extras.add(observerSink);
             if (ledgerSink != null) {
-                extras.add(ledgerSink.boundTo(session.connectionId));
+                SyncTableChangeSink bound = ledgerSink.boundTo(session.connectionId);
+                if (request.getSpaceKeysList().isEmpty()) {
+                    extras.add(bound);
+                } else {
+                    // A request-scoped subset crawl cannot prove absence outside
+                    // its spaces: letting completeRun reconcile would soft-delete
+                    // every other space's ledger rows for this connection.
+                    extras.add(new ChangeSink() {
+                        @Override
+                        public void emit(ConfluenceChange change) {
+                            bound.emit(change);
+                        }
+
+                        @Override
+                        public void snapshot(ConfluenceSnapshot snapshot) {
+                            bound.snapshot(snapshot);
+                        }
+                    });
+                }
             }
             OutputChangeSink runtimeOutput = bindOutput(session);
             if (runtimeOutput != null) {
@@ -347,20 +365,30 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
             }
             int cap = request.getLimit() > 0 ? request.getLimit() : 5;
             List<String> keys = new ArrayList<>();
-            walk(session, "/api/v2/spaces", Map.of(
-                    "limit", String.valueOf(session.config.pageSize()),
-                    "description-format", "view"), node -> {
-                if (keys.size() < cap) {
-                    Space space = requireValid(session.mapper.toSpace(node));
-                    keys.add(space.getKey().isBlank() ? space.getId() : space.getKey());
-                }
-            }, () -> keys.size() >= cap);
-            if (connections != null && !connectionId.isBlank()) {
-                connections.recordProbe(RecordProbeRequest.newBuilder()
+            try {
+                walk(session, "/api/v2/spaces", Map.of(
+                        "limit", String.valueOf(session.config.pageSize()),
+                        "description-format", "view"), node -> {
+                    if (keys.size() < cap) {
+                        Space space = requireValid(session.mapper.toSpace(node));
+                        keys.add(space.getKey().isBlank() ? space.getId() : space.getKey());
+                    }
+                }, () -> keys.size() >= cap);
+            } catch (IOException e) {
+                // The probe itself ran; per the ProbeConnectionResponse contract
+                // a bad token or unreachable Confluence is an ok=false result,
+                // not an rpc failure. Only catalog-resolution problems (unknown
+                // connection, wrong kind, missing credentials) fail the rpc.
+                recordProbe(connectionId, false, String.valueOf(e.getMessage()));
+                observer.onNext(ProbeConnectionResponse.newBuilder()
+                        .setOk(false)
                         .setConnectionId(connectionId)
-                        .setOk(true)
+                        .setErrorMessage(String.valueOf(e.getMessage()))
                         .build());
+                observer.onCompleted();
+                return;
             }
+            recordProbe(connectionId, true, null);
             observer.onNext(ProbeConnectionResponse.newBuilder()
                     .setOk(true)
                     .setConnectionId(connectionId)
@@ -368,18 +396,25 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
                     .build());
             observer.onCompleted();
         } catch (Throwable t) {
-            if (connections != null && !connectionId.isBlank()) {
-                try {
-                    connections.recordProbe(RecordProbeRequest.newBuilder()
-                            .setConnectionId(connectionId)
-                            .setOk(false)
-                            .setErrorMessage(String.valueOf(t.getMessage()))
-                            .build());
-                } catch (RuntimeException ignored) {
-                    // catalog update is best-effort
-                }
-            }
+            recordProbe(connectionId, false, String.valueOf(t.getMessage()));
             fail(observer, t);
+        }
+    }
+
+    private void recordProbe(String connectionId, boolean ok, String errorMessage) {
+        if (connections == null || connectionId.isBlank()) {
+            return;
+        }
+        try {
+            RecordProbeRequest.Builder record = RecordProbeRequest.newBuilder()
+                    .setConnectionId(connectionId)
+                    .setOk(ok);
+            if (!ok) {
+                record.setErrorMessage(errorMessage);
+            }
+            connections.recordProbe(record.build());
+        } catch (RuntimeException ignored) {
+            // catalog update is best-effort
         }
     }
 

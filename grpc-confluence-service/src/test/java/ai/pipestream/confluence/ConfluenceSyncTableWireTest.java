@@ -138,4 +138,76 @@ class ConfluenceSyncTableWireTest {
                 .setAssetId("confluence:default:page:gone").build()).getAsset().getStatus())
                 .isEqualTo(AssetSyncStatus.ASSET_SYNC_STATUS_DELETED);
     }
+
+    @Test
+    void spaceScopedSyncDoesNotReconcileOtherSpacesRows() throws Exception {
+        fake = FakeConfluenceServer.start();
+        Instant modified = Instant.parse("2024-03-02T00:00:00Z");
+        // The request allowlist becomes a keys= filter on the space walk.
+        fake.stub("/wiki/api/v2/spaces?description-format=view&keys=ENG&limit=100",
+                ConfluenceFixtures.spaceListJson(null,
+                        ConfluenceFixtures.spaceJson("100", "ENG", "Engineering")));
+        fake.stub("/wiki/api/v2/spaces/100/properties", ConfluenceFixtures.emptyListJson());
+        fake.stub("/wiki/api/v2/pages",
+                ConfluenceFixtures.pageListJson(null,
+                        ConfluenceFixtures.pageJson("200", "100", "Design Doc",
+                                modified.toString())));
+        fake.stub("/wiki/api/v2/pages/200/footer-comments", ConfluenceFixtures.emptyListJson());
+        fake.stub("/wiki/api/v2/pages/200/inline-comments", ConfluenceFixtures.emptyListJson());
+        fake.stub("/wiki/api/v2/pages/200/attachments", ConfluenceFixtures.emptyListJson());
+        fake.stub("/wiki/api/v2/pages/200/labels", ConfluenceFixtures.emptyListJson());
+        fake.stub("/wiki/api/v2/pages/200/properties", ConfluenceFixtures.emptyListJson());
+        fake.stub("/wiki/api/v2/blogposts", ConfluenceFixtures.emptyListJson());
+
+        String syncName = InProcessServerBuilder.generateName();
+        String confluenceName = InProcessServerBuilder.generateName();
+        syncServer = InProcessServerBuilder.forName(syncName)
+                .directExecutor()
+                .addService(new SyncTableGrpcService(new AssetStore()))
+                .build()
+                .start();
+        syncChannel = InProcessChannelBuilder.forName(syncName).directExecutor().build();
+        SyncTableServiceGrpc.SyncTableServiceBlockingStub ledger =
+                SyncTableServiceGrpc.newBlockingStub(syncChannel);
+        // A live row from another space, crawled in an earlier run. A
+        // subset crawl of ENG must not soft-delete it.
+        ledger.upsertAsset(UpsertAssetRequest.newBuilder()
+                .setAsset(Asset.newBuilder()
+                        .setAssetId("confluence:default:page:docs-1")
+                        .setSource("confluence")
+                        .setConnectionId("default")
+                        .setKind("page")
+                        .setNativeId("docs-1")
+                        .setRunId("earlier-full-run")
+                        .setTitle("Docs Space Page"))
+                .build());
+
+        ConfluenceConnectorConfig config = ConfluenceConnectorConfig.builder()
+                .baseUrl(fake.baseUrl())
+                .email("bot@pipestream.ai")
+                .apiToken("token-123")
+                .build();
+        ConfluenceClient client = new ConfluenceClient(config.baseUrl(), config.email(),
+                config.apiToken(), Duration.ZERO);
+        // Production wiring: the sync table is the ledgerSink parameter.
+        confluenceServer = InProcessServerBuilder.forName(confluenceName)
+                .directExecutor()
+                .addService(new ConfluenceGrpcService(config, client,
+                        ConfluenceGrpcService.DEFAULT_ATTACHMENT_MAX_BYTES,
+                        null, null, new SyncTableChangeSink(syncChannel)))
+                .build()
+                .start();
+        confluenceChannel = InProcessChannelBuilder.forName(confluenceName).directExecutor().build();
+        ConfluenceServiceGrpc.newBlockingStub(confluenceChannel)
+                .sync(SyncRequest.newBuilder().addSpaceKeys("ENG").build())
+                .forEachRemaining(ignored -> {
+                });
+
+        assertThat(ledger.getAsset(GetAssetRequest.newBuilder()
+                .setAssetId("confluence:default:page:200").build()).getAsset().getTitle())
+                .isEqualTo("Design Doc");
+        assertThat(ledger.getAsset(GetAssetRequest.newBuilder()
+                .setAssetId("confluence:default:page:docs-1").build()).getAsset().getStatus())
+                .isNotEqualTo(AssetSyncStatus.ASSET_SYNC_STATUS_DELETED);
+    }
 }
