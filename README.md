@@ -1,20 +1,27 @@
 # grpc-confluence
 
-All-in-one gRPC interface for Confluence operations and Confluence
-synchronizing. Compatible as a Microsoft connector as well.
-
-This is a gRPC Confluence API that listens to Confluence data and sends it to a
-filesystem, S3, or Microsoft Graph. At runtime, Confluence connectivity
-utilizes the Kafka Connect standard.
+A gRPC version of the Confluence API. The proxy speaks Confluence Cloud
+REST v2 upstream and typed gRPC downstream: clients read spaces, pages,
+blog posts, comments, and attachments over one generated contract, pick up
+**automatic updates** through cursor-based incremental `Sync` streams, and
+**archive the site live** — every completed crawl can land as an Open
+Knowledge Format bundle with a sibling WARC 1.1 archive, a raw protobuf
+Kafka change stream, and a queryable sync ledger. Compatible as a
+Microsoft connector as well.
 
 The gRPC interface was taken from the latest Confluence API spec and designed
 to have all of the same features. So there's no data loss: if the API sends it,
 gRPC also captures it.
 
-Attachments are supported and linked.
+Attachments are supported and linked, and `GetAttachment` can inline the
+bytes (25 MiB cap, redirect to the media CDN followed server-side).
 
-An MCP endpoint is designed to help an LLM perform most of the setup and
-configuration at runtime.
+An **MCP endpoint** (Streamable HTTP, official MCP Java SDK) exposes the
+same surface as tools so an LLM can set up connections, configure output,
+and run syncs at runtime.
+
+Runnable client examples in Python, Go, and Java live under
+[examples/](examples/).
 
 See [docs/architecture.md](docs/architecture.md) for process topology and
 [CONTRIBUTING.md](CONTRIBUTING.md) for the lint bar.
@@ -61,6 +68,9 @@ CONFLUENCE_KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 RPCs: `ListSpaces`, `GetPage`, `GetBlogPost`, `ListPages`, `ListBlogPosts`,
 `GetAttachment` (`include_content`, 25 MiB cap), `ListAttachments` (stream),
 `Sync` (stream), `ProbeConnection`. Handlers run on virtual threads.
+`ProbeConnection` reports a failed probe in-band (`ok=false` +
+`error_message`); only catalog-resolution problems (unknown connection,
+wrong kind, missing credentials) fail the rpc.
 
 Point the proxy at a running sync-table to record crawl / update / delete
 rows (attachments included):
@@ -239,6 +249,8 @@ RPCs: `UpsertAsset`, `GetAsset`, `ListAssets` (stream), `Watch` (stream),
 `asset_id` is `{source}:{connection_id}:{kind}:{native_id}`. After a full
 crawl the proxies call `Reconcile` with that run's id so rows not seen
 this pass become `DELETED` even when the upstream API only upserts.
+A `Sync` request that narrows `space_keys` skips the reconcile: a subset
+crawl cannot prove absence, so it must not soft-delete other spaces' rows.
 Attachments set `attachment=true` and `parent_asset_id`. The store is
 in-memory unless `SYNC_TABLE_JDBC_URL` or `SYNC_TABLE_DB` points at SQLite.
 Handlers run on virtual threads.

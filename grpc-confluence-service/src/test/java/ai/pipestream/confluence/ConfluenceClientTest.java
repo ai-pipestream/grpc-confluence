@@ -133,4 +133,37 @@ class ConfluenceClientTest {
         assertThat(new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1))
                 .isEqualTo(new String(png, java.nio.charset.StandardCharsets.ISO_8859_1));
     }
+
+    @Test
+    void downloadFollowsMediaRedirectWithoutForwardingBasicAuth() throws Exception {
+        // Confluence Cloud 302s the download route to a pre-signed media URL
+        // on another origin (seen live 2026-08-24: api.media.atlassian.com).
+        // The credential must stay on the tenant origin.
+        try (FakeConfluenceServer media = FakeConfluenceServer.start()) {
+            String signed = media.baseUrl().replace("/wiki", "") + "/file/f1/binary?token=sig";
+            fake.stub("/wiki/rest/api/content/p1/child/attachment/a1/download",
+                    new FakeConfluenceServer.Stub(302, "", Map.of("Location", signed)));
+            media.stub("/file/f1/binary",
+                    new FakeConfluenceServer.Stub(200, "png-bytes", Map.of()));
+
+            byte[] bytes = client.downloadAttachmentBytes(
+                    "/rest/api/content/p1/child/attachment/a1/download");
+
+            assertThat(new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1))
+                    .isEqualTo("png-bytes");
+            assertThat(fake.requestsTo("/wiki/rest/api/content/p1/child/attachment/a1/download")
+                    .getFirst().authorization()).startsWith("Basic ");
+            assertThat(media.requestsTo("/file/f1/binary").getFirst().authorization()).isNull();
+        }
+    }
+
+    @Test
+    void downloadFailsAfterTooManyRedirects() {
+        fake.stub("/wiki/loop",
+                new FakeConfluenceServer.Stub(302, "", Map.of("Location", "/wiki/loop")));
+
+        assertThatThrownBy(() -> client.downloadAttachmentBytes("/loop"))
+                .isInstanceOf(java.io.IOException.class)
+                .hasMessageContaining("redirects");
+    }
 }

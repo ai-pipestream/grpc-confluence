@@ -12,3 +12,9 @@ gradle-app.setting
 .idea/
 *.iml
 .vscode/
+
+# example codegen output and local tooling
+examples/python/gen/
+examples/python/.venv/
+examples/go/gen/
+examples/java/*.class

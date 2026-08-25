@@ -76,6 +76,8 @@ public final class ConfluenceClient {
 
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final int MAX_THROTTLE_RETRIES = 5;
+    /** Redirect hops allowed on an attachment download (302 to the media CDN). */
+    private static final int MAX_DOWNLOAD_REDIRECTS = 5;
     private static final Duration DEFAULT_MIN_REQUEST_INTERVAL = Duration.ofMillis(100);
 
     private final String baseUrl;
@@ -195,21 +197,48 @@ public final class ConfluenceClient {
      * {@code downloadLink} of an attachment; it is resolved against the
      * tenant origin.
      *
+     * <p>Confluence Cloud answers the download route with a 302 to a
+     * pre-signed {@code api.media.atlassian.com} URL. Redirects are followed
+     * here by hand (the shared client never follows) and the basic-auth
+     * header is only sent to the tenant origin - the media URL carries its
+     * own token and must not see the API credential.</p>
+     *
      * @param downloadUrl a relative or absolute attachment download URL
      * @return the response body bytes
-     * @throws IOException if the request fails or the service returns an error status
+     * @throws IOException if the request fails, redirects too many times, or
+     *         the service returns an error status
      * @throws InterruptedException if the calling thread is interrupted while waiting
      */
     public byte[] downloadAttachmentBytes(String downloadUrl)
             throws IOException, InterruptedException {
-        HttpResponse<byte[]> response = send(
-                request(resolveRelative(downloadUrl)).GET().build(),
-                HttpResponse.BodyHandlers.ofByteArray());
-        if (response.statusCode() >= 400) {
-            throw new ConfluenceApiException(response.statusCode(),
-                    new String(response.body(), StandardCharsets.UTF_8));
+        String url = resolveRelative(downloadUrl);
+        for (int hop = 0; hop <= MAX_DOWNLOAD_REDIRECTS; hop++) {
+            HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
+                    .timeout(Duration.ofSeconds(60))
+                    .header("accept", "*/*");
+            if (url.startsWith(origin)) {
+                builder.header("authorization", authHeader);
+            }
+            HttpResponse<byte[]> response = send(builder.GET().build(),
+                    HttpResponse.BodyHandlers.ofByteArray());
+            int status = response.statusCode();
+            if (status >= 300 && status < 400) {
+                String location = response.headers().firstValue("location").orElse(null);
+                if (location == null || location.isBlank()) {
+                    throw new ConfluenceApiException(status,
+                            "redirect without a Location header from " + url);
+                }
+                url = URI.create(url).resolve(location).toString();
+                continue;
+            }
+            if (status >= 400) {
+                throw new ConfluenceApiException(status,
+                        new String(response.body(), StandardCharsets.UTF_8));
+            }
+            return response.body();
         }
-        return response.body();
+        throw new IOException("attachment download exceeded " + MAX_DOWNLOAD_REDIRECTS
+                + " redirects: " + downloadUrl);
     }
 
     /**
