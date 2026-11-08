@@ -49,7 +49,22 @@ import static ai.pipestream.confluence.ConfluenceRoutes.values;
  * before they leave the process: the same identity, numeric-floor, and
  * cross-field rules the original proto options encoded.</p>
  */
-public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.ConfluenceServiceImplBase {
+public final class ConfluenceGrpcService
+        implements ConfluenceServiceGrpc.AsyncService, io.grpc.BindableService {
+
+    /**
+     * The service definition, with every server-streaming rpc behind
+     * {@link FlowControlInterceptor} (isReady-aware sends that stop on
+     * cancellation).
+     *
+     * @return the bound service
+     */
+    @Override
+    public io.grpc.ServerServiceDefinition bindService() {
+        return io.grpc.ServerInterceptors.intercept(ConfluenceServiceGrpc.bindService(this),
+                new FlowControlInterceptor());
+    }
+
 
     /** Default cap for inlined attachment bytes: 25 MiB. */
     public static final long DEFAULT_ATTACHMENT_MAX_BYTES = 25L * 1024 * 1024;
@@ -557,7 +572,9 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
             }
             int chunk = request.getChunkBytes() > 0 ? request.getChunkBytes() : downloadChunkBytes;
             FlowControl<DownloadAttachmentResponse> flow = FlowControl.of(observer);
-            flow.send(DownloadAttachmentResponse.newBuilder().setAttachment(attachment).build());
+            if (!flow.send(DownloadAttachmentResponse.newBuilder().setAttachment(attachment).build())) {
+                return; // the client cancelled; nothing left to answer
+            }
             try (java.io.InputStream in = session.client.openAttachmentStream(
                     attachment.getDownloadUrl())) {
                 // The running total is checked too: file_size may understate the binary.
@@ -657,51 +674,37 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     }
 
     /**
-     * Outbound flow control for a server stream: {@link #send} parks the
-     * (virtual) handler thread until the transport is ready, so a slow
-     * client never makes the server buffer a whole binary in memory.
+     * A binary download's sender. Readiness is enforced for every stream by
+     * {@link FlowControlInterceptor} (the send parks the handler's virtual
+     * thread until the transport is ready, so a slow client never makes the
+     * server buffer a whole binary); this wrapper turns a cancelled call
+     * into a {@code false} answer so the download loop stops quietly.
      */
     private static final class FlowControl<T> {
         private final StreamObserver<T> observer;
-        private final io.grpc.stub.ServerCallStreamObserver<T> call;
-        private final Object ready = new Object();
-        private volatile boolean cancelled;
+        private final io.grpc.Context context = io.grpc.Context.current();
 
         private FlowControl(StreamObserver<T> observer) {
             this.observer = observer;
-            this.call = observer instanceof io.grpc.stub.ServerCallStreamObserver<T> c ? c : null;
-            if (call != null) {
-                call.setOnReadyHandler(this::wake);
-                call.setOnCancelHandler(() -> {
-                    cancelled = true;
-                    wake();
-                });
-            }
         }
 
         static <T> FlowControl<T> of(StreamObserver<T> observer) {
             return new FlowControl<>(observer);
         }
 
-        private void wake() {
-            synchronized (ready) {
-                ready.notifyAll();
-            }
-        }
-
         /** Sends once the transport is ready; false when the call was cancelled. */
-        boolean send(T message) throws InterruptedException {
-            if (call != null) {
-                synchronized (ready) {
-                    while (!cancelled && !call.isReady()) {
-                        ready.wait(1000);
-                    }
-                }
-                if (cancelled || call.isCancelled()) {
+        boolean send(T message) {
+            if (context.isCancelled()) {
+                return false;
+            }
+            try {
+                observer.onNext(message);
+            } catch (io.grpc.StatusRuntimeException e) {
+                if (e.getStatus().getCode() == Status.Code.CANCELLED) {
                     return false;
                 }
+                throw e;
             }
-            observer.onNext(message);
             return true;
         }
     }
@@ -2241,10 +2244,12 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
             throws IOException, InterruptedException {
         String url = path;
         Map<String, String> params = query;
+        ConfluenceClient.CursorGuard guard = new ConfluenceClient.CursorGuard(path);
         while (url != null && !done.getAsBoolean()) {
+            requireNotCancelled();
             ConfluenceClient.ResultPage resultPage = session.client.getPage(url, params);
             resultPage.body().path("results").forEach(onNode);
-            url = resultPage.nextUrl();
+            url = guard.check(resultPage.nextUrl());
             params = Map.of();
         }
     }
@@ -2270,6 +2275,14 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
             walk(session, first.nextUrl(), Map.of(), onNode);
         }
         return true;
+    }
+
+    /** CANCELLED once the client has gone: stop paging instead of reading on for nobody. */
+    private static void requireNotCancelled() {
+        if (io.grpc.Context.current().isCancelled()) {
+            throw Status.CANCELLED.withDescription("the client cancelled the call")
+                    .asRuntimeException();
+        }
     }
 
     private void walk(Session session, String path, Map<String, String> query,
@@ -2381,6 +2394,8 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
                 case 429 -> Status.RESOURCE_EXHAUSTED;
                 default -> Status.INTERNAL;
             }).withDescription(e.getMessage());
+        } else if (t instanceof ConfluenceClient.RepeatedCursorException e) {
+            status = Status.INTERNAL.withDescription(e.getMessage());
         } else if (t instanceof ConfluenceClient.UnsafePathException e) {
             status = Status.INVALID_ARGUMENT.withDescription(e.getMessage());
         } else if (t instanceof InterruptedException e) {

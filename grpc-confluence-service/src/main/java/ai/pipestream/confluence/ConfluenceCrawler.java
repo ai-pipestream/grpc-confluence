@@ -16,10 +16,12 @@ import ai.pipestream.confluence.v1.ContentProperty;
 import ai.pipestream.confluence.v1.Label;
 import ai.pipestream.confluence.v1.Page;
 import ai.pipestream.confluence.v1.RestrictionState;
+import ai.pipestream.confluence.v1.SecurityCompleteness;
 import ai.pipestream.confluence.v1.Space;
 import ai.pipestream.confluence.v1.SpacePermissionAssignment;
 import ai.pipestream.confluence.v1.SpaceProperty;
 import ai.pipestream.confluence.v1.SpaceRoleAssignment;
+import ai.pipestream.confluence.ConfluenceClient.CursorGuard;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.protobuf.Timestamp;
 
@@ -64,10 +66,16 @@ import java.util.concurrent.atomic.AtomicReference;
  * non-page nodes, and every crawled database also emits its field
  * definitions and entries. These sub-entities have no id of their own,
  * so their {@code entity_id} is composed from the owner and the item's
- * identity, for example {@code page:123/permission/read/user/abc}. Routes
- * a tenant does not serve (role assignments outside role-based access,
- * restriction or permission routes, the experimental database routes)
- * answer 4xx there: that is logged and the crawl continues.</p>
+ * identity, for example {@code page:123/permission/read/user/abc}.</p>
+ *
+ * <p>Security data fails closed: each owner is emitted with a
+ * {@link SecurityCompleteness} on its envelope, and every security read
+ * also emits the owner's {@code restriction-state} record carrying the
+ * same marker. A security route answering 404 is not served (complete,
+ * nothing to emit); any other 4xx, on the first page or a later one,
+ * marks the owner UNAVAILABLE (logged at WARN) and keeps what was read.
+ * Non-security routes a tenant does not serve (direct children, the
+ * experimental database routes) are logged at WARN and skipped.</p>
  *
  * <p>Work fans out on virtual threads; the sink must be thread-safe.</p>
  */
@@ -104,21 +112,32 @@ public final class ConfluenceCrawler {
      */
     public void crawl() throws IOException, InterruptedException {
         String runId = UUID.randomUUID().toString();
-        for (JsonNode spaceNode : listAll("/api/v2/spaces", spacesQuery())) {
+        CursorGuard spacesGuard = new CursorGuard("GET /spaces");
+        for (JsonNode spaceNode : listAll("/api/v2/spaces", spacesQuery(), spacesGuard)) {
             Space space = mapper.toSpace(spaceNode);
             if (config.hasSpaceAllowlist() && !config.spaces().contains(space.getKey())) {
                 continue;
             }
-            emit(entity(space.getId()).setSpace(space).build(), ChangeSource.CHANGE_SOURCE_CRAWL, runId);
             crawlSpace(space, runId, ChangeSource.CHANGE_SOURCE_CRAWL, null, runId);
         }
     }
 
     /**
      * An incremental sync: only pages and blog posts (and their sub-entities)
-     * modified after {@code sinceRfc3339} are emitted, walking the v2 list
-     * endpoints newest-first via {@code sort=-modified-date} and stopping at
-     * the cursor.
+     * modified after {@code sinceRfc3339} are emitted in full, walking the v2
+     * list endpoints newest-first via {@code sort=-modified-date} and
+     * stopping at the cursor.
+     *
+     * <p>Security-trimming data does not bump a content version, so every
+     * run also re-reads it for every in-scope owner: the space (permission
+     * and role assignments, emitted with the space), and each page and blog
+     * post through one extra metadata-only list walk per space and kind
+     * (no bodies), with two reads per item ({@code restriction-state} and
+     * the {@code permissions} pages). Under each page the non-page tree is
+     * revisited: one {@code direct-children} walk per page and one read per
+     * whiteboard, database, folder or Smart Link, which is re-emitted (and,
+     * for databases, its fields and entries re-read) only when its version
+     * is newer than the cursor; its security data is re-read every run.</p>
      *
      * @param sinceRfc3339 the cursor a previous crawl left on its snapshot
      *        (an RFC3339 timestamp)
@@ -131,7 +150,8 @@ public final class ConfluenceCrawler {
         Objects.requireNonNull(sinceRfc3339, "sinceRfc3339");
         Timestamp since = ConfluenceMapper.timestamp(sinceRfc3339);
         AtomicReference<Timestamp> newest = new AtomicReference<>(since);
-        for (JsonNode spaceNode : listAll("/api/v2/spaces", spacesQuery())) {
+        CursorGuard spacesGuard = new CursorGuard("GET /spaces");
+        for (JsonNode spaceNode : listAll("/api/v2/spaces", spacesQuery(), spacesGuard)) {
             Space space = mapper.toSpace(spaceNode);
             if (config.hasSpaceAllowlist() && !config.spaces().contains(space.getKey())) {
                 continue;
@@ -147,7 +167,10 @@ public final class ConfluenceCrawler {
     /**
      * One space sweep. When {@code stopAt} is non-null the sweep is
      * incremental: content lists walk newest-first and stop at that
-     * timestamp. Returns the newest modification timestamp observed.
+     * timestamp, and the security data of the unchanged content is re-read.
+     * The space itself is emitted after its security data, carrying its
+     * {@link SecurityCompleteness}. Returns the newest modification
+     * timestamp observed.
      */
     private Timestamp crawlSpace(Space space, String runId, ChangeSource source, Timestamp stopAt,
             String changeCursor) throws IOException, InterruptedException {
@@ -156,6 +179,10 @@ public final class ConfluenceCrawler {
         AtomicReference<Timestamp> newest = new AtomicReference<>(stopAt);
         AtomicReference<Throwable> failure = new AtomicReference<>();
         Set<String> seenTree = ConcurrentHashMap.newKeySet();
+
+        SecurityCompleteness spaceSecurity = crawlSpaceSecurity(space, source, changeCursor, counts);
+        emit(entity(space.getId()).setSpace(space).setSecurityCompleteness(spaceSecurity).build(),
+                source, changeCursor);
 
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             executor.submit(() -> {
@@ -188,13 +215,6 @@ public final class ConfluenceCrawler {
                     failure.compareAndSet(null, t);
                 }
             });
-            executor.submit(() -> {
-                try {
-                    crawlSpaceSecurity(space, source, changeCursor, counts);
-                } catch (Throwable t) {
-                    failure.compareAndSet(null, t);
-                }
-            });
             executor.shutdown();
             awaitTermination(executor);
         }
@@ -217,7 +237,12 @@ public final class ConfluenceCrawler {
         return newest.get();
     }
 
-    /** Pages or blog posts of one space, newest-first when incremental, with all sub-entities. */
+    /**
+     * Pages or blog posts of one space, newest-first when incremental, with
+     * all sub-entities; when incremental, then the security re-read (and,
+     * for pages, the tree revisit) of every item the first walk did not
+     * crawl in full.
+     */
     private void crawlContent(Space space, String kind, ChangeSource source, Timestamp stopAt,
             String changeCursor, Map<String, Long> counts, AtomicReference<Timestamp> newest,
             Set<String> seenTree) throws IOException, InterruptedException {
@@ -228,16 +253,19 @@ public final class ConfluenceCrawler {
         if (stopAt != null) {
             query.put("sort", "-modified-date");
         }
-        String path = "/api/v2/" + ("page".equals(kind) ? "pages" : "blogposts");
+        String segment = "page".equals(kind) ? "pages" : "blogposts";
+        String path = "/api/v2/" + segment;
+        Set<String> crawled = ConcurrentHashMap.newKeySet();
 
         AtomicReference<Throwable> failure = new AtomicReference<>();
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             String url = path;
             Map<String, String> params = query;
             boolean reachedCursor = false;
+            CursorGuard guard = new CursorGuard("GET /" + segment);
             while (url != null && !reachedCursor && failure.get() == null) {
                 ConfluenceClient.ResultPage resultPage = client.getPage(url, params);
-                url = resultPage.nextUrl();
+                url = guard.check(resultPage.nextUrl());
                 params = Map.of(); // the next URL already carries cursor and query
                 for (JsonNode node : resultPage.body().path("results")) {
                     Timestamp modified = ConfluenceMapper.timestamp(
@@ -250,10 +278,11 @@ public final class ConfluenceCrawler {
                     if (modified != null) {
                         newest.accumulateAndGet(modified, ConfluenceCrawler::later);
                     }
+                    crawled.add(node.path("id").asText(""));
                     executor.submit(() -> {
                         try {
                             if ("page".equals(kind)) {
-                                crawlPage(node, source, changeCursor, counts, seenTree);
+                                crawlPage(node, source, changeCursor, counts, seenTree, stopAt);
                             } else {
                                 crawlBlogPost(node, source, changeCursor, counts);
                             }
@@ -263,6 +292,10 @@ public final class ConfluenceCrawler {
                     });
                 }
             }
+            if (stopAt != null && failure.get() == null) {
+                revisit(space, kind, segment, source, changeCursor, counts, seenTree, stopAt,
+                        crawled, executor, failure);
+            }
             executor.shutdown();
             awaitTermination(executor);
         }
@@ -271,25 +304,70 @@ public final class ConfluenceCrawler {
         }
     }
 
+    /**
+     * The incremental security re-read: a metadata-only walk of the
+     * space's pages or blog posts (no {@code body-format}, so no bodies);
+     * every item not crawled in full this run gets its restriction state and
+     * permissions re-read, and every page its non-page tree revisited.
+     */
+    private void revisit(Space space, String kind, String segment, ChangeSource source,
+            String changeCursor, Map<String, Long> counts, Set<String> seenTree, Timestamp stopAt,
+            Set<String> crawled, ExecutorService executor, AtomicReference<Throwable> failure)
+            throws IOException, InterruptedException {
+        Map<String, String> query = new TreeMap<>();
+        query.put("space-id", space.getId());
+        query.put("limit", String.valueOf(config.pageSize()));
+        String url = "/api/v2/" + segment;
+        Map<String, String> params = query;
+        CursorGuard guard = new CursorGuard("GET /" + segment + " (security re-read)");
+        while (url != null && failure.get() == null) {
+            ConfluenceClient.ResultPage resultPage = client.getPage(url, params);
+            url = guard.check(resultPage.nextUrl());
+            params = Map.of();
+            for (JsonNode node : resultPage.body().path("results")) {
+                String id = node.path("id").asText("");
+                if (id.isEmpty() || !crawled.add(id)) {
+                    continue; // already crawled in full this run
+                }
+                executor.submit(() -> {
+                    try {
+                        crawlSecurity(segment, kind, id, source, changeCursor, counts);
+                        if ("page".equals(kind)) {
+                            crawlTreeChildren("pages", id, source, changeCursor, counts, seenTree,
+                                    stopAt);
+                        }
+                    } catch (Throwable t) {
+                        failure.compareAndSet(null, t);
+                    }
+                });
+            }
+        }
+    }
+
     private void crawlPage(JsonNode node, ChangeSource source, String changeCursor,
-            Map<String, Long> counts, Set<String> seenTree) throws IOException, InterruptedException {
+            Map<String, Long> counts, Set<String> seenTree, Timestamp stopAt)
+            throws IOException, InterruptedException {
         Page page = mapper.toPage(node);
-        emit(entity(page.getId()).setPage(page).build(), source, changeCursor);
+        SecurityCompleteness security = crawlSecurity("pages", "page", page.getId(), source,
+                changeCursor, counts);
+        emit(entity(page.getId()).setPage(page).setSecurityCompleteness(security).build(), source,
+                changeCursor);
         count(counts, "page");
         crawlComments("/api/v2/pages/" + page.getId(), source, changeCursor, counts);
         crawlSubEntities("/api/v2/pages/" + page.getId(), source, changeCursor, counts);
-        crawlSecurity("pages", "page", page.getId(), source, changeCursor, counts);
-        crawlTreeChildren("pages", page.getId(), source, changeCursor, counts, seenTree);
+        crawlTreeChildren("pages", page.getId(), source, changeCursor, counts, seenTree, stopAt);
     }
 
     private void crawlBlogPost(JsonNode node, ChangeSource source, String changeCursor,
             Map<String, Long> counts) throws IOException, InterruptedException {
         BlogPost blogPost = mapper.toBlogPost(node);
-        emit(entity(blogPost.getId()).setBlogPost(blogPost).build(), source, changeCursor);
+        SecurityCompleteness security = crawlSecurity("blogposts", "blogpost", blogPost.getId(),
+                source, changeCursor, counts);
+        emit(entity(blogPost.getId()).setBlogPost(blogPost).setSecurityCompleteness(security)
+                .build(), source, changeCursor);
         count(counts, "blogpost");
         crawlComments("/api/v2/blogposts/" + blogPost.getId(), source, changeCursor, counts);
         crawlSubEntities("/api/v2/blogposts/" + blogPost.getId(), source, changeCursor, counts);
-        crawlSecurity("blogposts", "blogpost", blogPost.getId(), source, changeCursor, counts);
     }
 
     /** Footer plus inline comments of one page or blog post. */
@@ -339,13 +417,18 @@ public final class ConfluenceCrawler {
     // SECURITY TRIMMING AND THE NON-PAGE CONTENT TREE
     // ======================================================================
 
-    /** Space permission assignments and role assignments of one space. */
-    private void crawlSpaceSecurity(Space space, ChangeSource source, String changeCursor,
-            Map<String, Long> counts) throws IOException, InterruptedException {
+    /**
+     * Space permission assignments and role assignments of one space.
+     *
+     * @return whether both lists were read in full
+     */
+    private SecurityCompleteness crawlSpaceSecurity(Space space, ChangeSource source,
+            String changeCursor, Map<String, Long> counts) throws IOException, InterruptedException {
         String owner = "space:" + space.getId();
         Map<String, String> limit = Map.of("limit", String.valueOf(config.pageSize()));
-        for (JsonNode node : listAllOptional("/api/v2/spaces/" + space.getId() + "/permissions",
-                limit, "space permissions")) {
+        SecurityRead<List<JsonNode>> permissions = listSecurity(
+                "/api/v2/spaces/" + space.getId() + "/permissions", limit, "space permissions");
+        for (JsonNode node : permissions.value()) {
             SpacePermissionAssignment assignment = mapper.toSpacePermissionAssignment(node);
             String identity = !assignment.getId().isEmpty() ? assignment.getId()
                     : wire(assignment.getPrincipal().getType().name(), "SPACE_PERMISSION_PRINCIPAL_TYPE_")
@@ -357,9 +440,11 @@ public final class ConfluenceCrawler {
                     .setSpacePermissionAssignment(assignment).build(), source, changeCursor);
             count(counts, "space_permission_assignment");
         }
-        // Role-based-access tenants only; classic tenants answer 4xx.
-        for (JsonNode node : listAllOptional("/api/v2/spaces/" + space.getId() + "/role-assignments",
-                limit, "space role assignments")) {
+        // Role-based-access tenants only; classic tenants answer 404 (not served).
+        SecurityRead<List<JsonNode>> roles = listSecurity(
+                "/api/v2/spaces/" + space.getId() + "/role-assignments", limit,
+                "space role assignments");
+        for (JsonNode node : roles.value()) {
             SpaceRoleAssignment assignment = mapper.toSpaceRoleAssignment(node);
             emit(entity(owner + "/role-assignment/" + assignment.getRoleId() + "/"
                     + wire(assignment.getPrincipal().getPrincipalType().name(), "PRINCIPAL_TYPE_")
@@ -367,28 +452,28 @@ public final class ConfluenceCrawler {
                     .setSpaceRoleAssignment(assignment).build(), source, changeCursor);
             count(counts, "space_role_assignment");
         }
+        return completeness(permissions.complete() && roles.complete());
     }
 
     /**
-     * Restriction state and direct permissions of one page, blog post,
-     * whiteboard, database or folder.
+     * Direct permissions and restriction state of one page, blog post,
+     * whiteboard, database or folder. The restriction-state record is
+     * emitted on every call, after the permission entries and even when
+     * its route failed, as the owner's per-run {@link SecurityCompleteness}
+     * marker; a failed read leaves its state UNSPECIFIED.
      *
      * @param segment the v2 route segment ({@code pages}, ...)
      * @param kind the entity-id owner prefix ({@code page}, ...)
+     * @return whether every security read of the owner was complete
      */
-    private void crawlSecurity(String segment, String kind, String id, ChangeSource source,
-            String changeCursor, Map<String, Long> counts) throws IOException, InterruptedException {
+    private SecurityCompleteness crawlSecurity(String segment, String kind, String id,
+            ChangeSource source, String changeCursor, Map<String, Long> counts)
+            throws IOException, InterruptedException {
         String path = "/api/v2/" + segment + "/" + id;
         String owner = kind + ":" + id;
-        JsonNode state = getOptional(path + "/restriction-state", "restriction state");
-        if (state != null) {
-            RestrictionState restriction = mapper.toRestrictionState(state);
-            emit(entity(owner + "/restriction-state").setRestrictionState(restriction).build(),
-                    source, changeCursor);
-            count(counts, "restriction_state");
-        }
-        for (JsonNode node : listAllOptional(path + "/permissions",
-                Map.of("limit", String.valueOf(config.pageSize())), "content permissions")) {
+        SecurityRead<List<JsonNode>> permissions = listSecurity(path + "/permissions",
+                Map.of("limit", String.valueOf(config.pageSize())), "content permissions");
+        for (JsonNode node : permissions.value()) {
             ContentPermission permission = mapper.toContentPermission(node);
             emit(entity(owner + "/permission/"
                     + wire(permission.getOperation().name(), "CONTENT_PERMISSION_OPERATION_") + "/"
@@ -398,16 +483,28 @@ public final class ConfluenceCrawler {
                     .setContentPermission(permission).build(), source, changeCursor);
             count(counts, "content_permission");
         }
+        SecurityRead<JsonNode> state = getSecurity(path + "/restriction-state", "restriction state");
+        RestrictionState restriction = state.value() == null
+                ? RestrictionState.getDefaultInstance() : mapper.toRestrictionState(state.value());
+        SecurityCompleteness completeness = completeness(permissions.complete() && state.complete());
+        emit(entity(owner + "/restriction-state").setRestrictionState(restriction)
+                .setSecurityCompleteness(completeness).build(), source, changeCursor);
+        count(counts, "restriction_state");
+        return completeness;
     }
 
     /**
      * The non-page direct children of a tree node: each whiteboard,
-     * database, folder or Smart Link is read, emitted, given its security
-     * data (and, for databases, its fields and entries), then descended
-     * into. Pages are skipped: the space's page list already crawls them.
+     * database, folder or Smart Link is read, given its security data,
+     * emitted (with its {@link SecurityCompleteness}) and, for databases,
+     * its fields and entries, then descended into. Pages are skipped: the
+     * space's page list already crawls them. When {@code stopAt} is set
+     * (incremental), a node whose version is not newer than it is not
+     * re-emitted and its database data is not re-read, but its security
+     * data is and its children are still visited.
      */
     private void crawlTreeChildren(String segment, String id, ChangeSource source,
-            String changeCursor, Map<String, Long> counts, Set<String> seenTree)
+            String changeCursor, Map<String, Long> counts, Set<String> seenTree, Timestamp stopAt)
             throws IOException, InterruptedException {
         for (JsonNode child : listAllOptional("/api/v2/" + segment + "/" + id + "/direct-children",
                 Map.of("limit", String.valueOf(config.pageSize())), "direct children")) {
@@ -427,23 +524,28 @@ public final class ConfluenceCrawler {
             if (node == null) {
                 continue;
             }
-            ConfluenceEntity.Builder entity = entity(childId);
-            switch (type) {
-                case "whiteboard" -> entity.setWhiteboard(mapper.toWhiteboard(node));
-                case "database" -> entity.setDatabase(mapper.toDatabase(node));
-                case "folder" -> entity.setFolder(mapper.toFolder(node));
-                default -> entity.setSmartLink(mapper.toSmartLink(node));
+            Timestamp modified = ConfluenceMapper.timestamp(
+                    node.path("version").path("createdAt").asText(""));
+            boolean changed = stopAt == null || modified == null || compare(modified, stopAt) > 0;
+            // Smart Links have no restriction or permission routes.
+            SecurityCompleteness security = "embed".equals(type)
+                    ? SecurityCompleteness.SECURITY_COMPLETENESS_UNSPECIFIED
+                    : crawlSecurity(childSegment, type, childId, source, changeCursor, counts);
+            if (changed) {
+                ConfluenceEntity.Builder entity = entity(childId).setSecurityCompleteness(security);
+                switch (type) {
+                    case "whiteboard" -> entity.setWhiteboard(mapper.toWhiteboard(node));
+                    case "database" -> entity.setDatabase(mapper.toDatabase(node));
+                    case "folder" -> entity.setFolder(mapper.toFolder(node));
+                    default -> entity.setSmartLink(mapper.toSmartLink(node));
+                }
+                emit(entity.build(), source, changeCursor);
+                count(counts, "embed".equals(type) ? "smart_link" : type);
+                if ("database".equals(type)) {
+                    crawlDatabaseData(childId, source, changeCursor, counts);
+                }
             }
-            emit(entity.build(), source, changeCursor);
-            count(counts, "embed".equals(type) ? "smart_link" : type);
-            if (!"embed".equals(type)) {
-                // Smart Links have no restriction or permission routes.
-                crawlSecurity(childSegment, type, childId, source, changeCursor, counts);
-            }
-            if ("database".equals(type)) {
-                crawlDatabaseData(childId, source, changeCursor, counts);
-            }
-            crawlTreeChildren(childSegment, childId, source, changeCursor, counts, seenTree);
+            crawlTreeChildren(childSegment, childId, source, changeCursor, counts, seenTree, stopAt);
         }
     }
 
@@ -478,7 +580,78 @@ public final class ConfluenceCrawler {
         return e.status() >= 400 && e.status() < 500 && e.status() != 429;
     }
 
-    /** {@link #listAll}, or empty (logged) when the tenant does not serve the route. */
+    private static SecurityCompleteness completeness(boolean complete) {
+        return complete ? SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE
+                : SecurityCompleteness.SECURITY_COMPLETENESS_UNAVAILABLE;
+    }
+
+    /**
+     * A security read: what was read, and whether it is all of it.
+     *
+     * @param value the entries (or body) read; possibly partial
+     * @param complete false when a 4xx other than 404 cut the read short
+     */
+    private record SecurityRead<T>(T value, boolean complete) {
+    }
+
+    /**
+     * Walks a paged security list. A 404 on the first page means the
+     * tenant does not serve the route: empty and complete. Any other 4xx
+     * (on any page, or a 404 after the first) keeps what was read and
+     * marks it incomplete, logged at WARN; 429 and 5xx still fail the crawl.
+     */
+    private SecurityRead<List<JsonNode>> listSecurity(String path, Map<String, String> query,
+            String what) throws IOException, InterruptedException {
+        List<JsonNode> results = new ArrayList<>();
+        String url = path;
+        Map<String, String> params = query;
+        CursorGuard guard = new CursorGuard(path);
+        boolean first = true;
+        while (url != null) {
+            ConfluenceClient.ResultPage page;
+            try {
+                page = client.getPage(url, params);
+            } catch (ConfluenceClient.ConfluenceApiException e) {
+                if (!unserved(e)) {
+                    throw e;
+                }
+                if (first && e.status() == 404) {
+                    LOG.log(System.Logger.Level.INFO, "{0} not served at {1}: HTTP 404", what, path);
+                    return new SecurityRead<>(results, true);
+                }
+                LOG.log(System.Logger.Level.WARNING,
+                        "{0} at {1} unavailable after {2} entries: HTTP {3}; marking the owner's "
+                                + "security data UNAVAILABLE", what, path, results.size(), e.status());
+                return new SecurityRead<>(results, false);
+            }
+            page.body().path("results").forEach(results::add);
+            url = guard.check(page.nextUrl());
+            params = Map.of();
+            first = false;
+        }
+        return new SecurityRead<>(results, true);
+    }
+
+    /** One security GET: 404 = not served (complete, no value); other 4xx = UNAVAILABLE (WARN). */
+    private SecurityRead<JsonNode> getSecurity(String path, String what)
+            throws IOException, InterruptedException {
+        try {
+            return new SecurityRead<>(client.get(path), true);
+        } catch (ConfluenceClient.ConfluenceApiException e) {
+            if (!unserved(e)) {
+                throw e;
+            }
+            if (e.status() == 404) {
+                LOG.log(System.Logger.Level.INFO, "{0} not served at {1}: HTTP 404", what, path);
+                return new SecurityRead<>(null, true);
+            }
+            LOG.log(System.Logger.Level.WARNING, "{0} at {1} unavailable: HTTP {2}; marking the "
+                    + "owner's security data UNAVAILABLE", what, path, e.status());
+            return new SecurityRead<>(null, false);
+        }
+    }
+
+    /** {@link #listAll}, or empty (logged at WARN) when the tenant does not serve the route. */
     private List<JsonNode> listAllOptional(String path, Map<String, String> query, String what)
             throws IOException, InterruptedException {
         try {
@@ -487,12 +660,13 @@ public final class ConfluenceCrawler {
             if (!unserved(e)) {
                 throw e;
             }
-            LOG.log(System.Logger.Level.INFO, "skipping {0} at {1}: HTTP {2}", what, path, e.status());
+            LOG.log(System.Logger.Level.WARNING, "skipping {0} at {1}: HTTP {2}", what, path,
+                    e.status());
             return List.of();
         }
     }
 
-    /** One GET, or {@code null} (logged) when the tenant does not serve the route. */
+    /** One GET, or {@code null} (logged at WARN) when the tenant does not serve the route. */
     private JsonNode getOptional(String path, String what) throws IOException, InterruptedException {
         try {
             return client.get(path);
@@ -500,7 +674,8 @@ public final class ConfluenceCrawler {
             if (!unserved(e)) {
                 throw e;
             }
-            LOG.log(System.Logger.Level.INFO, "skipping {0} at {1}: HTTP {2}", what, path, e.status());
+            LOG.log(System.Logger.Level.WARNING, "skipping {0} at {1}: HTTP {2}", what, path,
+                    e.status());
             return null;
         }
     }
@@ -522,13 +697,18 @@ public final class ConfluenceCrawler {
     /** Walks a cursor-paginated list endpoint to exhaustion, following _links.next. */
     private List<JsonNode> listAll(String path, Map<String, String> query)
             throws IOException, InterruptedException {
+        return listAll(path, query, new CursorGuard(path));
+    }
+
+    private List<JsonNode> listAll(String path, Map<String, String> query, CursorGuard guard)
+            throws IOException, InterruptedException {
         List<JsonNode> results = new ArrayList<>();
         String url = path;
         Map<String, String> params = query;
         while (url != null) {
             ConfluenceClient.ResultPage page = client.getPage(url, params);
             page.body().path("results").forEach(results::add);
-            url = page.nextUrl();
+            url = guard.check(page.nextUrl());
             params = Map.of();
         }
         return results;

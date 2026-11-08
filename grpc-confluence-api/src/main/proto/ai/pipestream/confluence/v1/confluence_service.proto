@@ -417,6 +417,14 @@ service ConfluenceService {
   // resume cursor for the next pass. Deliberately bounded (the resume-token
   // idiom): a continuously-tailing Watch rpc is a possible additive later,
   // not part of this surface.
+  //
+  // Security-trimming data fails closed: every access-control owner
+  // (space, page, blog post, whiteboard, database, folder) and its
+  // per-run restriction_state record carry
+  // ConfluenceEntity.security_completeness; consumers should deny access
+  // unless it is COMPLETE. The stream is flow-controlled: the server pages
+  // the REST API only as fast as the client reads, and stops paging when
+  // the client cancels.
   rpc Sync(SyncRequest) returns (stream SyncResponse);
 
   // Hit ListSpaces with a catalog connection (or inline credentials) and
@@ -1788,7 +1796,19 @@ message SyncRequest {
   repeated string space_keys = 1;
   // The resume cursor a previous Sync ended with (an RFC3339 timestamp).
   // Empty = full crawl; set = incremental pass emitting only content modified
-  // after the cursor.
+  // after the cursor. Restriction and permission changes do not bump a
+  // content version, so an incremental pass still re-reads the security
+  // data of every in-scope owner. Its cost on top of the changed content:
+  // per space, the space permission and role assignment lists, and one
+  // metadata-only (no body) list walk each of pages and blog posts; per
+  // unchanged page or blog post, GET restriction-state plus the
+  // permissions pages (emitted as permission entries and the owner's
+  // restriction_state marker); per unchanged page, a direct-children walk,
+  // and per whiteboard, database, folder or Smart Link below it one GET
+  // plus its two security reads. Such a node is re-emitted, and a
+  // database's fields and entries re-read, only when its version is newer
+  // than the cursor. Bodies, comments, attachments, labels and properties of
+  // unchanged content are not re-read.
   string since_cursor = 2;
   // When false, page, blog post, and comment bodies are stripped from the
   // streamed changes (metadata-only sync; the crawl still runs the same

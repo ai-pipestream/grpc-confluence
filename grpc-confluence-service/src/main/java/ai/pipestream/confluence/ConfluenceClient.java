@@ -403,6 +403,54 @@ public final class ConfluenceClient {
     }
 
     /**
+     * A list route handed back a next-page URL it had already returned in
+     * the same walk: following it would loop forever.
+     */
+    public static final class RepeatedCursorException extends IOException {
+        /** Serialization identifier. */
+        @java.io.Serial
+        private static final long serialVersionUID = 1L;
+
+        RepeatedCursorException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * One pagination walk's memory of the next-page URLs it followed, so a
+     * service that repeats a cursor fails the walk instead of spinning.
+     * Not thread-safe: one guard per walk.
+     */
+    public static final class CursorGuard {
+        private final String route;
+        private final java.util.Set<String> seen = new java.util.HashSet<>();
+
+        /**
+         * Creates a guard for one walk.
+         *
+         * @param route the route being walked, for the error message
+         */
+        public CursorGuard(String route) {
+            this.route = route;
+        }
+
+        /**
+         * Admits the next-page URL of the page just read.
+         *
+         * @param next the next-page URL, or {@code null} at the last page
+         * @return {@code next}, unchanged
+         * @throws RepeatedCursorException when {@code next} was already followed
+         */
+        public String check(String next) throws RepeatedCursorException {
+            if (next != null && !seen.add(next)) {
+                throw new RepeatedCursorException(route + " repeated the next-page URL " + next
+                        + "; refusing to loop");
+            }
+            return next;
+        }
+    }
+
+    /**
      * A route path that a request id spliced into is not a single literal
      * route: it carries a query, fragment, backslash, whitespace, a dot
      * segment, or an escape of a dot, slash or backslash. Ids reach paths verbatim, so such a value could point

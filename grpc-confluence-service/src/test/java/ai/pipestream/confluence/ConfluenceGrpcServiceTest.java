@@ -282,6 +282,66 @@ class ConfluenceGrpcServiceTest {
     }
 
     @Test
+    void aRepeatedNextLinkIsInternalNotASpin() {
+        fake.stub("/wiki/api/v2/pages", ConfluenceFixtures.pageListJson("same",
+                ConfluenceFixtures.pageJson("200", "100", "One", T2.toString())));
+        fake.stub("/wiki/api/v2/pages?cursor=same", ConfluenceFixtures.pageListJson("same",
+                ConfluenceFixtures.pageJson("201", "100", "Two", T2.toString())));
+
+        assertThatThrownBy(() -> stub.listPages(ListPagesRequest.getDefaultInstance())
+                .forEachRemaining(r -> { }))
+                .isInstanceOfSatisfying(StatusRuntimeException.class, e ->
+                        assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.INTERNAL));
+        assertThat(fake.requestsTo("/wiki/api/v2/pages")).hasSize(2);
+    }
+
+    @Test
+    void streamsWaitForTheClientAndStopPagingWhenItCancels() throws Exception {
+        String[] cursors = {null, "c1", "c2", "c3", "c4", "c5"};
+        for (int i = 0; i < 5; i++) {
+            fake.stub(i == 0 ? "/wiki/api/v2/pages" : "/wiki/api/v2/pages?cursor=" + cursors[i],
+                    ConfluenceFixtures.pageListJson(i == 4 ? null : cursors[i + 1],
+                            ConfluenceFixtures.pageJson("20" + i, "100", "P" + i, T2.toString())));
+        }
+        CountDownLatch first = new CountDownLatch(1);
+        CountDownLatch closed = new CountDownLatch(1);
+        AtomicReference<io.grpc.stub.ClientCallStreamObserver<ListPagesRequest>> call =
+                new AtomicReference<>();
+        ConfluenceServiceGrpc.newStub(channel).listPages(ListPagesRequest.getDefaultInstance(),
+                new io.grpc.stub.ClientResponseObserver<ListPagesRequest, ListPagesResponse>() {
+                    @Override
+                    public void beforeStart(
+                            io.grpc.stub.ClientCallStreamObserver<ListPagesRequest> requestStream) {
+                        call.set(requestStream);
+                        requestStream.disableAutoRequestWithInitial(1);
+                    }
+
+                    @Override
+                    public void onNext(ListPagesResponse value) {
+                        first.countDown();
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        closed.countDown();
+                    }
+
+                    @Override
+                    public void onCompleted() {
+                        closed.countDown();
+                    }
+                });
+        assertThat(first.await(5, TimeUnit.SECONDS)).isTrue();
+        Thread.sleep(300);
+        // One message was asked for: the server read at most the page it is holding back.
+        assertThat(fake.requestsTo("/wiki/api/v2/pages")).hasSizeLessThanOrEqualTo(2);
+        call.get().cancel("done", null);
+        assertThat(closed.await(5, TimeUnit.SECONDS)).isTrue();
+        Thread.sleep(300);
+        assertThat(fake.requestsTo("/wiki/api/v2/pages")).hasSizeLessThanOrEqualTo(2);
+    }
+
+    @Test
     void idsThatWouldRewriteTheRouteAreInvalidArguments() {
         assertInvalid(() -> stub.getPage(GetPageRequest.newBuilder()
                 .setId("200/../../../../rest/api/user/current").build()));
@@ -2072,7 +2132,8 @@ class ConfluenceGrpcServiceTest {
                 .setSinceCursor(T2.toString()).setIncludeBodies(true).build());
 
         List<ConfluenceChange> changes = events.stream()
-                .filter(SyncResponse::hasChange).map(SyncResponse::getChange).toList();
+                .filter(SyncResponse::hasChange).map(SyncResponse::getChange)
+                .filter(c -> c.getEntity().hasPage()).toList();
         assertThat(changes).hasSize(1);
         assertThat(changes.get(0).getEntity().getEntityId()).isEqualTo("203");
         assertThat(changes.get(0).getEntity().getPage().hasBody()).isTrue();

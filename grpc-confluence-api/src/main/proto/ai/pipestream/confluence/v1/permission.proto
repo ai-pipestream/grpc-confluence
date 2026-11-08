@@ -45,6 +45,29 @@ message RestrictionState {
   map<string, string> metadata = 99;
 }
 
+// Whether the security-trimming data Sync read for one access-control owner
+// (a space, page, blog post, whiteboard, database or folder) is the whole
+// of it. Carried on ConfluenceEntity.security_completeness. A consumer that
+// trims by permission should deny access to an owner whose latest marker is
+// anything but COMPLETE: a missing restriction state or permission list
+// then means "unknown", never "unrestricted".
+enum SecurityCompleteness {
+  // Not assessed: the entity is not an access-control owner (comments,
+  // attachments, labels and Smart Links inherit their container's access),
+  // or it was not produced by Sync's security crawl (the read rpcs).
+  SECURITY_COMPLETENESS_UNSPECIFIED = 0;
+  // Every security route of the owner answered and every page of each
+  // paged list was read. A route the tenant does not serve at all (HTTP
+  // 404, for example space role assignments outside role-based access)
+  // counts as answered with no entries.
+  SECURITY_COMPLETENESS_COMPLETE = 1;
+  // At least one security route answered with a 4xx other than 404 (for
+  // example 403 for a restricted page) on its first or any later page, so
+  // the restriction state and/or permission entries emitted for this owner
+  // are missing or partial. Deny by default.
+  SECURITY_COMPLETENESS_UNAVAILABLE = 2;
+}
+
 // The operation a content permission grants.
 enum ContentPermissionOperation {
   // Zero value; the operation is unknown or was not returned.

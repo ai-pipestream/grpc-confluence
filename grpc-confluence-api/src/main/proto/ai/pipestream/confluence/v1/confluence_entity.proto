@@ -38,6 +38,13 @@ message ConfluenceEntity {
   string entity_id = 1;
   // When the crawler ingested this record.
   google.protobuf.Timestamp ingested_at = 2;
+  // Completeness of the security-trimming data Sync read for this entity,
+  // set on access-control owners (space, page, blog post, whiteboard,
+  // database, folder) and on the `restriction_state` record Sync emits for
+  // each owner on every run, which is the per-run marker for owners whose
+  // content did not change. UNSPECIFIED on every other entity and outside
+  // Sync. See SecurityCompleteness: consumers should deny unless COMPLETE.
+  SecurityCompleteness security_completeness = 3;
   // The wrapped entity. Exactly one arm is set; the set arm identifies the
   // entity kind.
   oneof entity {
