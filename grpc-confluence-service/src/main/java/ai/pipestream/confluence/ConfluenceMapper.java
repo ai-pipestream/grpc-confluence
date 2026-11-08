@@ -1477,4 +1477,34 @@ public final class ConfluenceMapper {
         JsonNode value = node.path(field);
         return value.isTextual() ? value.asText() : "";
     }
+
+    // ======================================================================
+    // VERSION HISTORY ENTRIES
+    // ======================================================================
+
+    /**
+     * Maps one {@code /{content-type}/{id}/versions} entry: the version
+     * fields plus its entity snapshot, which the API nests under the
+     * content kind's key ({@code page}, {@code blogpost}, {@code attachment},
+     * {@code comment} or {@code custom}).
+     *
+     * @param node the API object
+     * @return the proto with {@code entity} set when the API sent a snapshot
+     */
+    public Version toVersionEntry(JsonNode node) {
+        Version.Builder b = toVersion(node).toBuilder();
+        for (String key : List.of("page", "blogpost", "attachment", "comment", "custom")) {
+            JsonNode snapshot = node.path(key);
+            if (snapshot.isObject()) {
+                ai.pipestream.confluence.v1.VersionedEntity.Builder entity =
+                        ai.pipestream.confluence.v1.VersionedEntity.newBuilder()
+                                .setId(text(snapshot, "id"))
+                                .setTitle(text(snapshot, "title"));
+                setBody(snapshot, entity::setBody);
+                b.setEntity(entity.build());
+                break;
+            }
+        }
+        return b.build();
+    }
 }

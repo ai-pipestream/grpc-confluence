@@ -30,7 +30,28 @@ final class FakeConfluenceServer implements AutoCloseable {
     }
 
     /** One request the fake received. */
-    record RecordedRequest(String method, String path, String query, String authorization) {
+    record RecordedRequest(String method, String path, String query, String authorization,
+            String body) {
+
+        RecordedRequest(String method, String path, String query, String authorization) {
+            this(method, path, query, authorization, "");
+        }
+
+        /** The query decoded into name/value pairs, in request order. */
+        Map<String, String> params() {
+            Map<String, String> params = new java.util.LinkedHashMap<>();
+            if (query.isEmpty()) {
+                return params;
+            }
+            for (String pair : query.split("&")) {
+                int eq = pair.indexOf('=');
+                String name = eq < 0 ? pair : pair.substring(0, eq);
+                String value = eq < 0 ? "" : pair.substring(eq + 1);
+                params.put(java.net.URLDecoder.decode(name, StandardCharsets.UTF_8),
+                        java.net.URLDecoder.decode(value, StandardCharsets.UTF_8));
+            }
+            return params;
+        }
     }
 
     private final HttpServer server;
@@ -79,6 +100,15 @@ final class FakeConfluenceServer implements AutoCloseable {
         return List.copyOf(requests);
     }
 
+    /** The last request to {@code path}; fails when there was none. */
+    RecordedRequest lastTo(String path) {
+        List<RecordedRequest> matching = requestsTo(path);
+        if (matching.isEmpty()) {
+            throw new AssertionError("no request to " + path + "; saw " + requests);
+        }
+        return matching.getLast();
+    }
+
     List<RecordedRequest> requestsTo(String path) {
         return requests.stream().filter(r -> r.path().equals(path)).toList();
     }
@@ -86,9 +116,13 @@ final class FakeConfluenceServer implements AutoCloseable {
     private void handle(com.sun.net.httpserver.HttpExchange exchange) throws IOException {
         String path = exchange.getRequestURI().getPath();
         String query = exchange.getRequestURI().getRawQuery();
+        String requestBody;
+        try (java.io.InputStream in = exchange.getRequestBody()) {
+            requestBody = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
         requests.add(new RecordedRequest(exchange.getRequestMethod(), path,
                 query == null ? "" : query,
-                exchange.getRequestHeaders().getFirst("authorization")));
+                exchange.getRequestHeaders().getFirst("authorization"), requestBody));
 
         Stub stub = null;
         Queue<Stub> once = onceStubs.get(path);

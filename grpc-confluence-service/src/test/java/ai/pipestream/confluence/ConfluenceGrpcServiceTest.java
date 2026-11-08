@@ -1,5 +1,6 @@
 package ai.pipestream.confluence;
 
+import ai.pipestream.confluence.v1.*;
 import ai.pipestream.confluence.v1.BodyFormat;
 import ai.pipestream.confluence.v1.ConfluenceChange;
 import ai.pipestream.confluence.v1.ConfluenceEntity;
@@ -120,7 +121,7 @@ class ConfluenceGrpcServiceTest {
                         ConfluenceFixtures.spaceJson("101", "DOCS", "Documentation")));
         // The API applies the keys filter server-side; the fake mirrors that
         // with an exact-query stub.
-        fake.stub("/wiki/api/v2/spaces?description-format=view&keys=ENG&limit=100",
+        fake.stub("/wiki/api/v2/spaces?keys=ENG&limit=100",
                 ConfluenceFixtures.spaceListJson(null,
                         ConfluenceFixtures.spaceJson("100", "ENG", "Engineering")));
 
@@ -269,6 +270,251 @@ class ConfluenceGrpcServiceTest {
                 .isEqualTo("<p>Post Release notes</p>");
         assertThat(fake.requestsTo("/wiki/api/v2/blogposts").getFirst().query())
                 .contains("body-format=storage");
+    }
+
+    // ======================================================================
+    // SPACES, PAGES, BLOG POSTS: request fields reach the v2 query
+    // ======================================================================
+
+    private static void assertInvalid(org.assertj.core.api.ThrowableAssert.ThrowingCallable call) {
+        assertThatThrownBy(call).isInstanceOfSatisfying(StatusRuntimeException.class,
+                e -> assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.INVALID_ARGUMENT));
+    }
+
+    @Test
+    void listSpacesForwardsEveryFilter() {
+        fake.stub("/wiki/api/v2/spaces", ConfluenceFixtures.spaceListJson(null,
+                ConfluenceFixtures.spaceJson("100", "ENG", "Engineering")));
+
+        stub.listSpaces(ListSpacesRequest.newBuilder()
+                .addKeys("ENG").addKeys("DOCS").addIds("100").addLabels("team")
+                .setType(SpaceType.SPACE_TYPE_GLOBAL).setStatus(SpaceStatus.SPACE_STATUS_ARCHIVED)
+                .setFavoritedBy("acc-1").setNotFavoritedBy("acc-2")
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_KEY))
+                .setDescriptionFormat(SpaceDescriptionFormat.SPACE_DESCRIPTION_FORMAT_PLAIN)
+                .setIncludeIcon(true)
+                .build());
+
+        java.util.Map<String, String> expected = new java.util.HashMap<>(java.util.Map.of(
+                "keys", "ENG,DOCS", "ids", "100", "labels", "team",
+                "type", "global", "status", "archived", "favorited-by", "acc-1",
+                "not-favorited-by", "acc-2", "sort", "key", "description-format", "plain"));
+        expected.put("include-icon", "true");
+        expected.put("limit", "100");
+        assertThat(fake.lastTo("/wiki/api/v2/spaces").params())
+                .containsExactlyInAnyOrderEntriesOf(expected);
+    }
+
+    @Test
+    void listSpacesRejectsASortTheRouteDoesNotOffer() {
+        assertInvalid(() -> stub.listSpaces(ListSpacesRequest.newBuilder()
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_TITLE)).build()));
+    }
+
+    @Test
+    void getSpaceByIdSendsIncludesAndMapsExpansions() {
+        String space = ConfluenceFixtures.spaceJson("100", "ENG", "Engineering");
+        fake.stub("/wiki/api/v2/spaces/100", "{\"labels\":{\"results\":[{\"id\":\"l1\","
+                + "\"name\":\"team\",\"prefix\":\"global\"}]},"
+                + "\"permissions\":{\"results\":[{\"id\":\"sp-1\",\"principal\":{\"type\":\"user\","
+                + "\"id\":\"acc-9\"},\"operation\":{\"key\":\"read\",\"targetType\":\"space\"}}]},"
+                + space.substring(space.indexOf('{') + 1));
+
+        GetSpaceResponse response = stub.getSpace(GetSpaceRequest.newBuilder().setId("100")
+                .setDescriptionFormat(SpaceDescriptionFormat.SPACE_DESCRIPTION_FORMAT_VIEW)
+                .setInclude(SpaceIncludes.newBuilder().setIcon(true).setOperations(true)
+                        .setProperties(true).setPermissions(true).setRoleAssignments(true)
+                        .setLabels(true))
+                .build());
+
+        assertThat(response.getSpace().getKey()).isEqualTo("ENG");
+        assertThat(response.getSpace().getLabelsList()).extracting(l -> l.getName())
+                .containsExactly("team");
+        assertThat(response.getSpace().getPermissionsList()).singleElement().satisfies(p -> {
+            assertThat(p.getPrincipal().getId()).isEqualTo("acc-9");
+            assertThat(p.getOperation().getKey())
+                    .isEqualTo(SpacePermissionOperationKey.SPACE_PERMISSION_OPERATION_KEY_READ);
+        });
+        assertThat(fake.lastTo("/wiki/api/v2/spaces/100").params()).containsExactlyInAnyOrderEntriesOf(
+                java.util.Map.of("description-format", "view", "include-icon", "true",
+                        "include-operations", "true", "include-properties", "true",
+                        "include-permissions", "true", "include-role-assignments", "true",
+                        "include-labels", "true"));
+    }
+
+    @Test
+    void getSpaceByKeyResolvesTheIdFirst() {
+        fake.stub("/wiki/api/v2/spaces?keys=ENG&limit=1", ConfluenceFixtures.spaceListJson(null,
+                ConfluenceFixtures.spaceJson("100", "ENG", "Engineering")));
+        fake.stub("/wiki/api/v2/spaces/100", ConfluenceFixtures.spaceJson("100", "ENG", "Engineering"));
+
+        GetSpaceResponse response = stub.getSpace(GetSpaceRequest.newBuilder().setKey("ENG").build());
+
+        assertThat(response.getSpace().getId()).isEqualTo("100");
+        assertThat(fake.lastTo("/wiki/api/v2/spaces/100").query()).isEmpty();
+    }
+
+    @Test
+    void getSpaceByUnknownKeyIsNotFound() {
+        fake.stub("/wiki/api/v2/spaces", ConfluenceFixtures.emptyListJson());
+        assertThatThrownBy(() -> stub.getSpace(GetSpaceRequest.newBuilder().setKey("NOPE").build()))
+                .isInstanceOfSatisfying(StatusRuntimeException.class,
+                        e -> assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.NOT_FOUND));
+    }
+
+    @Test
+    void getPageForwardsVersionDraftStatusesAndEveryInclude() {
+        String page = ConfluenceFixtures.pageJson("200", "100", "Design Doc", T2.toString());
+        fake.stub("/wiki/api/v2/pages/200", "{\"labels\":{\"results\":[{\"id\":\"l1\","
+                + "\"name\":\"design\",\"prefix\":\"global\"}]},\"likes\":{\"results\":"
+                + "[{\"accountId\":\"acc-7\"}]},\"isFavoritedByCurrentUser\":true,"
+                + "\"directChildren\":{\"results\":[{\"id\":\"w1\",\"type\":\"whiteboard\","
+                + "\"title\":\"Board\",\"status\":\"current\"}]},"
+                + page.substring(page.indexOf('{') + 1));
+
+        GetPageResponse response = stub.getPage(GetPageRequest.newBuilder().setId("200")
+                .setBodyFormat(BodyFormat.BODY_FORMAT_EXPORT_XHTML)
+                .setVersion(3).setGetDraft(true)
+                .addStatuses(ContentStatus.CONTENT_STATUS_CURRENT)
+                .addStatuses(ContentStatus.CONTENT_STATUS_HISTORICAL)
+                .setInclude(ContentIncludes.newBuilder().setLabels(true).setProperties(true)
+                        .setOperations(true).setLikes(true).setVersions(true)
+                        .setFavoritedByCurrentUser(true).setDirectChildren(true)
+                        .setCollaborators(true).setWebResources(true))
+                .build());
+
+        Page result = response.getPage();
+        assertThat(result.getLabelsList()).extracting(l -> l.getName()).containsExactly("design");
+        assertThat(result.getLikesList()).extracting(l -> l.getAccountId()).containsExactly("acc-7");
+        assertThat(result.getIsFavoritedByCurrentUser()).isTrue();
+        assertThat(result.getDirectChildrenList()).extracting(c -> c.getType())
+                .containsExactly("whiteboard");
+        java.util.Map<String, String> expected = new java.util.HashMap<>(java.util.Map.of(
+                "body-format", "export_view", "version", "3", "get-draft", "true",
+                "status", "current,historical", "include-labels", "true",
+                "include-properties", "true", "include-operations", "true",
+                "include-likes", "true", "include-versions", "true"));
+        expected.putAll(java.util.Map.of("include-favorited-by-current-user-status", "true",
+                "include-direct-children", "true", "include-collaborators", "true",
+                "include-webresources", "true"));
+        assertThat(fake.lastTo("/wiki/api/v2/pages/200").params())
+                .containsExactlyInAnyOrderEntriesOf(expected);
+    }
+
+    @Test
+    void getPageRejectsAStatusTheRouteDoesNotAccept() {
+        assertInvalid(() -> stub.getPage(GetPageRequest.newBuilder().setId("200")
+                .addStatuses(ContentStatus.CONTENT_STATUS_ANY).build()));
+        assertInvalid(() -> stub.getPage(GetPageRequest.newBuilder().setId("200")
+                .setBodyFormat(BodyFormat.BODY_FORMAT_WIKI).build()));
+    }
+
+    @Test
+    void getBlogPostForwardsVersionDraftStatusesAndOfferedIncludesOnly() {
+        fake.stub("/wiki/api/v2/blogposts/300",
+                ConfluenceFixtures.blogPostJson("300", "100", "Release notes", T1.toString()));
+
+        stub.getBlogPost(GetBlogPostRequest.newBuilder().setId("300")
+                .setBodyFormat(BodyFormat.BODY_FORMAT_ATLAS_DOC_FORMAT)
+                .setVersion(2).setGetDraft(true)
+                .addStatuses(BlogPostContentStatus.BLOG_POST_CONTENT_STATUS_DRAFT)
+                .setInclude(ContentIncludes.newBuilder().setLikes(true).setDirectChildren(true))
+                .build());
+
+        // include-direct-children is a page-only flag: ignored for blog posts.
+        assertThat(fake.lastTo("/wiki/api/v2/blogposts/300").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("body-format", "atlas_doc_format",
+                        "version", "2", "get-draft", "true", "status", "draft",
+                        "include-likes", "true"));
+    }
+
+    @Test
+    void listPagesForwardsEveryWorkspaceFilter() {
+        fake.stub("/wiki/api/v2/pages", ConfluenceFixtures.pageListJson(null,
+                ConfluenceFixtures.pageJson("200", "100", "Design Doc", T2.toString())));
+
+        List<ListPagesResponse> pages = new ArrayList<>();
+        stub.listPages(ListPagesRequest.newBuilder()
+                .addSpaceIds("100").addSpaceIds("101").addIds("200").addIds("201")
+                .addStatuses(ContentStatus.CONTENT_STATUS_CURRENT)
+                .addStatuses(ContentStatus.CONTENT_STATUS_ARCHIVED)
+                .setTitle("Design Doc").setSubtype(PageSubtype.PAGE_SUBTYPE_LIVE)
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_CREATED_DATE)
+                        .setDescending(true))
+                .setBodyFormat(BodyFormat.BODY_FORMAT_ATLAS_DOC_FORMAT)
+                .build()).forEachRemaining(pages::add);
+
+        assertThat(pages).extracting(p -> p.getPage().getId()).containsExactly("200");
+        assertThat(fake.lastTo("/wiki/api/v2/pages").params()).containsExactlyInAnyOrderEntriesOf(
+                java.util.Map.of("limit", "100", "space-id", "100,101", "id", "200,201",
+                        "status", "current,archived", "title", "Design Doc", "subtype", "live",
+                        "sort", "-created-date", "body-format", "atlas_doc_format"));
+    }
+
+    @Test
+    void listPagesRootOnlyRoutesThroughTheSpace() {
+        fake.stub("/wiki/api/v2/spaces/100/pages", ConfluenceFixtures.pageListJson(null,
+                ConfluenceFixtures.pageJsonMetadataOnly("200", "100", "Home", T1.toString())));
+
+        List<ListPagesResponse> pages = new ArrayList<>();
+        stub.listPages(ListPagesRequest.newBuilder().setSpaceId("100").setRootOnly(true)
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_TITLE)).build())
+                .forEachRemaining(pages::add);
+
+        assertThat(pages).hasSize(1);
+        assertThat(fake.lastTo("/wiki/api/v2/spaces/100/pages").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("limit", "100",
+                        "depth", "root", "sort", "title"));
+        assertInvalid(() -> stub.listPages(ListPagesRequest.newBuilder().setRootOnly(true).build())
+                .hasNext());
+    }
+
+    @Test
+    void listPagesByLabelRoutesThroughTheLabel() {
+        fake.stub("/wiki/api/v2/labels/l1/pages", ConfluenceFixtures.pageListJson(null,
+                ConfluenceFixtures.pageJsonMetadataOnly("200", "100", "Home", T1.toString())));
+
+        List<ListPagesResponse> pages = new ArrayList<>();
+        stub.listPages(ListPagesRequest.newBuilder().setLabelId("l1").setSpaceId("100")
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_ID)).build())
+                .forEachRemaining(pages::add);
+
+        assertThat(pages).hasSize(1);
+        assertThat(fake.lastTo("/wiki/api/v2/labels/l1/pages").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("limit", "100",
+                        "space-id", "100", "sort", "id"));
+        // The label route has no title filter: rejected, not silently dropped.
+        assertInvalid(() -> stub.listPages(ListPagesRequest.newBuilder().setLabelId("l1")
+                .setTitle("x").build()).hasNext());
+        // List routes only offer storage and atlas_doc_format bodies.
+        assertInvalid(() -> stub.listPages(ListPagesRequest.newBuilder()
+                .setBodyFormat(BodyFormat.BODY_FORMAT_RENDERED_XHTML).build()).hasNext());
+    }
+
+    @Test
+    void listBlogPostsForwardsFiltersAndRoutesLabels() {
+        fake.stub("/wiki/api/v2/blogposts", ConfluenceFixtures.blogPostListJson(null,
+                ConfluenceFixtures.blogPostJson("300", "100", "Release notes", T1.toString())));
+        fake.stub("/wiki/api/v2/labels/l1/blogposts", ConfluenceFixtures.blogPostListJson(null,
+                ConfluenceFixtures.blogPostJson("300", "100", "Release notes", T1.toString())));
+
+        stub.listBlogPosts(ListBlogPostsRequest.newBuilder().addIds("300").addSpaceIds("100")
+                .addStatuses(BlogPostContentStatus.BLOG_POST_CONTENT_STATUS_TRASHED)
+                .setTitle("Release notes")
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_MODIFIED_DATE))
+                .build()).forEachRemaining(r -> { });
+        assertThat(fake.lastTo("/wiki/api/v2/blogposts").params()).containsExactlyInAnyOrderEntriesOf(
+                java.util.Map.of("limit", "100", "id", "300", "space-id", "100",
+                        "status", "trashed", "title", "Release notes", "sort", "modified-date"));
+
+        List<ListBlogPostsResponse> labelled = new ArrayList<>();
+        stub.listBlogPosts(ListBlogPostsRequest.newBuilder().setLabelId("l1").build())
+                .forEachRemaining(labelled::add);
+        assertThat(labelled).extracting(r -> r.getBlogPost().getId()).containsExactly("300");
+        // Blog posts are not sortable by title.
+        assertInvalid(() -> stub.listBlogPosts(ListBlogPostsRequest.newBuilder()
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_TITLE)).build())
+                .hasNext());
     }
 
     // ======================================================================

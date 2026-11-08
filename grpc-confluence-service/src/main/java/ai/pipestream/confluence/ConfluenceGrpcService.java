@@ -1,41 +1,11 @@
 package ai.pipestream.confluence;
 
-import ai.pipestream.confluence.v1.Attachment;
-import ai.pipestream.confluence.v1.BodyFormat;
-import ai.pipestream.confluence.v1.ConfluenceChange;
-import ai.pipestream.confluence.v1.ConfluenceEntity;
-import ai.pipestream.confluence.v1.ConfluenceServiceGrpc;
-import ai.pipestream.confluence.v1.ContentIncludes;
-import ai.pipestream.confluence.v1.ConfluenceSnapshot;
-import ai.pipestream.confluence.v1.GetAttachmentRequest;
-import ai.pipestream.confluence.v1.GetAttachmentResponse;
-import ai.pipestream.confluence.v1.ListAttachmentsRequest;
-import ai.pipestream.confluence.v1.ListAttachmentsResponse;
-import ai.pipestream.confluence.v1.GetBlogPostRequest;
-import ai.pipestream.confluence.v1.GetBlogPostResponse;
-import ai.pipestream.confluence.v1.GetPageRequest;
-import ai.pipestream.confluence.v1.GetPageResponse;
-import ai.pipestream.confluence.v1.ListBlogPostsRequest;
-import ai.pipestream.confluence.v1.ListBlogPostsResponse;
-import ai.pipestream.confluence.v1.ListPagesRequest;
-import ai.pipestream.confluence.v1.ListPagesResponse;
-import ai.pipestream.confluence.v1.ListSpacesRequest;
-import ai.pipestream.confluence.v1.ListSpacesResponse;
-import ai.pipestream.confluence.v1.ProbeConnectionRequest;
-import ai.pipestream.confluence.v1.ProbeConnectionResponse;
-import ai.pipestream.confluence.v1.SortField;
-import ai.pipestream.confluence.v1.Space;
-import ai.pipestream.confluence.v1.SpaceDescriptionFormat;
-import ai.pipestream.confluence.v1.SpaceStatus;
-import ai.pipestream.confluence.v1.SpaceType;
-import ai.pipestream.confluence.v1.StreamSpacesRequest;
-import ai.pipestream.confluence.v1.StreamSpacesResponse;
-import ai.pipestream.confluence.v1.SyncRequest;
-import ai.pipestream.confluence.v1.SyncResponse;
+import ai.pipestream.confluence.ConfluenceRoutes.Query;
+import ai.pipestream.confluence.v1.*;
 import ai.pipestream.sync.v1.Connection;
 import ai.pipestream.sync.v1.ConnectionKind;
-import ai.pipestream.sync.v1.ConnectionServiceGrpc;
 import ai.pipestream.sync.v1.ConnectionOutput;
+import ai.pipestream.sync.v1.ConnectionServiceGrpc;
 import ai.pipestream.sync.v1.GetConnectionRequest;
 import ai.pipestream.sync.v1.GetSettingsRequest;
 import ai.pipestream.sync.v1.RecordProbeRequest;
@@ -51,16 +21,29 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
+
+import static ai.pipestream.confluence.ConfluenceRoutes.invalid;
+import static ai.pipestream.confluence.ConfluenceRoutes.requireId;
+import static ai.pipestream.confluence.ConfluenceRoutes.values;
 
 /**
  * The {@code ConfluenceService} gRPC facade: one thin method per rpc,
  * delegating to the crawler core. Every handler is plain blocking code; the
  * server runs handlers on virtual threads (see {@link ConfluenceServer}),
  * so REST round-trips park instead of pinning a carrier.
+ *
+ * <p>Each rpc maps to the Confluence Cloud REST v2 route named on it in
+ * {@code confluence_service.proto}. Request filters, sorts, statuses and
+ * body formats reach the API with their exact v2 query names and enum wire
+ * values; a value the chosen route does not accept is answered with
+ * {@code INVALID_ARGUMENT} instead of being dropped. {@code include-*}
+ * expansions the route does not offer are ignored, as
+ * {@code ContentIncludes} documents.</p>
  *
  * <p>Outgoing domain messages are checked by {@link ConfluenceValidator}
  * before they leave the process: the same identity, numeric-floor, and
@@ -71,12 +54,48 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     /** Default cap for inlined attachment bytes: 25 MiB. */
     public static final long DEFAULT_ATTACHMENT_MAX_BYTES = 25L * 1024 * 1024;
 
+    /**
+     * The server implementation's default size of one {@code DownloadAttachment}
+     * data message when the request leaves {@code chunk_bytes} at 0: 1 MiB.
+     * This is gRPC framing chosen by this server, not a contract constant;
+     * override it with the constructor that takes {@code downloadChunkBytes}.
+     */
+    public static final int DEFAULT_DOWNLOAD_CHUNK_BYTES = 1024 * 1024;
+
+    /** {@code POST /users-bulk} accepts at most this many account ids per call. */
+    static final int USERS_BULK_MAX_IDS = 250;
+    /** {@code POST /content/convert-ids-to-types} accepts at most this many ids per call. */
+    static final int CONVERT_IDS_MAX_IDS = 100;
+    /** The largest {@code limit} any v2 list route accepts. */
+    static final int MAX_LIMIT = 250;
+
     private static final ConfluenceValidator VALIDATOR = ConfluenceValidator.create();
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON =
+            new com.fasterxml.jackson.databind.ObjectMapper();
+
+    private static final Set<String> PAGE_INCLUDES = Set.of("include-labels",
+            "include-properties", "include-operations", "include-likes", "include-versions",
+            "include-favorited-by-current-user-status", "include-webresources",
+            "include-collaborators", "include-direct-children");
+    private static final Set<String> BLOG_POST_INCLUDES = Set.of("include-labels",
+            "include-properties", "include-operations", "include-likes", "include-versions",
+            "include-favorited-by-current-user-status", "include-webresources",
+            "include-collaborators");
+    /** {@code GET /attachments/{id}} and {@code GET /custom-content/{id}}. */
+    private static final Set<String> ATTACHMENT_INCLUDES = Set.of("include-labels",
+            "include-properties", "include-operations", "include-versions",
+            "include-collaborators");
+    private static final Set<String> COMMENT_INCLUDES = Set.of("include-properties",
+            "include-operations", "include-likes", "include-versions");
+    /** Whiteboards, databases, folders and Smart Links. */
+    private static final Set<String> TREE_INCLUDES = Set.of("include-collaborators",
+            "include-direct-children", "include-operations", "include-properties");
 
     private final ConfluenceConnectorConfig config;
     private final ConfluenceClient client;
     private final ConfluenceMapper mapper;
     private final long attachmentMaxBytes;
+    private final int downloadChunkBytes;
     private final ChangeSink downstream;
     private final ConnectionServiceGrpc.ConnectionServiceBlockingStub connections;
     private final SyncTableChangeSink ledgerSink;
@@ -126,6 +145,30 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
             long attachmentMaxBytes, ChangeSink downstream,
             ConnectionServiceGrpc.ConnectionServiceBlockingStub connections,
             SyncTableChangeSink ledgerSink) {
+        this(config, client, attachmentMaxBytes, downstream, connections, ledgerSink,
+                DEFAULT_DOWNLOAD_CHUNK_BYTES);
+    }
+
+    /**
+     * Creates a service with an explicit {@code DownloadAttachment} chunk
+     * default (the size of one data message when the request sets
+     * {@code chunk_bytes = 0}).
+     *
+     * @param config process-default connector config; {@code null} when only
+     *        catalog connections are used
+     * @param client process-default REST client; {@code null} when {@code config} is
+     * @param attachmentMaxBytes inline attachment byte cap; must be positive
+     * @param downstream optional extra sink for {@code Sync}
+     * @param connections generated {@code ConnectionService} stub; {@code null}
+     *        when the catalog is not configured
+     * @param ledgerSink optional ledger sink so {@code Sync} can stamp
+     *        {@code connection_id}; {@code null} if the ledger is not wired
+     * @param downloadChunkBytes server default bytes per download message; must be positive
+     */
+    public ConfluenceGrpcService(ConfluenceConnectorConfig config, ConfluenceClient client,
+            long attachmentMaxBytes, ChangeSink downstream,
+            ConnectionServiceGrpc.ConnectionServiceBlockingStub connections,
+            SyncTableChangeSink ledgerSink, int downloadChunkBytes) {
         if (config == null && connections == null) {
             throw new IllegalArgumentException("config or ConnectionService stub is required");
         }
@@ -135,73 +178,53 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
         if (attachmentMaxBytes <= 0) {
             throw new IllegalArgumentException("attachmentMaxBytes must be positive");
         }
+        if (downloadChunkBytes <= 0) {
+            throw new IllegalArgumentException("downloadChunkBytes must be positive");
+        }
         this.attachmentMaxBytes = attachmentMaxBytes;
+        this.downloadChunkBytes = downloadChunkBytes;
         this.downstream = downstream;
         this.connections = connections;
         this.ledgerSink = ledgerSink;
     }
 
+    // ======================================================================
+    // SPACES
+    // ======================================================================
+
     @Override
     public void listSpaces(ListSpacesRequest request,
             StreamObserver<ListSpacesResponse> observer) {
-        try {
+        handle(observer, () -> {
             Session session = session(request.getConnectionId());
-            Map<String, String> query = new TreeMap<>();
-            query.put("limit", String.valueOf(session.config.pageSize()));
-            query.put("description-format", "view");
-            if (!request.getKeysList().isEmpty()) {
-                query.put("keys", String.join(",", request.getKeysList()));
-            }
+            Query query = spacesQuery(session, request.getKeysList(), request.getIdsList(),
+                    request.getType(), request.getStatus(), request.getLabelsList(),
+                    request.getFavoritedBy(), request.getNotFavoritedBy(), request.getSort(),
+                    request.getDescriptionFormat(), request.getIncludeIcon());
             int cap = request.getLimit();
             List<Space> spaces = new ArrayList<>();
-            walk(session, "/api/v2/spaces", query, node -> {
+            walk(session, "/api/v2/spaces", query.map(), node -> {
                 if (cap <= 0 || spaces.size() < cap) {
                     spaces.add(requireValid(session.mapper.toSpace(node)));
                 }
             }, cap > 0 ? () -> spaces.size() >= cap : () -> false);
             observer.onNext(ListSpacesResponse.newBuilder().addAllSpaces(spaces).build());
             observer.onCompleted();
-        } catch (Throwable t) {
-            fail(observer, t);
-        }
+        });
     }
 
     @Override
     public void streamSpaces(StreamSpacesRequest request,
             StreamObserver<StreamSpacesResponse> observer) {
-        try {
+        handle(observer, () -> {
             Session session = session(request.getConnectionId());
-            Map<String, String> query = new TreeMap<>();
-            query.put("limit", String.valueOf(session.config.pageSize()));
-            query.put("description-format",
-                    request.getDescriptionFormat() == SpaceDescriptionFormat.SPACE_DESCRIPTION_FORMAT_PLAIN
-                            ? "plain" : "view");
-            putList(query, "keys", request.getKeysList());
-            putList(query, "ids", request.getIdsList());
-            putList(query, "labels", request.getLabelsList());
-            if (request.getType() != SpaceType.SPACE_TYPE_UNSPECIFIED) {
-                query.put("type", apiValue(request.getType(), "SPACE_TYPE_"));
-            }
-            if (request.getStatus() != SpaceStatus.SPACE_STATUS_UNSPECIFIED) {
-                query.put("status", apiValue(request.getStatus(), "SPACE_STATUS_"));
-            }
-            if (!request.getFavoritedBy().isBlank()) {
-                query.put("favorited-by", request.getFavoritedBy());
-            }
-            if (!request.getNotFavoritedBy().isBlank()) {
-                query.put("not-favorited-by", request.getNotFavoritedBy());
-            }
-            if (request.hasSort()
-                    && request.getSort().getField() != SortField.SORT_FIELD_UNSPECIFIED) {
-                String field = apiValue(request.getSort().getField(), "SORT_FIELD_");
-                query.put("sort", (request.getSort().getDescending() ? "-" : "") + field);
-            }
-            if (request.getIncludeIcon()) {
-                query.put("include-icon", "true");
-            }
+            Query query = spacesQuery(session, request.getKeysList(), request.getIdsList(),
+                    request.getType(), request.getStatus(), request.getLabelsList(),
+                    request.getFavoritedBy(), request.getNotFavoritedBy(), request.getSort(),
+                    request.getDescriptionFormat(), request.getIncludeIcon());
             int cap = request.getLimit();
             int[] sent = {0};
-            walk(session, "/api/v2/spaces", query, node -> {
+            walk(session, "/api/v2/spaces", query.map(), node -> {
                 if (cap <= 0 || sent[0] < cap) {
                     observer.onNext(StreamSpacesResponse.newBuilder()
                             .setSpace(requireValid(session.mapper.toSpace(node))).build());
@@ -209,100 +232,226 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
                 }
             }, cap > 0 ? () -> sent[0] >= cap : () -> false);
             observer.onCompleted();
-        } catch (Throwable t) {
-            fail(observer, t);
-        }
+        });
     }
 
-    /**
-     * Query for a single page or blog post read: the body format plus the
-     * expansions the mapper understands. The other ContentIncludes flags are
-     * not wired yet.
-     */
-    private static Map<String, String> contentQuery(BodyFormat format, ContentIncludes include) {
-        Map<String, String> query = new TreeMap<>();
-        query.put("body-format", bodyFormatOrStorage(format));
-        if (include.getCollaborators()) {
-            query.put("include-collaborators", "true");
+    /** {@code GET /spaces} query shared by ListSpaces and StreamSpaces. */
+    private static Query spacesQuery(Session session, List<String> keys, List<String> ids,
+            SpaceType type, SpaceStatus status, List<String> labels, String favoritedBy,
+            String notFavoritedBy, SortOrder sort, SpaceDescriptionFormat descriptionFormat,
+            boolean includeIcon) {
+        Query query = new Query()
+                .put("limit", String.valueOf(session.config.pageSize()))
+                .list("keys", keys)
+                .list("ids", ids)
+                .list("labels", labels)
+                .put("favorited-by", favoritedBy)
+                .put("not-favorited-by", notFavoritedBy)
+                .put("sort", ConfluenceRoutes.sort(sort, ConfluenceRoutes.SPACE_SORT, "GET /spaces"))
+                .put("description-format", descriptionFormat(descriptionFormat))
+                .flag("include-icon", includeIcon);
+        if (type != SpaceType.SPACE_TYPE_UNSPECIFIED) {
+            query.put("type", apiValue(type, "SPACE_TYPE_"));
         }
-        if (include.getWebResources()) {
-            query.put("include-webresources", "true");
+        if (status != SpaceStatus.SPACE_STATUS_UNSPECIFIED) {
+            query.put("status", apiValue(status, "SPACE_STATUS_"));
         }
         return query;
     }
 
-    private static void putList(Map<String, String> query, String name, List<String> values) {
-        if (!values.isEmpty()) {
-            query.put(name, String.join(",", values));
-        }
-    }
-
-    /** The v2 query value of a proto enum: its name without the prefix, lower-cased. */
-    private static String apiValue(ProtocolMessageEnum value, String prefix) {
-        String name = value.getValueDescriptor().getName();
-        if (!name.startsWith(prefix)) {
-            throw new IllegalArgumentException("enum " + name + " lacks prefix " + prefix);
-        }
-        return name.substring(prefix.length()).toLowerCase(Locale.ROOT);
+    private static String descriptionFormat(SpaceDescriptionFormat format) {
+        return switch (format) {
+            case SPACE_DESCRIPTION_FORMAT_PLAIN -> "plain";
+            case SPACE_DESCRIPTION_FORMAT_VIEW -> "view";
+            case SPACE_DESCRIPTION_FORMAT_UNSPECIFIED -> null;
+            case UNRECOGNIZED -> throw invalid("unknown description format");
+        };
     }
 
     @Override
-    public void getPage(GetPageRequest request, StreamObserver<GetPageResponse> observer) {
-        try {
+    public void getSpace(GetSpaceRequest request, StreamObserver<GetSpaceResponse> observer) {
+        handle(observer, () -> {
             Session session = session(request.getConnectionId());
-            JsonNode node = session.client.get("/api/v2/pages/" + request.getId(),
-                    contentQuery(request.getBodyFormat(), request.getInclude()));
-            observer.onNext(GetPageResponse.newBuilder()
+            String id = request.getId();
+            if (id.isBlank()) {
+                String key = requireId(request.getKey(), "id or key");
+                JsonNode found = session.client.get("/api/v2/spaces",
+                        new Query().put("keys", key).put("limit", "1").map())
+                        .path("results").path(0);
+                if (!found.isObject() || found.path("id").asText("").isEmpty()) {
+                    throw Status.NOT_FOUND.withDescription("no space with key " + key)
+                            .asRuntimeException();
+                }
+                id = found.path("id").asText();
+            }
+            SpaceIncludes include = request.getInclude();
+            Query query = new Query()
+                    .put("description-format", descriptionFormat(request.getDescriptionFormat()))
+                    .flag("include-icon", include.getIcon())
+                    .flag("include-operations", include.getOperations())
+                    .flag("include-properties", include.getProperties())
+                    .flag("include-permissions", include.getPermissions())
+                    .flag("include-role-assignments", include.getRoleAssignments())
+                    .flag("include-labels", include.getLabels());
+            JsonNode node = session.client.get("/api/v2/spaces/" + id, query.map());
+            reply(observer, GetSpaceResponse.newBuilder()
+                    .setSpace(requireValid(session.mapper.toSpace(node))).build());
+        });
+    }
+
+    // ======================================================================
+    // PAGES AND BLOG POSTS
+    // ======================================================================
+
+    /** Statuses {@code GET /pages/{id}} accepts. */
+    private static final Set<String> PAGE_SINGLE_STATUSES =
+            values("current", "archived", "trashed", "deleted", "historical", "draft");
+    /** Statuses {@code GET /pages} and {@code GET /spaces/{id}/pages} accept. */
+    private static final Set<String> PAGE_LIST_STATUSES =
+            values("current", "archived", "deleted", "trashed");
+    /** Statuses {@code GET /blogposts/{id}} accepts. */
+    private static final Set<String> BLOG_POST_SINGLE_STATUSES =
+            values("current", "trashed", "deleted", "historical", "draft");
+    /** Statuses {@code GET /blogposts} accepts. */
+    private static final Set<String> BLOG_POST_LIST_STATUSES =
+            values("current", "deleted", "trashed");
+
+    @Override
+    public void getPage(GetPageRequest request, StreamObserver<GetPageResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            String route = "GET /pages/{id}";
+            Query query = singleBodyQuery(request.getBodyFormat(), ConfluenceRoutes.SINGLE_BODY, route)
+                    .flag("get-draft", request.getGetDraft())
+                    .put("status", ConfluenceRoutes.contentStatuses(request.getStatusesList(),
+                            PAGE_SINGLE_STATUSES, route));
+            if (request.hasVersion()) {
+                query.put("version", String.valueOf(request.getVersion()));
+            }
+            includes(query, request.getInclude(), PAGE_INCLUDES);
+            JsonNode node = session.client.get("/api/v2/pages/" + requireId(request.getId(), "id"),
+                    query.map());
+            reply(observer, GetPageResponse.newBuilder()
                     .setPage(requireValid(session.mapper.toPage(node))).build());
-            observer.onCompleted();
-        } catch (Throwable t) {
-            fail(observer, t);
-        }
+        });
     }
 
     @Override
     public void getBlogPost(GetBlogPostRequest request,
             StreamObserver<GetBlogPostResponse> observer) {
-        try {
+        handle(observer, () -> {
             Session session = session(request.getConnectionId());
-            JsonNode node = session.client.get("/api/v2/blogposts/" + request.getId(),
-                    contentQuery(request.getBodyFormat(), request.getInclude()));
-            observer.onNext(GetBlogPostResponse.newBuilder()
+            String route = "GET /blogposts/{id}";
+            Query query = singleBodyQuery(request.getBodyFormat(), ConfluenceRoutes.SINGLE_BODY, route)
+                    .flag("get-draft", request.getGetDraft())
+                    .put("status", ConfluenceRoutes.blogPostStatuses(request.getStatusesList(),
+                            BLOG_POST_SINGLE_STATUSES, route));
+            if (request.hasVersion()) {
+                query.put("version", String.valueOf(request.getVersion()));
+            }
+            includes(query, request.getInclude(), BLOG_POST_INCLUDES);
+            JsonNode node = session.client.get(
+                    "/api/v2/blogposts/" + requireId(request.getId(), "id"), query.map());
+            reply(observer, GetBlogPostResponse.newBuilder()
                     .setBlogPost(requireValid(session.mapper.toBlogPost(node))).build());
-            observer.onCompleted();
-        } catch (Throwable t) {
-            fail(observer, t);
-        }
+        });
     }
 
     @Override
     public void listPages(ListPagesRequest request, StreamObserver<ListPagesResponse> observer) {
-        try {
+        handle(observer, () -> {
             Session session = session(request.getConnectionId());
-            walk(session, "/api/v2/pages",
-                    contentQuery(session, request.getSpaceId(), request.getBodyFormat()),
-                    node -> observer.onNext(ListPagesResponse.newBuilder()
-                            .setPage(requireValid(session.mapper.toPage(node))).build()));
+            List<String> spaceIds = spaceIds(request.getSpaceId(), request.getSpaceIdsList());
+            Query query = limit(session);
+            String path;
+            String route;
+            if (!request.getLabelId().isBlank()) {
+                route = "GET /labels/{id}/pages";
+                path = "/api/v2/labels/" + request.getLabelId() + "/pages";
+                reject(!request.getIdsList().isEmpty(), "ids", route);
+                reject(!request.getStatusesList().isEmpty(), "statuses", route);
+                reject(!request.getTitle().isEmpty(), "title", route);
+                reject(request.getSubtype() != PageSubtype.PAGE_SUBTYPE_UNSPECIFIED, "subtype", route);
+                reject(request.getRootOnly(), "root_only", route);
+                query.list("space-id", spaceIds);
+            } else if (request.getRootOnly()) {
+                route = "GET /spaces/{id}/pages";
+                path = "/api/v2/spaces/" + requireId(request.getSpaceId(), "space_id (root_only)")
+                        + "/pages";
+                reject(!request.getIdsList().isEmpty(), "ids", route);
+                reject(!request.getSpaceIdsList().isEmpty(), "space_ids", route);
+                reject(request.getSubtype() != PageSubtype.PAGE_SUBTYPE_UNSPECIFIED, "subtype", route);
+                query.put("depth", "root")
+                        .put("status", ConfluenceRoutes.contentStatuses(request.getStatusesList(),
+                                PAGE_LIST_STATUSES, route))
+                        .put("title", request.getTitle());
+            } else {
+                route = "GET /pages";
+                path = "/api/v2/pages";
+                query.list("id", request.getIdsList())
+                        .list("space-id", spaceIds)
+                        .put("status", ConfluenceRoutes.contentStatuses(request.getStatusesList(),
+                                PAGE_LIST_STATUSES, route))
+                        .put("title", request.getTitle());
+                if (request.getSubtype() != PageSubtype.PAGE_SUBTYPE_UNSPECIFIED) {
+                    query.put("subtype", apiValue(request.getSubtype(), "PAGE_SUBTYPE_"));
+                }
+            }
+            query.put("sort", ConfluenceRoutes.sort(request.getSort(), ConfluenceRoutes.PAGE_SORT, route));
+            listBodyFormat(query, request.getBodyFormat(), ConfluenceRoutes.PRIMARY_BODY, route);
+            walk(session, path, query.map(), node -> observer.onNext(ListPagesResponse.newBuilder()
+                    .setPage(requireValid(session.mapper.toPage(node))).build()));
             observer.onCompleted();
-        } catch (Throwable t) {
-            fail(observer, t);
-        }
+        });
     }
 
     @Override
     public void listBlogPosts(ListBlogPostsRequest request,
             StreamObserver<ListBlogPostsResponse> observer) {
-        try {
+        handle(observer, () -> {
             Session session = session(request.getConnectionId());
-            walk(session, "/api/v2/blogposts",
-                    contentQuery(session, request.getSpaceId(), request.getBodyFormat()),
-                    node -> observer.onNext(ListBlogPostsResponse.newBuilder()
+            List<String> spaceIds = spaceIds(request.getSpaceId(), request.getSpaceIdsList());
+            Query query = limit(session).list("space-id", spaceIds);
+            String path;
+            String route;
+            if (!request.getLabelId().isBlank()) {
+                route = "GET /labels/{id}/blogposts";
+                path = "/api/v2/labels/" + request.getLabelId() + "/blogposts";
+                reject(!request.getIdsList().isEmpty(), "ids", route);
+                reject(!request.getStatusesList().isEmpty(), "statuses", route);
+                reject(!request.getTitle().isEmpty(), "title", route);
+            } else {
+                route = "GET /blogposts";
+                path = "/api/v2/blogposts";
+                query.list("id", request.getIdsList())
+                        .put("status", ConfluenceRoutes.blogPostStatuses(request.getStatusesList(),
+                                BLOG_POST_LIST_STATUSES, route))
+                        .put("title", request.getTitle());
+            }
+            query.put("sort", ConfluenceRoutes.sort(request.getSort(),
+                    ConfluenceRoutes.BLOG_POST_SORT, route));
+            listBodyFormat(query, request.getBodyFormat(), ConfluenceRoutes.PRIMARY_BODY, route);
+            walk(session, path, query.map(), node -> observer.onNext(
+                    ListBlogPostsResponse.newBuilder()
                             .setBlogPost(requireValid(session.mapper.toBlogPost(node))).build()));
             observer.onCompleted();
-        } catch (Throwable t) {
-            fail(observer, t);
-        }
+        });
     }
+
+    /** {@code space_id} or {@code space_ids}; both set is ambiguous. */
+    private static List<String> spaceIds(String spaceId, List<String> spaceIds) {
+        if (spaceId.isBlank()) {
+            return spaceIds;
+        }
+        if (!spaceIds.isEmpty()) {
+            throw invalid("set space_id or space_ids, not both");
+        }
+        return List.of(spaceId);
+    }
+
+    // ======================================================================
+    // ATTACHMENTS
+    // ======================================================================
 
     @Override
     public void getAttachment(GetAttachmentRequest request,
@@ -344,6 +493,10 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
             fail(observer, t);
         }
     }
+
+    // ======================================================================
+    // SYNC AND PROBE
+    // ======================================================================
 
     @Override
     public void sync(SyncRequest request, StreamObserver<SyncResponse> observer) {
@@ -532,16 +685,93 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
         return attachment.toBuilder().setContent(ByteString.copyFrom(bytes)).build();
     }
 
-    private Map<String, String> contentQuery(Session session, String spaceId, BodyFormat bodyFormat) {
-        Map<String, String> query = new TreeMap<>();
-        query.put("limit", String.valueOf(session.config.pageSize()));
-        if (!spaceId.isBlank()) {
-            query.put("space-id", spaceId);
+
+    // ======================================================================
+    // REQUEST PLUMBING
+    // ======================================================================
+
+    /** One rpc body: blocking, may throw anything {@link #fail} maps. */
+    @FunctionalInterface
+    private interface Handler {
+        void run() throws Exception;
+    }
+
+    /** Runs an rpc body, mapping any failure onto the observer. */
+    private static void handle(StreamObserver<?> observer, Handler body) {
+        try {
+            body.run();
+        } catch (Throwable t) {
+            fail(observer, t);
         }
-        if (bodyFormat != BodyFormat.BODY_FORMAT_UNSPECIFIED) {
-            query.put("body-format", representation(bodyFormat));
+    }
+
+    /** Sends the single message of a unary rpc and completes it. */
+    private static <T> void reply(StreamObserver<T> observer, T message) {
+        observer.onNext(message);
+        observer.onCompleted();
+    }
+
+    /** Walks a list route, streaming each mapped result, then completes the stream. */
+    private <T> void stream(Session session, String path, Query query, StreamObserver<T> observer,
+            Function<JsonNode, T> map) throws IOException, InterruptedException {
+        walk(session, path, query.map(), node -> observer.onNext(map.apply(node)));
+        observer.onCompleted();
+    }
+
+    /** A query carrying the connection's list page size. */
+    private static Query limit(Session session) {
+        return new Query().put("limit", String.valueOf(session.config.pageSize()));
+    }
+
+    /** INVALID_ARGUMENT when a request field is set that the chosen route does not accept. */
+    private static void reject(boolean set, String field, String route) {
+        if (set) {
+            throw invalid(field + " is not accepted by " + route);
         }
-        return query;
+    }
+
+    /** A single-entity read's body format: UNSPECIFIED = storage, per the request docs. */
+    private static Query singleBodyQuery(BodyFormat format, Set<BodyFormat> accepted, String route) {
+        BodyFormat effective = format == BodyFormat.BODY_FORMAT_UNSPECIFIED
+                ? BodyFormat.BODY_FORMAT_STORAGE_XHTML : format;
+        return new Query().put("body-format", ConfluenceRoutes.bodyFormat(effective, accepted, route));
+    }
+
+    /** A list's body format: UNSPECIFIED = metadata-only, so nothing is sent. */
+    private static void listBodyFormat(Query query, BodyFormat format, Set<BodyFormat> accepted,
+            String route) {
+        if (format != BodyFormat.BODY_FORMAT_UNSPECIFIED) {
+            query.put("body-format", ConfluenceRoutes.bodyFormat(format, accepted, route));
+        }
+    }
+
+    /** The {@code include-*} flags of {@code include} that the route offers. */
+    private static void includes(Query query, ContentIncludes include, Set<String> offered) {
+        include(query, offered, "include-labels", include.getLabels());
+        include(query, offered, "include-properties", include.getProperties());
+        include(query, offered, "include-operations", include.getOperations());
+        include(query, offered, "include-likes", include.getLikes());
+        include(query, offered, "include-versions", include.getVersions());
+        include(query, offered, "include-favorited-by-current-user-status",
+                include.getFavoritedByCurrentUser());
+        include(query, offered, "include-direct-children", include.getDirectChildren());
+        include(query, offered, "include-collaborators", include.getCollaborators());
+        include(query, offered, "include-webresources", include.getWebResources());
+    }
+
+    private static void include(Query query, Set<String> offered, String flag, boolean set) {
+        if (set && offered.contains(flag)) {
+            query.put(flag, "true");
+        }
+    }
+
+    /** The v2 query value of a proto enum: its name without the prefix, lower-cased. */
+    private static String apiValue(ProtocolMessageEnum value, String prefix) {
+        String name = value.getValueDescriptor().getName();
+        if (!name.startsWith(prefix)) {
+            throw invalid("enum " + name + " lacks prefix " + prefix);
+        }
+        return name.substring(prefix.length()).toLowerCase(Locale.ROOT);
     }
 
     private void walk(Session session, String path, Map<String, String> query,
@@ -622,28 +852,6 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
 
     private record Session(String connectionId, ConfluenceConnectorConfig config,
             ConfluenceClient client, ConfluenceMapper mapper, ConnectionOutput output) {
-    }
-
-    private static String bodyFormatOrStorage(BodyFormat format) {
-        return format == BodyFormat.BODY_FORMAT_UNSPECIFIED ? "storage" : representation(format);
-    }
-
-    private static String representation(BodyFormat format) {
-        return switch (format) {
-            case BODY_FORMAT_STORAGE_XHTML -> "storage";
-            case BODY_FORMAT_ATLAS_DOC_FORMAT -> "atlas_doc_format";
-            case BODY_FORMAT_RENDERED_XHTML -> "view";
-            case BODY_FORMAT_EXPORT_XHTML -> "export_view";
-            case BODY_FORMAT_ANONYMOUS_EXPORT_XHTML -> "anonymous_export_view";
-            case BODY_FORMAT_STYLED_XHTML -> "styled_view";
-            case BODY_FORMAT_EDITOR -> "editor";
-            case BODY_FORMAT_WIKI -> "wiki";
-            case BODY_FORMAT_RAW -> "raw";
-            case BODY_FORMAT_PLAIN_TEXT -> "plain";
-            default -> throw Status.INVALID_ARGUMENT
-                    .withDescription("unsupported body format: " + format)
-                    .asRuntimeException();
-        };
     }
 
     private static ConfluenceChange stripBodies(ConfluenceChange change) {
