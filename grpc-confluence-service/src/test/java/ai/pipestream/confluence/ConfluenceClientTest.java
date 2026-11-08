@@ -166,4 +166,45 @@ class ConfluenceClientTest {
                 .isInstanceOf(java.io.IOException.class)
                 .hasMessageContaining("redirects");
     }
+
+    @Test
+    void credentialOnlyGoesToTheExactTenantOrigin() {
+        ConfluenceClient tenant = new ConfluenceClient("https://acme.atlassian.net/wiki",
+                "bot@pipestream.ai", "token-123", Duration.ZERO);
+
+        assertThat(tenant.onOrigin("https://acme.atlassian.net/wiki/download/a1")).isTrue();
+        assertThat(tenant.onOrigin("https://ACME.atlassian.net:443/wiki/x")).isTrue();
+        // A string-prefix test accepted all of these.
+        assertThat(tenant.onOrigin("https://acme.atlassian.net.example.com/x")).isFalse();
+        assertThat(tenant.onOrigin("https://acme.atlassian.net@example.com/x")).isFalse();
+        assertThat(tenant.onOrigin("https://acme.atlassian.net:8443/x")).isFalse();
+        assertThat(tenant.onOrigin("http://acme.atlassian.net/x")).isFalse();
+        assertThat(tenant.onOrigin("https://api.media.atlassian.com/file/f1")).isFalse();
+    }
+
+    @Test
+    void refusesToSendTheCredentialToAnOffOriginPageLink() {
+        fake.stub("/wiki/api/v2/pages", """
+                {"results": [], "_links": {"next": "https://example.com/wiki/api/v2/pages?cursor=x"}}
+                """);
+
+        assertThatThrownBy(() -> {
+            ConfluenceClient.ResultPage page = client.getPage("/api/v2/pages", Map.of());
+            client.getPage(page.nextUrl(), Map.of());
+        }).isInstanceOf(java.io.IOException.class).hasMessageContaining("refusing");
+    }
+
+    @Test
+    void refusesRoutePathsThatAnIdCouldHaveRedirected() {
+        for (String path : List.of("/api/v2/pages/1/../../../rest/api/user",
+                "/api/v2/pages/1?status=draft", "/api/v2/pages/1#x", "/api/v2/pages/1%2F..", "/api/v2/pages/%2e%2e", "/api/v2/pages/1%zz",
+                "/api/v2/pages/1\\..", "/api/v2/pages/1 2", "/api/v2/pages/./1")) {
+            assertThatThrownBy(() -> client.get(path))
+                    .as(path)
+                    .isInstanceOf(ConfluenceClient.UnsafePathException.class);
+        }
+        assertThat(fake.requests()).isEmpty();
+        // A route that percent-encodes a free-form key still works.
+        ConfluenceClient.requireSafePath("/api/v2/app/properties/my%20key%3Av1");
+    }
 }

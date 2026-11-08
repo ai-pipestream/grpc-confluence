@@ -282,6 +282,15 @@ class ConfluenceGrpcServiceTest {
     }
 
     @Test
+    void idsThatWouldRewriteTheRouteAreInvalidArguments() {
+        assertInvalid(() -> stub.getPage(GetPageRequest.newBuilder()
+                .setId("200/../../../../rest/api/user/current").build()));
+        assertInvalid(() -> stub.getPage(GetPageRequest.newBuilder()
+                .setId("200?get-draft=true").build()));
+        assertThat(fake.requests()).isEmpty();
+    }
+
+    @Test
     void listSpacesForwardsEveryFilter() {
         fake.stub("/wiki/api/v2/spaces", ConfluenceFixtures.spaceListJson(null,
                 ConfluenceFixtures.spaceJson("100", "ENG", "Engineering")));

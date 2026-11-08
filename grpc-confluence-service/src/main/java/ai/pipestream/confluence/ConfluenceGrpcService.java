@@ -2381,6 +2381,8 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
                 case 429 -> Status.RESOURCE_EXHAUSTED;
                 default -> Status.INTERNAL;
             }).withDescription(e.getMessage());
+        } else if (t instanceof ConfluenceClient.UnsafePathException e) {
+            status = Status.INVALID_ARGUMENT.withDescription(e.getMessage());
         } else if (t instanceof InterruptedException e) {
             Thread.currentThread().interrupt();
             status = Status.CANCELLED.withDescription("interrupted: " + e.getMessage());

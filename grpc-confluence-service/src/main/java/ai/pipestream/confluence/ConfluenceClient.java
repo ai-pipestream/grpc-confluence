@@ -217,7 +217,7 @@ public final class ConfluenceClient {
             HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
                     .timeout(Duration.ofSeconds(60))
                     .header("accept", "*/*");
-            if (url.startsWith(origin)) {
+            if (onOrigin(url)) {
                 builder.header("authorization", authHeader);
             }
             HttpResponse<byte[]> response = send(builder.GET().build(),
@@ -315,7 +315,7 @@ public final class ConfluenceClient {
             HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
                     .timeout(Duration.ofSeconds(60))
                     .header("accept", "*/*");
-            if (url.startsWith(origin)) {
+            if (onOrigin(url)) {
                 builder.header("authorization", authHeader);
             }
             HttpResponse<InputStream> response = send(builder.GET().build(),
@@ -378,7 +378,13 @@ public final class ConfluenceClient {
     }
 
     private String url(String pathOrUrl, Map<String, String> query) {
-        String url = pathOrUrl.startsWith("http") ? pathOrUrl : baseUrl + pathOrUrl;
+        String url;
+        if (pathOrUrl.startsWith("http")) {
+            url = pathOrUrl;
+        } else {
+            requireSafePath(pathOrUrl);
+            url = baseUrl + pathOrUrl;
+        }
         if (query == null || query.isEmpty()) {
             return url;
         }
@@ -394,6 +400,82 @@ public final class ConfluenceClient {
             first = false;
         }
         return sb.toString();
+    }
+
+    /**
+     * A route path that a request id spliced into is not a single literal
+     * route: it carries a query, fragment, backslash, whitespace, a dot
+     * segment, or an escape of a dot, slash or backslash. Ids reach paths verbatim, so such a value could point
+     * the tenant credential at a different route than the rpc names.
+     */
+    public static final class UnsafePathException extends IllegalArgumentException {
+        /** Serialization identifier. */
+        @java.io.Serial
+        private static final long serialVersionUID = 1L;
+
+        UnsafePathException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * Refuses a relative route path that is not one literal route (see
+     * {@link UnsafePathException}). Percent-escapes are allowed (a route may
+     * encode a free-form key) except those of {@code .}, {@code /} and
+     * {@code \}, which a server may decode back into a dot segment or a
+     * path separator.
+     */
+    static void requireSafePath(String path) {
+        for (int i = 0; i < path.length(); i++) {
+            char c = path.charAt(i);
+            if (c == '%') {
+                String escape = i + 2 < path.length() ? path.substring(i + 1, i + 3) : "";
+                if (escape.length() != 2 || Character.digit(escape.charAt(0), 16) < 0
+                        || Character.digit(escape.charAt(1), 16) < 0
+                        || escape.equalsIgnoreCase("2e") || escape.equalsIgnoreCase("2f")
+                        || escape.equalsIgnoreCase("5c")) {
+                    throw new UnsafePathException("an id in the route carries the escape %"
+                            + escape + ", which could change the route");
+                }
+                continue;
+            }
+            if (c == '?' || c == '#' || c == '\\' || c <= ' ' || c == 0x7f) {
+                throw new UnsafePathException("an id in the route contains '" + c
+                        + "', which a Confluence id never does");
+            }
+        }
+        for (String segment : Strings.split(path, '/')) {
+            if (segment.equals(".") || segment.equals("..")) {
+                throw new UnsafePathException("an id in the route is a dot segment");
+            }
+        }
+    }
+
+    /**
+     * Whether {@code url} is on the tenant origin: same scheme, host and
+     * port, no user-info. A string-prefix test is not enough - it accepts
+     * {@code https://tenant.atlassian.net.example.com} and
+     * {@code https://tenant.atlassian.net@example.com}.
+     */
+    boolean onOrigin(String url) {
+        URI target;
+        try {
+            target = new URI(url);
+        } catch (java.net.URISyntaxException e) {
+            return false;
+        }
+        URI base = URI.create(origin);
+        return target.isAbsolute() && target.getRawUserInfo() == null && target.getHost() != null
+                && base.getScheme().equalsIgnoreCase(target.getScheme())
+                && base.getHost().equalsIgnoreCase(target.getHost())
+                && port(base) == port(target);
+    }
+
+    private static int port(URI uri) {
+        if (uri.getPort() >= 0) {
+            return uri.getPort();
+        }
+        return "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
     }
 
     /**
@@ -413,7 +495,11 @@ public final class ConfluenceClient {
         return baseUrl + path;
     }
 
-    private HttpRequest.Builder request(String url) {
+    private HttpRequest.Builder request(String url) throws IOException {
+        if (!onOrigin(url)) {
+            throw new IOException("refusing to send the Confluence credential to a URL outside "
+                    + origin);
+        }
         return HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofSeconds(60))
                 .header("authorization", authHeader)
