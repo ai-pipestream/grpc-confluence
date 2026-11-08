@@ -1522,6 +1522,183 @@ class ConfluenceGrpcServiceTest {
     }
 
     // ======================================================================
+    // ROUTE COVERAGE: space custom content, attachment comment versions,
+    // per-prefix label fan-out, thumbnails, database views, users-bulk links
+    // ======================================================================
+
+    @Test
+    void listCustomContentOfASpaceRoutesThroughTheSpace() {
+        fake.stub("/wiki/api/v2/spaces/100/custom-content",
+                ConfluenceFixtures.listJson(null, "", CUSTOM_JSON));
+
+        List<CustomContent> items = new ArrayList<>();
+        stub.listCustomContent(ListCustomContentRequest.newBuilder().setType("ac:app:thing")
+                .setSpaceId("100").setBodyFormat(BodyFormat.BODY_FORMAT_STORAGE_XHTML).build())
+                .forEachRemaining(r -> items.add(r.getCustomContent()));
+
+        assertThat(items).extracting(CustomContent::getId).containsExactly("cc1");
+        assertThat(fake.lastTo("/wiki/api/v2/spaces/100/custom-content").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("limit", "100",
+                        "type", "ac:app:thing", "body-format", "storage"));
+        assertThat(fake.requestsTo("/wiki/api/v2/custom-content")).isEmpty();
+
+        // The space route takes no sort and no workspace filters, and the
+        // space and content containers are mutually exclusive.
+        assertInvalid(() -> stub.listCustomContent(ListCustomContentRequest.newBuilder()
+                .setType("ac:app:thing").setSpaceId("100")
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_TITLE)).build()).hasNext());
+        assertInvalid(() -> stub.listCustomContent(ListCustomContentRequest.newBuilder()
+                .setType("ac:app:thing").setSpaceId("100").addSpaceIds("101").build()).hasNext());
+        assertInvalid(() -> stub.listCustomContent(ListCustomContentRequest.newBuilder()
+                .setType("ac:app:thing").setSpaceId("100")
+                .setContainer(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_PAGE)
+                        .setId("200")).build()).hasNext());
+        assertThat(fake.requestsTo("/wiki/api/v2/spaces/100/custom-content")).hasSize(1);
+    }
+
+    @Test
+    void listCommentsOfAnAttachmentForwardsTheVersion() {
+        fake.stub("/wiki/api/v2/attachments/a1/footer-comments", ConfluenceFixtures.listJson(null, "",
+                ConfluenceFixtures.footerCommentJson("c5", "200")));
+
+        assertThat(comments(ListCommentsRequest.newBuilder()
+                .setContainer(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_ATTACHMENT)
+                        .setId("a1"))
+                .setVersion(3).build())).extracting(Comment::getId).containsExactly("c5");
+        assertThat(fake.lastTo("/wiki/api/v2/attachments/a1/footer-comments").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("limit", "100", "version", "3"));
+
+        // Only the attachment route takes a version.
+        assertInvalid(() -> comments(ListCommentsRequest.newBuilder()
+                .setContainer(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_PAGE)
+                        .setId("200"))
+                .setVersion(3).build()));
+        assertInvalid(() -> comments(ListCommentsRequest.newBuilder().setVersion(3).build()));
+        assertInvalid(() -> comments(ListCommentsRequest.newBuilder().setParentCommentId("c1")
+                .setVersion(3).build()));
+    }
+
+    @Test
+    void listLabelsFansOutOnePrefixPerCallOnScopedRoutes() {
+        fake.stub("/wiki/api/v2/spaces/100/labels?limit=100&prefix=team",
+                ConfluenceFixtures.listJson(null, "", ConfluenceFixtures.labelJson("l2", "roadmap")));
+        fake.stub("/wiki/api/v2/spaces/100/labels?limit=100&prefix=my",
+                ConfluenceFixtures.listJson(null, "", ConfluenceFixtures.labelJson("l1", "mine")));
+
+        List<Label> labels = new ArrayList<>();
+        stub.listLabels(ListLabelsRequest.newBuilder().setSpaceId("100")
+                .addPrefixes(LabelPrefix.LABEL_PREFIX_TEAM).addPrefixes(LabelPrefix.LABEL_PREFIX_MY)
+                .addPrefixes(LabelPrefix.LABEL_PREFIX_TEAM) // duplicates collapse
+                .build()).forEachRemaining(r -> labels.add(r.getLabel()));
+
+        assertThat(labels).extracting(Label::getName).containsExactly("roadmap", "mine");
+        assertThat(fake.requestsTo("/wiki/api/v2/spaces/100/labels"))
+                .extracting(r -> r.params().get("prefix")).containsExactly("team", "my");
+    }
+
+    @Test
+    void downloadAttachmentThumbnailFollowsTheRedirectAndStreamsChunks() {
+        fake.stub("/wiki/api/v2/attachments/a1/thumbnail/download", new FakeConfluenceServer.Stub(302, "",
+                java.util.Map.of("Location", "/media/thumbs/a1.png")));
+        fake.stub("/media/thumbs/a1.png", "thumb-bytes");
+
+        List<DownloadAttachmentThumbnailResponse> parts = new ArrayList<>();
+        stub.downloadAttachmentThumbnail(DownloadAttachmentThumbnailRequest.newBuilder()
+                .setId("a1").setVersion(2).setWidth(64).setHeight(48).setChunkBytes(5).build())
+                .forEachRemaining(parts::add);
+
+        assertThat(parts.get(0).getPartCase())
+                .isEqualTo(DownloadAttachmentThumbnailResponse.PartCase.THUMBNAIL);
+        assertThat(parts.get(0).getThumbnail().getAttachmentId()).isEqualTo("a1");
+        assertThat(parts.get(0).getThumbnail().getSizeBytes()).isEqualTo(11);
+        assertThat(parts.get(0).getThumbnail().getMediaType()).isNotEmpty();
+        assertThat(parts.subList(1, parts.size()))
+                .extracting(p -> p.getData().toString(StandardCharsets.UTF_8))
+                .containsExactly("thumb", "-byte", "s");
+        assertThat(fake.lastTo("/wiki/api/v2/attachments/a1/thumbnail/download").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("version", "2", "width", "64",
+                        "height", "48"));
+
+        // Without a chunk size the configured default applies: one chunk here.
+        parts.clear();
+        stub.downloadAttachmentThumbnail(DownloadAttachmentThumbnailRequest.newBuilder().setId("a1")
+                .build()).forEachRemaining(parts::add);
+        assertThat(parts).hasSize(2);
+        assertThat(parts.get(1).getData().toString(StandardCharsets.UTF_8)).isEqualTo("thumb-bytes");
+        assertThat(fake.lastTo("/wiki/api/v2/attachments/a1/thumbnail/download").params()).isEmpty();
+    }
+
+    @Test
+    void downloadAttachmentThumbnailAboveMaxBytesFailsBeforeAnyMessage() {
+        fake.stub("/wiki/api/v2/attachments/a1/thumbnail/download", new FakeConfluenceServer.Stub(302, "",
+                java.util.Map.of("Location", "/media/thumbs/a1.png")));
+        fake.stub("/media/thumbs/a1.png", "thumb-bytes");
+
+        List<DownloadAttachmentThumbnailResponse> received = new ArrayList<>();
+        assertThatThrownBy(() -> stub.downloadAttachmentThumbnail(DownloadAttachmentThumbnailRequest
+                .newBuilder().setId("a1").setMaxBytes(10).build()).forEachRemaining(received::add))
+                .isInstanceOfSatisfying(StatusRuntimeException.class, e -> assertThat(
+                        e.getStatus().getCode()).isEqualTo(Status.Code.FAILED_PRECONDITION));
+        assertThat(received).isEmpty();
+
+        // At the declared size it goes through; negative sizes are rejected.
+        List<DownloadAttachmentThumbnailResponse> parts = new ArrayList<>();
+        stub.downloadAttachmentThumbnail(DownloadAttachmentThumbnailRequest.newBuilder().setId("a1")
+                .setMaxBytes(11).build()).forEachRemaining(parts::add);
+        assertThat(parts).hasSize(2);
+        assertInvalid(() -> stub.downloadAttachmentThumbnail(DownloadAttachmentThumbnailRequest
+                .newBuilder().setId("a1").setWidth(-1).build()).hasNext());
+    }
+
+    @Test
+    void downloadAttachmentThumbnailOfAnUnknownAttachmentIsNotFound() {
+        assertThatThrownBy(() -> stub.downloadAttachmentThumbnail(DownloadAttachmentThumbnailRequest
+                .newBuilder().setId("missing").build()).hasNext())
+                .isInstanceOfSatisfying(StatusRuntimeException.class, e -> assertThat(
+                        e.getStatus().getCode()).isEqualTo(Status.Code.NOT_FOUND));
+    }
+
+    @Test
+    void listDatabaseViewsStreamsTypedViews() {
+        fake.stub("/wiki/api/v2/databases/d1/views", ConfluenceFixtures.listJson(null, "",
+                "{\"id\":\"v1\",\"name\":\"All rows\",\"type\":\"table\"}",
+                "{\"id\":\"v2\",\"name\":\"Board\",\"type\":\"board\"}"));
+
+        List<DatabaseView> views = new ArrayList<>();
+        stub.listDatabaseViews(ListDatabaseViewsRequest.newBuilder().setDatabaseId("d1").build())
+                .forEachRemaining(r -> views.add(r.getView()));
+
+        assertThat(views).extracting(DatabaseView::getId, DatabaseView::getName, DatabaseView::getType)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("v1", "All rows",
+                                DatabaseViewType.DATABASE_VIEW_TYPE_TABLE),
+                        org.assertj.core.groups.Tuple.tuple("v2", "Board",
+                                DatabaseViewType.DATABASE_VIEW_TYPE_BOARD));
+        assertThat(fake.lastTo("/wiki/api/v2/databases/d1/views").params())
+                .containsExactlyEntriesOf(java.util.Map.of("limit", "100"));
+        assertInvalid(() -> stub.listDatabaseViews(ListDatabaseViewsRequest.getDefaultInstance())
+                .hasNext());
+    }
+
+    @Test
+    void batchGetUsersRefusesAnUndefinedNextLink() {
+        fake.stub("/wiki/api/v2/users-bulk", "{\"results\":[{\"accountId\":\"acc-1\",\"accountType\":\"atlassian\",\"accountStatus\":\"active\",\"displayName\":\"Ada\",\"publicName\":\"ada\"}],"
+                + "\"_links\":{\"base\":\"https://x.atlassian.net/wiki\","
+                + "\"next\":\"/wiki/api/v2/users-bulk?cursor=abc\"}}");
+
+        assertThatThrownBy(() -> stub.batchGetUsers(BatchGetUsersRequest.newBuilder()
+                .addAccountIds("acc-1").build()))
+                .isInstanceOfSatisfying(StatusRuntimeException.class, e -> assertThat(
+                        e.getStatus().getCode()).isEqualTo(Status.Code.INTERNAL));
+
+        // `_links.base` alone (the documented shape) is fine.
+        fake.stub("/wiki/api/v2/users-bulk", "{\"results\":[{\"accountId\":\"acc-1\",\"accountType\":\"atlassian\",\"accountStatus\":\"active\",\"displayName\":\"Ada\",\"publicName\":\"ada\"}],"
+                + "\"_links\":{\"base\":\"https://x.atlassian.net/wiki\"}}");
+        assertThat(stub.batchGetUsers(BatchGetUsersRequest.newBuilder().addAccountIds("acc-1")
+                .build()).getUsersList()).extracting(User::getAccountId).containsExactly("acc-1");
+    }
+
+    // ======================================================================
     // SYNC
     // ======================================================================
 

@@ -124,6 +124,14 @@ service ConfluenceService {
   // followed server-side).
   rpc DownloadAttachment(DownloadAttachmentRequest) returns (stream DownloadAttachmentResponse);
 
+  // The rendered thumbnail of one attachment as a stream: a descriptor
+  // first (media type and, when the media host declares it, the size), then
+  // the bytes in chunks. Same framing and ceiling rules as
+  // DownloadAttachment: no fixed size cap, the caller may set one.
+  // v2: GET /attachments/{id}/thumbnail/download (302 to the media CDN,
+  // followed server-side).
+  rpc DownloadAttachmentThumbnail(DownloadAttachmentThumbnailRequest) returns (stream DownloadAttachmentThumbnailResponse);
+
   // ------------------------------------------------------------ comments --
 
   // Footer and/or inline comments of a page, blog post, attachment or custom
@@ -201,6 +209,13 @@ service ConfluenceService {
   // v2: GET /databases/{id}/entries/{entryId}.
   rpc GetDatabaseEntry(GetDatabaseEntryRequest) returns (GetDatabaseEntryResponse);
 
+  // The views defined on a database (id, name and layout type only; the
+  // API does not expose view configuration), as a stream. Upstream marks
+  // this experimental. Entry reads are not view-scoped upstream, so a view
+  // is descriptive metadata, not a filter for ListDatabaseEntries.
+  // v2: GET /databases/{id}/views.
+  rpc ListDatabaseViews(ListDatabaseViewsRequest) returns (stream ListDatabaseViewsResponse);
+
   // -------------------------------------------------------------- labels --
 
   // Labels of the workspace, of a space, of a space's content, or of one
@@ -229,7 +244,12 @@ service ConfluenceService {
   // --------------------------------------------------------------- users --
 
   // User profiles for a set of account ids (the only v2 user lookup). The
-  // server chunks the request to the API's per-call maximum.
+  // server chunks the request to the API's per-call maximum (250 ids, the
+  // request body's maxItems). The route declares no cursor or limit, so a
+  // response is complete for its chunk; its `_links` schema is the shared
+  // MultiEntityLinks, whose `next` is never followed here (a relative GET
+  // URL cannot continue a POST). Should the API ever send one, the rpc
+  // fails with INTERNAL rather than return a silently partial result.
   // v2: POST /users-bulk (a read; the body is just the id list).
   rpc BatchGetUsers(BatchGetUsersRequest) returns (BatchGetUsersResponse);
 
@@ -787,6 +807,61 @@ message DownloadAttachmentResponse {
   }
 }
 
+// Request to stream one attachment's rendered thumbnail.
+message DownloadAttachmentThumbnailRequest {
+  // ID of the attachment.
+  string id = 1;
+  // A previously published version number whose thumbnail to download
+  // instead of the current version's.
+  optional int32 version = 2;
+  // Requested thumbnail width in pixels; 0 = the API default. Negative is
+  // INVALID_ARGUMENT.
+  int32 width = 3;
+  // Requested thumbnail height in pixels; 0 = the API default. Negative is
+  // INVALID_ARGUMENT.
+  int32 height = 4;
+  // Preferred size in bytes of each streamed chunk (gRPC framing, not a
+  // Confluence parameter); 0 = the server implementation default.
+  // Unrelated to max_bytes.
+  int32 chunk_bytes = 5;
+  // Optional ceiling on the total thumbnail size, across all chunks;
+  // 0 = no cap. When the media host declares a larger Content-Length the
+  // rpc fails with FAILED_PRECONDITION before any message is sent; when
+  // the bytes outgrow it mid-stream the rpc fails with FAILED_PRECONDITION.
+  int64 max_bytes = 6;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 7;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// What the thumbnail download resolved to, sent before the bytes. The
+// route is a redirect with no JSON body, so this carries only what the
+// final HTTP response declares.
+message AttachmentThumbnail {
+  // ID of the attachment the thumbnail belongs to (echoed from the request).
+  string attachment_id = 1;
+  // The thumbnail's media type, from the media host's Content-Type; empty
+  // when it sent none.
+  string media_type = 2;
+  // The thumbnail's size in bytes, from the media host's Content-Length;
+  // 0 when it did not declare one (chunked transfer).
+  int64 size_bytes = 3;
+}
+
+// One message of a thumbnail download stream: the first message carries
+// the descriptor, every following message carries a chunk of the binary,
+// in order. Concatenating the chunks yields the image.
+message DownloadAttachmentThumbnailResponse {
+  // The streamed part: descriptor first, then chunks.
+  oneof part {
+    // What the download resolved to; always the first message.
+    AttachmentThumbnail thumbnail = 1;
+    // One chunk of the binary.
+    bytes data = 2;
+  }
+}
+
 // ============================================================================
 // COMMENTS
 // ============================================================================
@@ -795,6 +870,7 @@ message DownloadAttachmentResponse {
 // set = the replies of that comment; else `container` set = the root
 // comments of that page, blog post, attachment or custom content; else every
 // comment of the workspace.
+// `version` applies to an attachment container only.
 message ListCommentsRequest {
   // The content whose root comments to list (page, blog post, attachment,
   // custom content). Inline comments exist on pages and blog posts only.
@@ -814,6 +890,11 @@ message ListCommentsRequest {
   SortOrder sort = 7;
   // Catalog connection to use. Empty = the process-default (env) connection.
   string connection_id = 8;
+  // The attachment version whose footer comments to list. Only
+  // GET /attachments/{id}/footer-comments accepts it (int64 per the spec);
+  // with any other scope it is INVALID_ARGUMENT. Unset = the current
+  // version.
+  optional int64 version = 9;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -861,19 +942,27 @@ message ListCustomContentRequest {
   // The custom content type (required by every v2 custom-content list
   // route).
   string type = 1;
-  // Optional container: a space, page or blog post. Unset = the whole
-  // workspace (GET /custom-content).
+  // Optional content container: a page or blog post
+  // (GET /{pages|blogposts}/{id}/custom-content). A space is named by
+  // `space_id` instead, because ContentType has no space kind. Unset (and
+  // space_id empty) = the whole workspace (GET /custom-content).
   ContentRef container = 2;
   // Only these custom content ids (workspace scope only).
   repeated string ids = 3;
-  // Only custom content in these spaces (workspace scope only).
+  // Only custom content in these spaces (workspace scope only; a filter on
+  // GET /custom-content, unlike `space_id`, which selects the space route).
   repeated string space_ids = 4;
   // The body representation to fetch. UNSPECIFIED = metadata-only listing.
   BodyFormat body_format = 5;
-  // Sort order; unset = the API default.
+  // Sort order; unset = the API default. GET /spaces/{id}/custom-content
+  // takes no sort, so a sort with `space_id` is INVALID_ARGUMENT.
   SortOrder sort = 6;
   // Catalog connection to use. Empty = the process-default (env) connection.
   string connection_id = 7;
+  // Space whose custom content to list (GET /spaces/{id}/custom-content).
+  // Mutually exclusive with `container`; setting both is INVALID_ARGUMENT,
+  // and `ids` / `space_ids` / `sort` are not accepted by this route.
+  string space_id = 8;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -1148,6 +1237,22 @@ message GetDatabaseEntryResponse {
   map<string, string> metadata = 99;
 }
 
+// Request to stream the views of a database.
+message ListDatabaseViewsRequest {
+  // Content ID of the database.
+  string database_id = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed database view.
+message ListDatabaseViewsResponse {
+  // The streamed view.
+  DatabaseView view = 1;
+}
+
 // ============================================================================
 // LABELS
 // ============================================================================
@@ -1169,6 +1274,12 @@ message ListLabelsRequest {
   // Only these label ids (workspace scope only).
   repeated string label_ids = 4;
   // Only labels with these prefixes; empty = the API default for the route.
+  // GET /labels takes the list in one call. The scoped routes
+  // (space, space content, one content item) take a single `prefix`, so
+  // with several prefixes the server walks the route once per distinct
+  // prefix, in request order, and concatenates the streams. A label has
+  // exactly one prefix, so the union has no duplicates; `sort` then
+  // orders within each prefix's run, not across the whole stream.
   repeated LabelPrefix prefixes = 5;
   // Sort order; unset = the API default.
   SortOrder sort = 6;

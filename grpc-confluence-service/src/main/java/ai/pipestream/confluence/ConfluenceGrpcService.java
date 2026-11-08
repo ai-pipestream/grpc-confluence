@@ -554,32 +554,69 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
                         .asRuntimeException();
             }
             int chunk = request.getChunkBytes() > 0 ? request.getChunkBytes() : downloadChunkBytes;
-            FlowControl flow = FlowControl.of(observer);
+            FlowControl<DownloadAttachmentResponse> flow = FlowControl.of(observer);
             flow.send(DownloadAttachmentResponse.newBuilder().setAttachment(attachment).build());
-            long total = 0;
             try (java.io.InputStream in = session.client.openAttachmentStream(
                     attachment.getDownloadUrl())) {
-                byte[] buffer = new byte[chunk];
-                while (true) {
-                    int read = in.readNBytes(buffer, 0, chunk);
-                    if (read <= 0) {
-                        break;
-                    }
-                    total += read;
-                    if (max > 0 && total > max) {
-                        // file_size understated the binary: the caller's ceiling still holds.
-                        throw Status.FAILED_PRECONDITION
-                                .withDescription("attachment " + attachment.getId()
-                                        + " exceeded the requested max_bytes " + max)
-                                .asRuntimeException();
-                    }
-                    if (!flow.send(DownloadAttachmentResponse.newBuilder()
-                            .setData(ByteString.copyFrom(buffer, 0, read)).build())) {
-                        return; // the client cancelled; nothing left to answer
-                    }
-                    if (read < chunk) {
-                        break;
-                    }
+                // The running total is checked too: file_size may understate the binary.
+                if (!streamChunks(in, chunk, max, "attachment " + attachment.getId(), flow,
+                        bytes -> DownloadAttachmentResponse.newBuilder().setData(bytes).build())) {
+                    return; // the client cancelled; nothing left to answer
+                }
+            }
+            observer.onCompleted();
+        });
+    }
+
+    @Override
+    public void downloadAttachmentThumbnail(DownloadAttachmentThumbnailRequest request,
+            StreamObserver<DownloadAttachmentThumbnailResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            String id = requireId(request.getId(), "id");
+            long max = request.getMaxBytes();
+            if (max < 0) {
+                throw invalid("max_bytes must not be negative");
+            }
+            if (request.getChunkBytes() < 0) {
+                throw invalid("chunk_bytes must not be negative");
+            }
+            if (request.getWidth() < 0 || request.getHeight() < 0) {
+                throw invalid("width and height must not be negative");
+            }
+            Query query = new Query();
+            if (request.hasVersion()) {
+                query.put("version", String.valueOf(request.getVersion()));
+            }
+            if (request.getWidth() > 0) {
+                query.put("width", String.valueOf(request.getWidth()));
+            }
+            if (request.getHeight() > 0) {
+                query.put("height", String.valueOf(request.getHeight()));
+            }
+            int chunk = request.getChunkBytes() > 0 ? request.getChunkBytes() : downloadChunkBytes;
+            ConfluenceClient.StreamedBinary binary = session.client.openBinaryStream(
+                    "/api/v2/attachments/" + id + "/thumbnail/download", query.map());
+            try (java.io.InputStream in = binary.body()) {
+                if (max > 0 && binary.contentLength() > max) {
+                    throw Status.FAILED_PRECONDITION
+                            .withDescription("thumbnail of attachment " + id + " is "
+                                    + binary.contentLength() + " bytes, above the requested max_bytes "
+                                    + max)
+                            .asRuntimeException();
+                }
+                FlowControl<DownloadAttachmentThumbnailResponse> flow = FlowControl.of(observer);
+                if (!flow.send(DownloadAttachmentThumbnailResponse.newBuilder()
+                        .setThumbnail(AttachmentThumbnail.newBuilder()
+                                .setAttachmentId(id)
+                                .setMediaType(binary.contentType())
+                                .setSizeBytes(Math.max(0L, binary.contentLength())))
+                        .build())) {
+                    return;
+                }
+                if (!streamChunks(in, chunk, max, "thumbnail of attachment " + id, flow,
+                        bytes -> DownloadAttachmentThumbnailResponse.newBuilder().setData(bytes).build())) {
+                    return; // the client cancelled; nothing left to answer
                 }
             }
             observer.onCompleted();
@@ -587,20 +624,50 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     }
 
     /**
+     * Re-chunks {@code in} onto a flow-controlled stream, enforcing the
+     * caller's ceiling ({@code max}, 0 = no cap) on the running total.
+     *
+     * @return false when the client cancelled
+     */
+    private static <T> boolean streamChunks(java.io.InputStream in, int chunk, long max,
+            String what, FlowControl<T> flow, Function<ByteString, T> wrap)
+            throws IOException, InterruptedException {
+        byte[] buffer = new byte[chunk];
+        long total = 0;
+        while (true) {
+            int read = in.readNBytes(buffer, 0, chunk);
+            if (read <= 0) {
+                return true;
+            }
+            total += read;
+            if (max > 0 && total > max) {
+                throw Status.FAILED_PRECONDITION
+                        .withDescription(what + " exceeded the requested max_bytes " + max)
+                        .asRuntimeException();
+            }
+            if (!flow.send(wrap.apply(ByteString.copyFrom(buffer, 0, read)))) {
+                return false;
+            }
+            if (read < chunk) {
+                return true;
+            }
+        }
+    }
+
+    /**
      * Outbound flow control for a server stream: {@link #send} parks the
      * (virtual) handler thread until the transport is ready, so a slow
      * client never makes the server buffer a whole binary in memory.
      */
-    private static final class FlowControl {
-        private final StreamObserver<DownloadAttachmentResponse> observer;
-        private final io.grpc.stub.ServerCallStreamObserver<DownloadAttachmentResponse> call;
+    private static final class FlowControl<T> {
+        private final StreamObserver<T> observer;
+        private final io.grpc.stub.ServerCallStreamObserver<T> call;
         private final Object ready = new Object();
         private volatile boolean cancelled;
 
-        private FlowControl(StreamObserver<DownloadAttachmentResponse> observer) {
+        private FlowControl(StreamObserver<T> observer) {
             this.observer = observer;
-            this.call = observer instanceof io.grpc.stub.ServerCallStreamObserver<DownloadAttachmentResponse> c
-                    ? c : null;
+            this.call = observer instanceof io.grpc.stub.ServerCallStreamObserver<T> c ? c : null;
             if (call != null) {
                 call.setOnReadyHandler(this::wake);
                 call.setOnCancelHandler(() -> {
@@ -610,8 +677,8 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
             }
         }
 
-        static FlowControl of(StreamObserver<DownloadAttachmentResponse> observer) {
-            return new FlowControl(observer);
+        static <T> FlowControl<T> of(StreamObserver<T> observer) {
+            return new FlowControl<>(observer);
         }
 
         private void wake() {
@@ -621,7 +688,7 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
         }
 
         /** Sends once the transport is ready; false when the call was cancelled. */
-        boolean send(DownloadAttachmentResponse message) throws InterruptedException {
+        boolean send(T message) throws InterruptedException {
             if (call != null) {
                 synchronized (ready) {
                     while (!cancelled && !call.isReady()) {
@@ -673,6 +740,10 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
             List<CommentRoute> routes = new ArrayList<>();
             boolean fallBackToInline = false;
             Set<String> statuses = null;
+            boolean attachmentScope = request.getParentCommentId().isBlank() && request.hasContainer()
+                    && request.getContainer().getType() == ContentType.CONTENT_TYPE_ATTACHMENT;
+            reject(request.hasVersion() && !attachmentScope, "version",
+                    "every comment route but GET /attachments/{id}/footer-comments");
             if (!request.getParentCommentId().isBlank()) {
                 String id = request.getParentCommentId();
                 if (kind != CommentKind.COMMENT_KIND_INLINE && !resolution) {
@@ -735,6 +806,9 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
                 if (statuses != null) {
                     query.put("status", ConfluenceRoutes.contentStatuses(request.getStatusesList(),
                             statuses, route.route()));
+                }
+                if (attachmentScope && request.hasVersion()) {
+                    query.put("version", String.valueOf(request.getVersion()));
                 }
                 if (route.kind() == CommentKind.COMMENT_KIND_INLINE && resolution) {
                     List<String> wire = new ArrayList<>();
@@ -806,11 +880,25 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
             Query query = limit(session).put("type", requireId(request.getType(), "type"));
             String path;
             String route;
+            if (!request.getSpaceId().isBlank()) {
+                route = "GET /spaces/{id}/custom-content";
+                if (request.hasContainer()) {
+                    throw invalid("space_id and container are mutually exclusive");
+                }
+                path = "/api/v2/spaces/" + request.getSpaceId() + "/custom-content";
+                reject(!request.getIdsList().isEmpty(), "ids", route);
+                reject(!request.getSpaceIdsList().isEmpty(), "space_ids", route);
+                reject(request.getSort().getField() != SortField.SORT_FIELD_UNSPECIFIED, "sort", route);
+                listBodyFormat(query, request.getBodyFormat(), ConfluenceRoutes.CUSTOM_BODY, route);
+                stream(session, path, query, observer, node -> ListCustomContentResponse.newBuilder()
+                        .setCustomContent(requireValid(session.mapper.toCustomContent(node))).build());
+                return;
+            }
             if (request.hasContainer()) {
                 ContentRef container = request.getContainer();
                 path = ConfluenceRoutes.contentPath(container, java.util.EnumSet.of(
                         ContentType.CONTENT_TYPE_PAGE, ContentType.CONTENT_TYPE_BLOG_POST),
-                        "ListCustomContent container (a space scope is space_ids)") + "/custom-content";
+                        "ListCustomContent container (a space scope is space_id)") + "/custom-content";
                 route = "GET /" + ConfluenceRoutes.segment(container.getType()) + "/{id}/custom-content";
                 reject(!request.getIdsList().isEmpty(), "ids", route);
                 reject(!request.getSpaceIdsList().isEmpty(), "space_ids", route);
@@ -1111,6 +1199,17 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
         });
     }
 
+    @Override
+    public void listDatabaseViews(ListDatabaseViewsRequest request,
+            StreamObserver<ListDatabaseViewsResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            stream(session, "/api/v2/databases/" + requireId(request.getDatabaseId(), "database_id")
+                    + "/views", limit(session), observer, node -> ListDatabaseViewsResponse.newBuilder()
+                    .setView(session.mapper.toDatabaseView(node)).build());
+        });
+    }
+
     // ======================================================================
     // LABELS AND VERSIONS
     // ======================================================================
@@ -1155,17 +1254,28 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
                 wirePrefixes.add(ConfluenceRoutes.status(prefix.getValueDescriptor().getName(),
                         "LABEL_PREFIX_", prefixes, route));
             }
+            query.put("sort", ConfluenceRoutes.sort(request.getSort(), ConfluenceRoutes.LABEL_SORT, route));
+            Consumer<JsonNode> emit = node -> observer.onNext(ListLabelsResponse.newBuilder()
+                    .setLabel(requireValid(session.mapper.toLabel(node))).build());
             if (path.equals("/api/v2/labels")) {
                 query.list("label-id", request.getLabelIdsList()).list("prefix", wirePrefixes);
+                walk(session, path, query.map(), emit);
             } else {
                 reject(!request.getLabelIdsList().isEmpty(), "label_ids", route);
-                // The scoped routes take a single prefix, not a list.
-                reject(wirePrefixes.size() > 1, "more than one prefix", route);
-                query.list("prefix", wirePrefixes);
+                // The scoped routes take a single prefix: one walk per distinct
+                // prefix, in request order. A label has one prefix, so the runs
+                // are disjoint and their concatenation is the union.
+                List<String> distinct = distinctNonBlank(wirePrefixes);
+                if (distinct.isEmpty()) {
+                    walk(session, path, query.map(), emit);
+                }
+                for (String prefix : distinct) {
+                    Map<String, String> params = new TreeMap<>(query.map());
+                    params.put("prefix", prefix);
+                    walk(session, path, params, emit);
+                }
             }
-            query.put("sort", ConfluenceRoutes.sort(request.getSort(), ConfluenceRoutes.LABEL_SORT, route));
-            stream(session, path, query, observer, node -> ListLabelsResponse.newBuilder()
-                    .setLabel(requireValid(session.mapper.toLabel(node))).build());
+            observer.onCompleted();
         });
     }
 
@@ -1264,7 +1374,16 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
                 com.fasterxml.jackson.databind.node.ArrayNode accountIds = body.putArray("accountIds");
                 ids.subList(from, Math.min(ids.size(), from + USERS_BULK_MAX_IDS))
                         .forEach(accountIds::add);
-                session.client.post("/api/v2/users-bulk", body).path("results").forEach(node ->
+                JsonNode result = session.client.post("/api/v2/users-bulk", body);
+                // POST /users-bulk declares no cursor or limit, so its shared
+                // MultiEntityLinks.next has no defined continuation for a POST.
+                // Fail loudly rather than answer with a silently partial set.
+                if (session.client.nextPageUrl(result).isPresent()) {
+                    throw Status.INTERNAL.withDescription("POST /users-bulk answered with a "
+                            + "_links.next continuation, which the v2 spec does not define for this "
+                            + "route; refusing to return a partial user set").asRuntimeException();
+                }
+                result.path("results").forEach(node ->
                         response.addUsers(requireValid(session.mapper.toUser(node))));
             }
             reply(observer, response.build());

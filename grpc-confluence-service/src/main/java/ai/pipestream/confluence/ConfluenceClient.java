@@ -273,7 +273,44 @@ public final class ConfluenceClient {
      */
     public InputStream openAttachmentStream(String downloadUrl)
             throws IOException, InterruptedException {
-        String url = resolveRelative(downloadUrl);
+        return openFollowingRedirects(resolveRelative(downloadUrl), downloadUrl).body();
+    }
+
+    /**
+     * A streamed binary response: the body plus what the final response
+     * declared about it.
+     *
+     * @param body the response body stream; the caller must close it
+     * @param contentType the final response's {@code Content-Type}, empty when absent
+     * @param contentLength the final response's {@code Content-Length}, -1 when absent
+     */
+    public record StreamedBinary(InputStream body, String contentType, long contentLength) {
+    }
+
+    /**
+     * GET a v2 route that answers with a redirect to a binary (for example
+     * {@code /api/v2/attachments/{id}/thumbnail/download}) and open the
+     * final response as a stream. Redirects are followed exactly as in
+     * {@link #openAttachmentStream} (credentials only to the tenant origin).
+     *
+     * @param path a v2 path
+     * @param query query parameters
+     * @return the body stream and the final response's declared type and length
+     * @throws IOException if the request fails, redirects too many times, or
+     *         the service returns an error status
+     * @throws InterruptedException if the calling thread is interrupted while waiting
+     */
+    public StreamedBinary openBinaryStream(String path, Map<String, String> query)
+            throws IOException, InterruptedException {
+        HttpResponse<InputStream> response = openFollowingRedirects(url(path, query), path);
+        return new StreamedBinary(response.body(),
+                response.headers().firstValue("content-type").orElse(""),
+                response.headers().firstValueAsLong("content-length").orElse(-1L));
+    }
+
+    /** GETs {@code url}, following redirects by hand; the 2xx response, body unread. */
+    private HttpResponse<InputStream> openFollowingRedirects(String url, String requested)
+            throws IOException, InterruptedException {
         for (int hop = 0; hop <= MAX_DOWNLOAD_REDIRECTS; hop++) {
             HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
                     .timeout(Duration.ofSeconds(60))
@@ -300,10 +337,10 @@ public final class ConfluenceClient {
                             new String(error.readAllBytes(), StandardCharsets.UTF_8));
                 }
             }
-            return response.body();
+            return response;
         }
-        throw new IOException("attachment download exceeded " + MAX_DOWNLOAD_REDIRECTS
-                + " redirects: " + downloadUrl);
+        throw new IOException("download exceeded " + MAX_DOWNLOAD_REDIRECTS
+                + " redirects: " + requested);
     }
 
     /**
