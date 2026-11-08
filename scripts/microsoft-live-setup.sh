@@ -7,6 +7,7 @@
 #   scripts/microsoft-live-setup.sh app     # Entra app + read-only Graph perms + consent + secret
 #   scripts/microsoft-live-setup.sh site    # test M365 group site + a few seed files
 #   scripts/microsoft-live-setup.sh verify  # app-only token can list sites and drives
+#   scripts/microsoft-live-setup.sh store   # prompt for ids + secret made in the Entra portal
 #
 # Sign in first (device code, works over ssh):
 #   az login --use-device-code --allow-no-subscriptions
@@ -29,10 +30,10 @@ BEGIN_MARK="# >>> pipestream microsoft live smoke >>>"
 END_MARK="# <<< pipestream microsoft live smoke <<<"
 
 need() { command -v "$1" >/dev/null 2>&1 || { echo "missing: $1" >&2; exit 2; }; }
-need az
 need jq
 
 signed_in() {
+  need az
   az account show >/dev/null 2>&1 || {
     echo "Not signed in. Run: az login --use-device-code --allow-no-subscriptions" >&2
     exit 3
@@ -215,6 +216,24 @@ cmd_site() {
   fi
 }
 
+# For tenants where the CLI sign-in is blocked (e.g. security defaults reject
+# device code): create the app in the Entra portal, then paste the values here.
+# The secret is read without echo and never printed.
+cmd_store() {
+  local tid cid sec sid
+  read -r -p "Directory (tenant) ID: " tid
+  read -r -p "Application (client) ID: " cid
+  read -r -s -p "Client secret VALUE (hidden): " sec; echo
+  read -r -p "SharePoint site ID (optional, Enter to skip): " sid
+  [ -n "$tid" ] && [ -n "$cid" ] && [ -n "$sec" ] || { echo "tenant, client id and secret are required" >&2; exit 7; }
+  block_set MICROSOFT_TENANT_ID "$tid"
+  block_set MICROSOFT_CLIENT_ID "$cid"
+  block_set MICROSOFT_CLIENT_SECRET "$sec"
+  unset sec
+  [ -n "$sid" ] && block_set MICROSOFT_SITE_ID "$sid"
+  echo "stored in $BASHRC; run: source $BASHRC && $0 verify"
+}
+
 cmd_verify() {
   local tid cid sec site token
   tid="$(block_get MICROSOFT_TENANT_ID)"; cid="$(block_get MICROSOFT_CLIENT_ID)"; sec="$(block_get MICROSOFT_CLIENT_SECRET)"
@@ -243,6 +262,7 @@ case "${1:-check}" in
   app) cmd_app ;;
   site) cmd_site ;;
   verify) cmd_verify ;;
+  store) cmd_store ;;
   all) cmd_check; cmd_app; cmd_site; sleep 30; cmd_verify ;;
-  *) echo "usage: $0 check|app|site|verify|all" >&2; exit 1 ;;
+  *) echo "usage: $0 check|app|site|verify|store|all" >&2; exit 1 ;;
 esac
