@@ -1,4 +1,4 @@
-package ai.pipestream.okf;
+package ai.pipestream.microsoft.output;
 
 import ai.pipestream.microsoft.v1.Drive;
 import ai.pipestream.microsoft.v1.DriveItem;
@@ -7,7 +7,10 @@ import ai.pipestream.microsoft.v1.ListColumn;
 import ai.pipestream.microsoft.v1.MicrosoftChange;
 import ai.pipestream.microsoft.v1.MicrosoftEntity;
 import ai.pipestream.microsoft.v1.Site;
-import ai.pipestream.okf.microsoft.MicrosoftCatalog;
+import ai.pipestream.okf.CatalogEntry;
+import ai.pipestream.okf.KnowledgeBundle;
+import ai.pipestream.okf.OkfConformance;
+import ai.pipestream.okf.OkfOutput;
 import ai.pipestream.okf.warc.WarcArchive;
 import ai.pipestream.okf.warc.WarcParse;
 import com.google.protobuf.ByteString;

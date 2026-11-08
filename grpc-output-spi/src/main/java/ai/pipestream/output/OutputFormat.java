@@ -8,8 +8,9 @@ import java.util.List;
 /**
  * A crawl-output encoding written through an {@link OutputStore}.
  * Implementations are loaded with {@link java.util.ServiceLoader}.
- * Built-in ids: {@code protobuf}, {@code json}, {@code okf},
- * {@code microsoft-connector}.
+ * Built-in ids: {@code protobuf} and {@code json}. {@code okf} registers from
+ * {@code grpc-okf}; source-specific formats such as
+ * {@code microsoft-connector} register from that source's output module.
  */
 public interface OutputFormat {
 

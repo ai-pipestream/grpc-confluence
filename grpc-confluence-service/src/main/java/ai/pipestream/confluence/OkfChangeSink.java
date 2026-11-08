@@ -5,7 +5,7 @@ import ai.pipestream.confluence.v1.ConfluenceSnapshot;
 import ai.pipestream.okf.CatalogEntry;
 import ai.pipestream.okf.KnowledgeBundle;
 import ai.pipestream.okf.OkfOutput;
-import ai.pipestream.okf.confluence.ConfluenceCatalog;
+import ai.pipestream.confluence.output.ConfluenceCatalog;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

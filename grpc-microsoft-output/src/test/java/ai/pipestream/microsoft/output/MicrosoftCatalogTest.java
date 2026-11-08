@@ -1,4 +1,4 @@
-package ai.pipestream.okf.microsoft;
+package ai.pipestream.microsoft.output;
 
 import ai.pipestream.microsoft.v1.ChangeOperation;
 import ai.pipestream.microsoft.v1.Drive;

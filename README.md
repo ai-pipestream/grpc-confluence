@@ -36,14 +36,16 @@ The Microsoft Copilot connector wire contracts are copied from
 |---|---|---|
 | `grpc-confluence-api` | | The API proto contract. 1:1 Confluence API fully validated for gRPC. |
 | `grpc-confluence-service` | 9095 | Live Confluence Cloud proxy. REST v2 in, typed gRPC out, plus crawl and sync. |
+| `grpc-confluence-output` | | Confluence store keys, OKF catalog mapping, and its `OkfCatalogSource` registration. |
 | `grpc-microsoft-api` | | The API proto contract. 1:1 Microsoft Graph surface we crawl, validated for gRPC. |
 | `grpc-microsoft-service` | 9096 | Live Graph proxy for sites, drives, and files. |
+| `grpc-microsoft-output` | | Graph store keys, OKF catalog mapping, the `microsoft-connector` output format, and its `OkfCatalogSource` registration. |
 | `grpc-microsoft-connector` | 30303 | Microsoft Copilot / GCA adapter that forwards crawls to MicrosoftService. |
 | `grpc-connect` | | Kafka Connect source plugins. Pulls Sync streams as protobuf bytes. |
 | `grpc-sync-api` | | Ledger and connection catalog proto contract. |
 | `grpc-sync-service` | 9097 | Asset ledger plus ConnectionService. Memory or SQLite. |
-| `grpc-okf` | | Writes Open Knowledge Format v0.2 bundles and a sibling WARC 1.1 archive. |
-| `grpc-output-spi` | | How crawl output is written. Pick a store (filesystem, S3) and formats (OKF, protobuf, JSON). |
+| `grpc-okf` | | Source-neutral writer for Open Knowledge Format v0.2 bundles and a sibling WARC 1.1 archive. Sources plug in through `OkfCatalogSource`. |
+| `grpc-output-spi` | | Source-neutral output seam. Pick a store (filesystem, S3) and formats (OKF, protobuf, JSON). |
 | `grpc-output-filesystem` | | Writes artifacts to a local directory. |
 | `grpc-output-s3` | | Writes artifacts to S3 using Confluence or Graph path keys. |
 | `grpc-mcp` | 8090 | Streamable HTTP MCP tools so an LLM can set up connections, output, and run syncs. |
