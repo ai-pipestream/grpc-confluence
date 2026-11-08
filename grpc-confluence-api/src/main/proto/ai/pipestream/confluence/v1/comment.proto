@@ -100,6 +100,9 @@ message Comment {
   // two from different routes and does not echo the kind, so the server sets
   // it from the route it read.
   CommentKind kind = 20;
+  // Include expansions whose inline preview (at most 50 entries) was cut
+  // short upstream (`meta.hasMore`): the matching repeated field is partial.
+  repeated IncludeExpansion truncated_includes = 21;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }

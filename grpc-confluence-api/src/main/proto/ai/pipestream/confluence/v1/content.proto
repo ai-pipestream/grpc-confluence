@@ -132,6 +132,9 @@ message CustomContent {
   // only when the read asked for collaborators (`include-collaborators`);
   // upstream returns bare account ids, so resolve names with BatchGetUsers.
   repeated string collaborator_account_ids = 18;
+  // Include expansions whose inline preview (at most 50 entries) was cut
+  // short upstream (`meta.hasMore`): the matching repeated field is partial.
+  repeated IncludeExpansion truncated_includes = 19;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -180,6 +183,9 @@ message Database {
   // only when the read asked for collaborators (`include-collaborators`);
   // upstream returns bare account ids, so resolve names with BatchGetUsers.
   repeated string collaborator_account_ids = 17;
+  // Include expansions whose inline preview (at most 50 entries) was cut
+  // short upstream (`meta.hasMore`): the matching repeated field is partial.
+  repeated IncludeExpansion truncated_includes = 18;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -224,6 +230,9 @@ message Folder {
   // only when the read asked for collaborators (`include-collaborators`);
   // upstream returns bare account ids, so resolve names with BatchGetUsers.
   repeated string collaborator_account_ids = 17;
+  // Include expansions whose inline preview (at most 50 entries) was cut
+  // short upstream (`meta.hasMore`): the matching repeated field is partial.
+  repeated IncludeExpansion truncated_includes = 18;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -271,6 +280,9 @@ message SmartLink {
   // only when the read asked for collaborators (`include-collaborators`);
   // upstream returns bare account ids, so resolve names with BatchGetUsers.
   repeated string collaborator_account_ids = 18;
+  // Include expansions whose inline preview (at most 50 entries) was cut
+  // short upstream (`meta.hasMore`): the matching repeated field is partial.
+  repeated IncludeExpansion truncated_includes = 19;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -315,6 +327,9 @@ message Whiteboard {
   // only when the read asked for collaborators (`include-collaborators`);
   // upstream returns bare account ids, so resolve names with BatchGetUsers.
   repeated string collaborator_account_ids = 17;
+  // Include expansions whose inline preview (at most 50 entries) was cut
+  // short upstream (`meta.hasMore`): the matching repeated field is partial.
+  repeated IncludeExpansion truncated_includes = 18;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }

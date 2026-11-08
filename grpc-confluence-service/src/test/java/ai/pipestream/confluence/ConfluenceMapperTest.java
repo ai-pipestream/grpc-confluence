@@ -1,6 +1,14 @@
 package ai.pipestream.confluence;
 
 import ai.pipestream.confluence.v1.Attachment;
+import ai.pipestream.confluence.v1.ContentPermission;
+import ai.pipestream.confluence.v1.ContentType;
+import ai.pipestream.confluence.v1.DatabaseView;
+import ai.pipestream.confluence.v1.DatabaseViewType;
+import ai.pipestream.confluence.v1.IncludeExpansion;
+import ai.pipestream.confluence.v1.ResolvedContentType;
+import ai.pipestream.confluence.v1.RestrictionState;
+import ai.pipestream.confluence.v1.SmartLink;
 import ai.pipestream.confluence.v1.BlogPost;
 import ai.pipestream.confluence.v1.BlogPostContentStatus;
 import ai.pipestream.confluence.v1.BodyFormat;
@@ -28,6 +36,8 @@ import ai.pipestream.confluence.v1.Version;
 import ai.pipestream.confluence.v1.Whiteboard;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -279,7 +289,7 @@ class ConfluenceMapperTest {
                 ConfluenceFixtures.propertyJson("p5", "my-plugin-ratio", "1.5")));
         assertThat(ratio.getValue().getDoubleValue()).isEqualTo(1.5d);
 
-        // Objects and arrays land in json_value, the schema's only Struct.
+        // Objects land in json_value, the schema's only Struct.
         ContentProperty structured = mapper.toContentProperty(tree(
                 ConfluenceFixtures.propertyJson("p6", "my-plugin-config",
                         "{\"mode\": \"fast\", \"retries\": 3}")));
@@ -359,5 +369,167 @@ class ConfluenceMapperTest {
         assertThat(ConfluenceMapper.bodyFormat("wiki")).isEqualTo(BodyFormat.BODY_FORMAT_WIKI);
         assertThat(ConfluenceMapper.bodyFormat("raw")).isEqualTo(BodyFormat.BODY_FORMAT_RAW);
         assertThat(ConfluenceMapper.bodyFormat("plain")).isEqualTo(BodyFormat.BODY_FORMAT_PLAIN_TEXT);
+    }
+
+    // ------------------------------------------------------------------
+    // Field fidelity (docs/contracts/confluence-fidelity.md)
+    // ------------------------------------------------------------------
+
+    @Test
+    void includePreviewsCutShortUpstreamAreFlaggedTruncated() throws Exception {
+        Page page = mapper.toPage(tree("""
+                {"id": "1", "status": "current", "title": "t", "spaceId": "9",
+                 "labels": {"results": [{"id": "l1", "name": "a", "prefix": "global"}],
+                            "meta": {"hasMore": true, "cursor": "next-labels"},
+                            "_links": {"self": "/wiki/api/v2/pages/1/labels"}},
+                 "properties": {"results": [], "meta": {"hasMore": false}},
+                 "operations": {"results": [{"operation": "read", "targetType": "page"}],
+                                "meta": {"hasMore": true}},
+                 "likes": {"results": [{"accountId": "acc-1"}], "meta": {"hasMore": true}},
+                 "versions": {"results": [{"number": 1}], "meta": {"hasMore": true}},
+                 "directChildren": {"results": [{"id": "c1", "status": "current", "type": "page"}],
+                                    "meta": {"hasMore": true}}}
+                """));
+        assertThat(page.getLabelsList()).extracting(Label::getName).containsExactly("a");
+        assertThat(page.getOperations(0).getTargetType()).isEqualTo("page");
+        assertThat(page.getTruncatedIncludesList()).containsExactly(
+                IncludeExpansion.INCLUDE_EXPANSION_LABELS,
+                IncludeExpansion.INCLUDE_EXPANSION_OPERATIONS,
+                IncludeExpansion.INCLUDE_EXPANSION_LIKES,
+                IncludeExpansion.INCLUDE_EXPANSION_VERSIONS,
+                IncludeExpansion.INCLUDE_EXPANSION_DIRECT_CHILDREN);
+
+        Space space = mapper.toSpace(tree("""
+                {"id": "9", "key": "ENG", "name": "Eng",
+                 "properties": {"results": [{"id": "sp", "key": "k", "value": "v"}],
+                                "meta": {"hasMore": true}},
+                 "permissions": {"results": [{"id": "p1", "principal": {"type": "group", "id": "g"},
+                                  "operation": {"key": "read", "targetType": "space"}}],
+                                 "meta": {"hasMore": true}},
+                 "roleAssignments": {"results": [], "meta": {"hasMore": true}},
+                 "labels": {"results": [], "meta": {"hasMore": false}}}
+                """));
+        assertThat(space.getSpacePropertiesCount()).isEqualTo(1);
+        assertThat(space.getTruncatedIncludesList()).containsExactly(
+                IncludeExpansion.INCLUDE_EXPANSION_PROPERTIES,
+                IncludeExpansion.INCLUDE_EXPANSION_PERMISSIONS,
+                IncludeExpansion.INCLUDE_EXPANSION_ROLE_ASSIGNMENTS);
+
+        SmartLink link = mapper.toSmartLink(tree("""
+                {"id": "e1", "type": "embed", "status": "current",
+                 "properties": {"results": [], "meta": {"hasMore": true}}}
+                """));
+        assertThat(link.getTruncatedIncludesList())
+                .containsExactly(IncludeExpansion.INCLUDE_EXPANSION_PROPERTIES);
+
+        Comment comment = mapper.toComment(tree("""
+                {"id": "c1", "status": "current",
+                 "likes": {"results": [], "meta": {"hasMore": true}}}
+                """));
+        assertThat(comment.getTruncatedIncludesList())
+                .containsExactly(IncludeExpansion.INCLUDE_EXPANSION_LIKES);
+
+        // No meta (or hasMore false) means the preview is complete.
+        Page complete = mapper.toPage(tree("""
+                {"id": "1", "labels": {"results": [{"name": "a"}]}}
+                """));
+        assertThat(complete.getTruncatedIncludesList()).isEmpty();
+    }
+
+    @Test
+    void mapsVersionHistorySnapshotOfEveryContentKind() throws Exception {
+        for (String kind : List.of("page", "blogpost", "attachment", "custom", "comment")) {
+            Version version = mapper.toVersion(tree("""
+                    {"createdAt": "2024-02-13T10:00:00.000Z", "message": "m", "number": 4,
+                     "minorEdit": false, "authorId": "acc-3",
+                     "%s": {"id": "42", "title": "Snapshot",
+                            "body": {"storage": {"representation": "storage", "value": "<p>old</p>"},
+                                     "atlas_doc_format": {"representation": "atlas_doc_format",
+                                                          "value": "{\\"type\\":\\"doc\\"}"}}}}
+                    """.formatted(kind)));
+            assertThat(version.getNumber()).as(kind).isEqualTo(4);
+            assertThat(version.getEntity().getId()).as(kind).isEqualTo("42");
+            assertThat(version.getEntity().getTitle()).as(kind).isEqualTo("Snapshot");
+            assertThat(version.getEntity().getBody().getStorage().getValue()).as(kind)
+                    .isEqualTo("<p>old</p>");
+            assertThat(version.getEntity().getBody().getAtlasDocFormat().getFormat()).as(kind)
+                    .isEqualTo(BodyFormat.BODY_FORMAT_ATLAS_DOC_FORMAT);
+        }
+        assertThat(mapper.toVersion(tree("{\"number\": 1}")).hasEntity()).isFalse();
+    }
+
+    @Test
+    void arrayPropertyValuesKeepEveryElement() throws Exception {
+        ContentProperty list = mapper.toContentProperty(tree(
+                ConfluenceFixtures.propertyJson("p7", "my-plugin-tags",
+                        "[\"a\", 2, true, {\"k\": \"v\"}]")));
+        assertThat(list.getValue().getValueCase())
+                .isEqualTo(PropertyValue.ValueCase.JSON_LIST_VALUE);
+        assertThat(list.getValue().getJsonListValue().getValuesCount()).isEqualTo(4);
+        assertThat(list.getValue().getJsonListValue().getValues(0).getStringValue()).isEqualTo("a");
+        assertThat(list.getValue().getJsonListValue().getValues(1).getNumberValue()).isEqualTo(2d);
+        assertThat(list.getValue().getJsonListValue().getValues(2).getBoolValue()).isTrue();
+        assertThat(list.getValue().getJsonListValue().getValues(3).getStructValue()
+                .getFieldsOrThrow("k").getStringValue()).isEqualTo("v");
+
+        SpaceProperty spaceList = mapper.toSpaceProperty(tree("""
+                {"id": "sp2", "key": "theme-stack", "value": ["dark", "compact"]}
+                """));
+        assertThat(spaceList.getValue().getJsonListValue().getValuesCount()).isEqualTo(2);
+    }
+
+    @Test
+    void createdByWinsOverItsDeprecatedAlias() throws Exception {
+        RestrictionState both = mapper.toRestrictionState(tree("""
+                {"state": "VIEW_RESTRICTED", "createdAt": "2026-10-01T00:00:00Z",
+                 "createdBy": "acc-new", "createdByAaid": "acc-old"}
+                """));
+        assertThat(both.getCreatedBy()).isEqualTo("acc-new");
+        RestrictionState aliasOnly = mapper.toRestrictionState(tree("""
+                {"state": "EDIT_RESTRICTED", "createdByAaid": "acc-old"}
+                """));
+        assertThat(aliasOnly.getCreatedBy()).isEqualTo("acc-old");
+        RestrictionState open = mapper.toRestrictionState(tree("{\"state\": \"OPEN\"}"));
+        assertThat(open.hasCreatedBy()).isFalse();
+        assertThat(open.hasCreatedAt()).isFalse();
+
+        ContentPermission permission = mapper.toContentPermission(tree("""
+                {"operation": "update", "principal": {"principalType": "group", "principalId": "g1"},
+                 "createdAt": "2026-10-01T00:00:00Z", "createdBy": "acc-new",
+                 "createdByAaid": "acc-old"}
+                """));
+        assertThat(permission.getCreatedBy()).isEqualTo("acc-new");
+        assertThat(permission.getPrincipal().getPrincipalId()).isEqualTo("g1");
+        assertThat(permission.getCreatedAt().getSeconds()).isGreaterThan(0);
+    }
+
+    @Test
+    void mapsConvertIdsToTypesIntoTypedKinds() throws Exception {
+        List<ResolvedContentType> resolved = mapper.toResolvedContentTypes(tree("""
+                {"results": {"1": "page", "2": "blogpost", "3": "attachment",
+                             "4": "footer-comment", "5": "inline-comment",
+                             "6": "ac:com.example:poll"}}
+                """));
+        assertThat(resolved).extracting(ResolvedContentType::getId)
+                .containsExactly("1", "2", "3", "4", "5", "6");
+        assertThat(resolved).extracting(ResolvedContentType::getType).containsExactly(
+                ContentType.CONTENT_TYPE_PAGE,
+                ContentType.CONTENT_TYPE_BLOG_POST,
+                ContentType.CONTENT_TYPE_ATTACHMENT,
+                ContentType.CONTENT_TYPE_FOOTER_COMMENT,
+                ContentType.CONTENT_TYPE_INLINE_COMMENT,
+                ContentType.CONTENT_TYPE_UNSPECIFIED);
+        assertThat(resolved.get(5).getCustomType()).isEqualTo("ac:com.example:poll");
+        assertThat(resolved.get(0).getCustomType()).isEmpty();
+    }
+
+    @Test
+    void mapsDatabaseView() throws Exception {
+        DatabaseView view = mapper.toDatabaseView(tree("""
+                {"id": "v1", "name": "Board", "type": "board"}
+                """));
+        assertThat(view.getId()).isEqualTo("v1");
+        assertThat(view.getName()).isEqualTo("Board");
+        assertThat(view.getType()).isEqualTo(DatabaseViewType.DATABASE_VIEW_TYPE_BOARD);
     }
 }

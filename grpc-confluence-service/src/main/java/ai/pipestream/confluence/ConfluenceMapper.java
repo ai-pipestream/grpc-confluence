@@ -23,6 +23,7 @@ import ai.pipestream.confluence.v1.ContentProperty;
 import ai.pipestream.confluence.v1.ContentRestrictionState;
 import ai.pipestream.confluence.v1.ContentStatus;
 import ai.pipestream.confluence.v1.ContentTreeEntry;
+import ai.pipestream.confluence.v1.ContentType;
 import ai.pipestream.confluence.v1.CustomContent;
 import ai.pipestream.confluence.v1.DataPolicy;
 import ai.pipestream.confluence.v1.DataPolicyMetadata;
@@ -59,8 +60,11 @@ import ai.pipestream.confluence.v1.DatabaseSourceFieldSettings;
 import ai.pipestream.confluence.v1.DatabaseTextFieldSettings;
 import ai.pipestream.confluence.v1.DatabaseTextValue;
 import ai.pipestream.confluence.v1.DatabaseUserValue;
+import ai.pipestream.confluence.v1.DatabaseView;
+import ai.pipestream.confluence.v1.DatabaseViewType;
 import ai.pipestream.confluence.v1.Folder;
 import ai.pipestream.confluence.v1.Icon;
+import ai.pipestream.confluence.v1.IncludeExpansion;
 import ai.pipestream.confluence.v1.InlineCommentProperties;
 import ai.pipestream.confluence.v1.InlineCommentResolutionStatus;
 import ai.pipestream.confluence.v1.Label;
@@ -73,6 +77,7 @@ import ai.pipestream.confluence.v1.Principal;
 import ai.pipestream.confluence.v1.PrincipalType;
 import ai.pipestream.confluence.v1.PropertyKey;
 import ai.pipestream.confluence.v1.PropertyValue;
+import ai.pipestream.confluence.v1.ResolvedContentType;
 import ai.pipestream.confluence.v1.RestrictionState;
 import ai.pipestream.confluence.v1.RoleType;
 import ai.pipestream.confluence.v1.SmartLink;
@@ -96,12 +101,14 @@ import ai.pipestream.confluence.v1.Task;
 import ai.pipestream.confluence.v1.TaskStatus;
 import ai.pipestream.confluence.v1.User;
 import ai.pipestream.confluence.v1.Version;
+import ai.pipestream.confluence.v1.VersionedEntity;
 import ai.pipestream.confluence.v1.WebResourceBatch;
 import ai.pipestream.confluence.v1.WebResources;
 import ai.pipestream.confluence.v1.Whiteboard;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import com.google.protobuf.ListValue;
 import com.google.protobuf.Struct;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.Value;
@@ -663,7 +670,7 @@ public final class ConfluenceMapper {
         }
     }
 
-    /** The oneof arm matches the JSON value's actual type; objects/arrays go to json_value. */
+    /** The oneof arm matches the JSON value's actual type; objects go to json_value, arrays to json_list_value. */
     static void setPropertyValue(JsonNode node,
             java.util.function.Consumer<PropertyValue> valueSetter) {
         JsonNode value = node.path("value");
@@ -679,8 +686,10 @@ public final class ConfluenceMapper {
             b.setIntegerValue(value.longValue());
         } else if (value.isNumber()) {
             b.setDoubleValue(value.doubleValue());
-        } else if (value.isObject() || value.isArray()) {
+        } else if (value.isObject()) {
             b.setJsonValue(toStruct(value));
+        } else if (value.isArray()) {
+            b.setJsonListValue(toListValue(value));
         } else {
             return;
         }
@@ -737,8 +746,24 @@ public final class ConfluenceMapper {
                 .setMinorEdit(node.path("minorEdit").asBoolean(false))
                 .setAuthorId(text(node, "authorId"));
         setTimestamp(node, "createdAt", b::setCreatedAt);
+        // Version-history entries name their snapshot after the content kind.
+        for (String kind : VERSIONED_ENTITY_KEYS) {
+            JsonNode entity = node.path(kind);
+            if (entity.isObject()) {
+                VersionedEntity.Builder eb = VersionedEntity.newBuilder()
+                        .setTitle(text(entity, "title"))
+                        .setId(text(entity, "id"));
+                setBody(entity, eb::setBody);
+                b.setEntity(eb);
+                break;
+            }
+        }
         return b.build();
     }
+
+    /** The snapshot key of each version-history shape (PageVersion, BlogPostVersion, ...). */
+    private static final List<String> VERSIONED_ENTITY_KEYS =
+            List.of("page", "blogpost", "attachment", "custom", "comment");
 
     /**
      * Maps a REST v2 {@code ClassificationLevel} JSON object to the domain proto.
@@ -851,12 +876,16 @@ public final class ConfluenceMapper {
                 .setState(wireEnum(ContentRestrictionState.class, "CONTENT_RESTRICTION_STATE_",
                         text(node, "state"), ContentRestrictionState.CONTENT_RESTRICTION_STATE_UNSPECIFIED));
         setTimestamp(node, "createdAt", b::setCreatedAt);
-        String createdBy = hasText(node, "createdByAaid") ? text(node, "createdByAaid")
-                : text(node, "createdBy");
+        String createdBy = createdBy(node);
         if (!createdBy.isEmpty()) {
             b.setCreatedBy(createdBy);
         }
         return b.build();
+    }
+
+    /** {@code createdBy}, falling back to its deprecated alias {@code createdByAaid}. */
+    private static String createdBy(JsonNode node) {
+        return hasText(node, "createdBy") ? text(node, "createdBy") : text(node, "createdByAaid");
     }
 
     /**
@@ -875,8 +904,7 @@ public final class ConfluenceMapper {
                                 "CONTENT_PERMISSION_PRINCIPAL_TYPE_", text(principal, "principalType"),
                                 ContentPermissionPrincipalType.CONTENT_PERMISSION_PRINCIPAL_TYPE_UNSPECIFIED))
                         .setPrincipalId(text(principal, "principalId")))
-                .setCreatedBy(hasText(node, "createdByAaid") ? text(node, "createdByAaid")
-                        : text(node, "createdBy"));
+                .setCreatedBy(createdBy(node));
         setTimestamp(node, "createdAt", b::setCreatedAt);
         return b.build();
     }
@@ -958,6 +986,61 @@ public final class ConfluenceMapper {
     public static SpaceRoleMode toSpaceRoleMode(JsonNode node) {
         return wireEnum(SpaceRoleMode.class, "SPACE_ROLE_MODE_", text(node, "mode"),
                 SpaceRoleMode.SPACE_ROLE_MODE_UNSPECIFIED);
+    }
+
+    // ======================================================================
+    // CONTENT TYPE RESOLUTION
+    // ======================================================================
+
+    /**
+     * Maps the {@code POST /content/convert-ids-to-types} response: one entry
+     * per key of {@code results}. Built-in kinds become {@link ContentType};
+     * any other value is a custom content type and lands in
+     * {@code custom_type} verbatim.
+     *
+     * @param node the API object
+     * @return the entries, in API order
+     */
+    public List<ResolvedContentType> toResolvedContentTypes(JsonNode node) {
+        List<ResolvedContentType> out = new ArrayList<>();
+        for (Map.Entry<String, JsonNode> entry : node.path("results").properties()) {
+            if (!entry.getValue().isTextual()) {
+                continue;
+            }
+            String wire = entry.getValue().asText();
+            ContentType type = contentType(wire);
+            ResolvedContentType.Builder b = ResolvedContentType.newBuilder()
+                    .setId(entry.getKey())
+                    .setType(type);
+            if (type == ContentType.CONTENT_TYPE_UNSPECIFIED) {
+                b.setCustomType(wire);
+            }
+            out.add(b.build());
+        }
+        return out;
+    }
+
+    /**
+     * The built-in content-type strings of the v2 API (singular, as
+     * {@code convert-ids-to-types} returns them) to {@link ContentType};
+     * anything else is {@code UNSPECIFIED}.
+     *
+     * @param wire the API string, or {@code null}
+     * @return the matching kind, {@code UNSPECIFIED} for custom content types
+     */
+    public static ContentType contentType(String wire) {
+        return switch (wire == null ? "" : wire) {
+            case "page" -> ContentType.CONTENT_TYPE_PAGE;
+            case "blogpost" -> ContentType.CONTENT_TYPE_BLOG_POST;
+            case "attachment" -> ContentType.CONTENT_TYPE_ATTACHMENT;
+            case "footer-comment" -> ContentType.CONTENT_TYPE_FOOTER_COMMENT;
+            case "inline-comment" -> ContentType.CONTENT_TYPE_INLINE_COMMENT;
+            case "whiteboard" -> ContentType.CONTENT_TYPE_WHITEBOARD;
+            case "database" -> ContentType.CONTENT_TYPE_DATABASE;
+            case "folder" -> ContentType.CONTENT_TYPE_FOLDER;
+            case "embed" -> ContentType.CONTENT_TYPE_SMART_LINK;
+            default -> ContentType.CONTENT_TYPE_UNSPECIFIED;
+        };
     }
 
     // ======================================================================
@@ -1198,6 +1281,21 @@ public final class ConfluenceMapper {
         return b.build();
     }
 
+    /**
+     * Maps one database view ({@code /databases/{id}/views}).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public DatabaseView toDatabaseView(JsonNode node) {
+        return DatabaseView.newBuilder()
+                .setId(text(node, "id"))
+                .setName(text(node, "name"))
+                .setType(wireEnum(DatabaseViewType.class, "DATABASE_VIEW_TYPE_", text(node, "type"),
+                        DatabaseViewType.DATABASE_VIEW_TYPE_UNSPECIFIED))
+                .build();
+    }
+
     private static DatabaseSelectOption toSelectOption(JsonNode node) {
         return DatabaseSelectOption.newBuilder()
                 .setId(text(node, "id"))
@@ -1234,18 +1332,26 @@ public final class ConfluenceMapper {
     void applyIncludes(Message.Builder b, JsonNode node) {
         Descriptors.Descriptor type = b.getDescriptorForType();
         boolean space = type.getName().equals("Space");
-        addEach(b, "labels", node.path("labels"), this::toLabel);
-        addEach(b, "operations", node.path("operations"), ConfluenceMapper::toOperation);
-        addEach(b, "likes", node.path("likes"),
+        addEach(b, "labels", node.path("labels"), IncludeExpansion.INCLUDE_EXPANSION_LABELS,
+                this::toLabel);
+        addEach(b, "operations", node.path("operations"), IncludeExpansion.INCLUDE_EXPANSION_OPERATIONS,
+                ConfluenceMapper::toOperation);
+        addEach(b, "likes", node.path("likes"), IncludeExpansion.INCLUDE_EXPANSION_LIKES,
                 like -> Like.newBuilder().setAccountId(text(like, "accountId")).build());
-        addEach(b, "versions", node.path("versions"), this::toVersion);
-        addEach(b, "direct_children", node.path("directChildren"), this::toTreeEntry);
+        addEach(b, "versions", node.path("versions"), IncludeExpansion.INCLUDE_EXPANSION_VERSIONS,
+                this::toVersion);
+        addEach(b, "direct_children", node.path("directChildren"),
+                IncludeExpansion.INCLUDE_EXPANSION_DIRECT_CHILDREN, this::toTreeEntry);
         if (space) {
-            addEach(b, "space_properties", node.path("properties"), this::toSpaceProperty);
-            addEach(b, "permissions", node.path("permissions"), this::toSpacePermissionAssignment);
-            addEach(b, "role_assignments", node.path("roleAssignments"), this::toSpaceRoleAssignment);
+            addEach(b, "space_properties", node.path("properties"),
+                    IncludeExpansion.INCLUDE_EXPANSION_PROPERTIES, this::toSpaceProperty);
+            addEach(b, "permissions", node.path("permissions"),
+                    IncludeExpansion.INCLUDE_EXPANSION_PERMISSIONS, this::toSpacePermissionAssignment);
+            addEach(b, "role_assignments", node.path("roleAssignments"),
+                    IncludeExpansion.INCLUDE_EXPANSION_ROLE_ASSIGNMENTS, this::toSpaceRoleAssignment);
         } else {
-            addEach(b, "properties", node.path("properties"), this::toContentProperty);
+            addEach(b, "properties", node.path("properties"),
+                    IncludeExpansion.INCLUDE_EXPANSION_PROPERTIES, this::toContentProperty);
         }
         Descriptors.FieldDescriptor favorited = type.findFieldByName("is_favorited_by_current_user");
         if (favorited != null && node.path("isFavoritedByCurrentUser").isBoolean()) {
@@ -1253,15 +1359,25 @@ public final class ConfluenceMapper {
         }
     }
 
-    /** An include expansion is {@code {results: [...]}}; anything else is not an expansion. */
+    /**
+     * An include expansion is {@code {results: [...], meta: {hasMore, cursor}}};
+     * anything else is not an expansion. A preview upstream cut short
+     * ({@code meta.hasMore}) is recorded in {@code truncated_includes}; the
+     * paging cursor is transport and is dropped.
+     */
     private static void addEach(Message.Builder b, String fieldName, JsonNode expansion,
-            java.util.function.Function<JsonNode, Message> map) {
+            IncludeExpansion kind, java.util.function.Function<JsonNode, Message> map) {
         Descriptors.FieldDescriptor field = b.getDescriptorForType().findFieldByName(fieldName);
         JsonNode results = expansion.path("results");
         if (field == null || !field.isRepeated() || !results.isArray()) {
             return;
         }
         results.forEach(item -> b.addRepeatedField(field, map.apply(item)));
+        Descriptors.FieldDescriptor truncated =
+                b.getDescriptorForType().findFieldByName("truncated_includes");
+        if (truncated != null && expansion.path("meta").path("hasMore").asBoolean(false)) {
+            b.addRepeatedField(truncated, kind.getValueDescriptor());
+        }
     }
 
     private static Operation toOperation(JsonNode node) {
@@ -1443,6 +1559,13 @@ public final class ConfluenceMapper {
         return b.build();
     }
 
+    /** Jackson array to protobuf ListValue, element by element. */
+    static ListValue toListValue(JsonNode array) {
+        ListValue.Builder list = ListValue.newBuilder();
+        array.forEach(item -> list.addValues(toValue(item)));
+        return list.build();
+    }
+
     private static Value toValue(JsonNode node) {
         Value.Builder b = Value.newBuilder();
         if (node == null || node.isNull() || node.isMissingNode()) {
@@ -1458,9 +1581,7 @@ public final class ConfluenceMapper {
             return b.setNumberValue(node.doubleValue()).build();
         }
         if (node.isArray()) {
-            com.google.protobuf.ListValue.Builder list = com.google.protobuf.ListValue.newBuilder();
-            node.forEach(item -> list.addValues(toValue(item)));
-            return b.setListValue(list.build()).build();
+            return b.setListValue(toListValue(node)).build();
         }
         if (node.isObject()) {
             return b.setStructValue(toStruct(node)).build();

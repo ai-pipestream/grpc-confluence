@@ -226,3 +226,38 @@ message WebResourceBatch {
   // HTML tags (script and link elements) for the batch.
   string tags = 1;
 }
+
+// ============================================================================
+// INCLUDE-* EXPANSION PREVIEWS
+// ============================================================================
+
+// One `include-*` expansion of a single-entity read. Upstream returns each
+// expansion as an inline preview of at most 50 entries plus a `meta.hasMore`
+// flag; an entity lists the expansions whose preview was cut short in its
+// `truncated_includes` field, so a consumer knows the repeated field is
+// partial and must page the matching List rpc for the full set. The
+// `meta.cursor` paging token is transport and is not modeled.
+enum IncludeExpansion {
+  // Zero value; never listed.
+  INCLUDE_EXPANSION_UNSPECIFIED = 0;
+  // `labels` (include-labels); the full set is ListLabels.
+  INCLUDE_EXPANSION_LABELS = 1;
+  // `properties` (include-properties); the full set is ListContentProperties
+  // or, on a space, ListSpaceProperties.
+  INCLUDE_EXPANSION_PROPERTIES = 2;
+  // `operations` (include-operations).
+  INCLUDE_EXPANSION_OPERATIONS = 3;
+  // `likes` (include-likes).
+  INCLUDE_EXPANSION_LIKES = 4;
+  // `versions` (include-versions); the full set is ListVersions.
+  INCLUDE_EXPANSION_VERSIONS = 5;
+  // `directChildren` (include-direct-children); the full set is
+  // ListChildren.
+  INCLUDE_EXPANSION_DIRECT_CHILDREN = 6;
+  // `permissions` on a space (include-permissions); the full set is
+  // ListSpacePermissionAssignments.
+  INCLUDE_EXPANSION_PERMISSIONS = 7;
+  // `roleAssignments` on a space (include-role-assignments); the full set
+  // is ListSpaceRoleAssignments.
+  INCLUDE_EXPANSION_ROLE_ASSIGNMENTS = 8;
+}
