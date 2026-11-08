@@ -21,6 +21,7 @@ import ai.pipestream.confluence.v1.DataPolicy;
 import ai.pipestream.confluence.v1.Database;
 import ai.pipestream.confluence.v1.DetailedVersion;
 import ai.pipestream.confluence.v1.Folder;
+import ai.pipestream.confluence.v1.IncludeExpansion;
 import ai.pipestream.confluence.v1.Label;
 import ai.pipestream.confluence.v1.Like;
 import ai.pipestream.confluence.v1.Page;
@@ -217,6 +218,7 @@ public final class ConfluenceValidator {
         visitContentProperties(prefix, page.getPropertiesList(), out);
         visitLikes(prefix, page.getLikesList(), out);
         visitVersions(prefix, page.getVersionsList(), out);
+        visitTruncatedIncludes(prefix, page.getTruncatedIncludesList(), out);
     }
 
     private static void visitBlogPost(String prefix, BlogPost post, List<Violation> out) {
@@ -232,6 +234,7 @@ public final class ConfluenceValidator {
         visitContentProperties(prefix, post.getPropertiesList(), out);
         visitLikes(prefix, post.getLikesList(), out);
         visitVersions(prefix, post.getVersionsList(), out);
+        visitTruncatedIncludes(prefix, post.getTruncatedIncludesList(), out);
     }
 
     private static void visitComment(String prefix, Comment comment, List<Violation> out) {
@@ -245,6 +248,7 @@ public final class ConfluenceValidator {
         visitContentProperties(prefix, comment.getPropertiesList(), out);
         visitLikes(prefix, comment.getLikesList(), out);
         visitVersions(prefix, comment.getVersionsList(), out);
+        visitTruncatedIncludes(prefix, comment.getTruncatedIncludesList(), out);
     }
 
     private static void visitAttachment(String prefix, Attachment attachment, List<Violation> out) {
@@ -256,6 +260,7 @@ public final class ConfluenceValidator {
         visitLabels(prefix, attachment.getLabelsList(), out);
         visitContentProperties(prefix, attachment.getPropertiesList(), out);
         visitVersions(prefix, attachment.getVersionsList(), out);
+        visitTruncatedIncludes(prefix, attachment.getTruncatedIncludesList(), out);
     }
 
     private static void visitSpace(String prefix, Space space, List<Violation> out) {
@@ -266,6 +271,10 @@ public final class ConfluenceValidator {
         }
         visitLabels(prefix, space.getLabelsList(), out);
         visitContentProperties(prefix, space.getPropertiesList(), out);
+        for (int i = 0; i < space.getSpacePropertiesCount(); i++) {
+            visitSpaceProperty(child(prefix, "space_properties[" + i + "]"), space.getSpaceProperties(i), out);
+        }
+        visitTruncatedIncludes(prefix, space.getTruncatedIncludesList(), out);
     }
 
     private static void visitUser(String prefix, User user, List<Violation> out) {
@@ -302,6 +311,7 @@ public final class ConfluenceValidator {
         visitLabels(prefix, custom.getLabelsList(), out);
         visitContentProperties(prefix, custom.getPropertiesList(), out);
         visitVersions(prefix, custom.getVersionsList(), out);
+        visitTruncatedIncludes(prefix, custom.getTruncatedIncludesList(), out);
     }
 
     private static void visitDatabase(String prefix, Database database, List<Violation> out) {
@@ -309,6 +319,7 @@ public final class ConfluenceValidator {
         if (database.hasVersion()) {
             visitVersion(child(prefix, "version"), database.getVersion(), out);
         }
+        visitTruncatedIncludes(prefix, database.getTruncatedIncludesList(), out);
     }
 
     private static void visitFolder(String prefix, Folder folder, List<Violation> out) {
@@ -316,6 +327,7 @@ public final class ConfluenceValidator {
         if (folder.hasVersion()) {
             visitVersion(child(prefix, "version"), folder.getVersion(), out);
         }
+        visitTruncatedIncludes(prefix, folder.getTruncatedIncludesList(), out);
     }
 
     private static void visitSmartLink(String prefix, SmartLink smartLink, List<Violation> out) {
@@ -323,12 +335,25 @@ public final class ConfluenceValidator {
         if (smartLink.hasVersion()) {
             visitVersion(child(prefix, "version"), smartLink.getVersion(), out);
         }
+        visitTruncatedIncludes(prefix, smartLink.getTruncatedIncludesList(), out);
     }
 
     private static void visitWhiteboard(String prefix, Whiteboard whiteboard, List<Violation> out) {
         required(prefix, "id", whiteboard.getId(), out);
         if (whiteboard.hasVersion()) {
             visitVersion(child(prefix, "version"), whiteboard.getVersion(), out);
+        }
+        visitTruncatedIncludes(prefix, whiteboard.getTruncatedIncludesList(), out);
+    }
+
+    /** A truncated-include marker always names a real expansion. */
+    private static void visitTruncatedIncludes(String prefix, List<IncludeExpansion> truncated,
+            List<Violation> out) {
+        for (int i = 0; i < truncated.size(); i++) {
+            if (truncated.get(i) == IncludeExpansion.INCLUDE_EXPANSION_UNSPECIFIED) {
+                out.add(new Violation(child(prefix, "truncated_includes[" + i + "]"),
+                        "enum.defined_only", "truncated_includes must name an expansion"));
+            }
         }
     }
 

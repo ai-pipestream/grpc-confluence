@@ -16,8 +16,9 @@ option java_package = "ai.pipestream.confluence.v1";
 // PropertyKey (the REST-edge mapper translates the API's string keys; that
 // translation is documented here, not the schema's concern) and the value is
 // a PropertyValue oneof whose arm matches the value's actual type.
-// google.protobuf.Struct appears exactly once in this schema, as the
-// json_value arm, for values that genuinely are structured JSON.
+// google.protobuf.Struct (and ListValue, for top-level arrays) appears only
+// in the json_value / json_list_value arms, for values that genuinely are
+// structured JSON.
 // ============================================================================
 
 // A well-known Confluence property key. CUSTOM is the escape hatch: when the
@@ -49,9 +50,14 @@ message PropertyValue {
     bool bool_value = 3;
     // Floating-point value.
     double double_value = 4;
-    // Structured JSON value (custom keys with object values). The only
-    // google.protobuf.Struct in the schema.
+    // Structured JSON object value (custom keys with object values). The
+    // only google.protobuf.Struct in the schema.
     google.protobuf.Struct json_value = 5;
+    // Structured JSON array value (custom keys whose value is a top-level
+    // JSON array, which a Struct cannot hold). Interim, like json_value:
+    // see the typed-property open question in
+    // docs/contracts/confluence-fidelity.md.
+    google.protobuf.ListValue json_list_value = 6;
   }
 }
 
