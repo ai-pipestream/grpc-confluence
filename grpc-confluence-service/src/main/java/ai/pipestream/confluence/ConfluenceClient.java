@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -242,6 +243,70 @@ public final class ConfluenceClient {
     }
 
     /**
+     * POST a JSON body to a v2 route that is a read in all but verb
+     * ({@code /users-bulk}, {@code /content/convert-ids-to-types}).
+     *
+     * @param path a v2 path
+     * @param body the JSON request body
+     * @return the parsed JSON response body
+     * @throws IOException if the request fails or the service returns an error status
+     * @throws InterruptedException if the calling thread is interrupted while waiting
+     */
+    public JsonNode post(String path, JsonNode body) throws IOException, InterruptedException {
+        HttpRequest req = request(url(path, Map.of()))
+                .header("content-type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(body)))
+                .build();
+        return json(send(req, HttpResponse.BodyHandlers.ofString()));
+    }
+
+    /**
+     * Open an attachment binary as a stream, following the media redirect the
+     * same way {@link #downloadAttachmentBytes} does (credentials only to the
+     * tenant origin). The caller must close the stream.
+     *
+     * @param downloadUrl a relative or absolute attachment download URL
+     * @return the response body stream
+     * @throws IOException if the request fails, redirects too many times, or
+     *         the service returns an error status
+     * @throws InterruptedException if the calling thread is interrupted while waiting
+     */
+    public InputStream openAttachmentStream(String downloadUrl)
+            throws IOException, InterruptedException {
+        String url = resolveRelative(downloadUrl);
+        for (int hop = 0; hop <= MAX_DOWNLOAD_REDIRECTS; hop++) {
+            HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
+                    .timeout(Duration.ofSeconds(60))
+                    .header("accept", "*/*");
+            if (url.startsWith(origin)) {
+                builder.header("authorization", authHeader);
+            }
+            HttpResponse<InputStream> response = send(builder.GET().build(),
+                    HttpResponse.BodyHandlers.ofInputStream());
+            int status = response.statusCode();
+            if (status >= 300 && status < 400) {
+                response.body().close();
+                String location = response.headers().firstValue("location").orElse(null);
+                if (location == null || location.isBlank()) {
+                    throw new ConfluenceApiException(status,
+                            "redirect without a Location header from " + url);
+                }
+                url = URI.create(url).resolve(location).toString();
+                continue;
+            }
+            if (status >= 400) {
+                try (InputStream error = response.body()) {
+                    throw new ConfluenceApiException(status,
+                            new String(error.readAllBytes(), StandardCharsets.UTF_8));
+                }
+            }
+            return response.body();
+        }
+        throw new IOException("attachment download exceeded " + MAX_DOWNLOAD_REDIRECTS
+                + " redirects: " + downloadUrl);
+    }
+
+    /**
      * The absolute URL of the next result page, from the body's
      * {@code _links.next} (relative against the tenant origin).
      *
@@ -330,6 +395,9 @@ public final class ConfluenceClient {
             response = http.send(req, handler);
             if (response.statusCode() != 429 || attempt == MAX_THROTTLE_RETRIES) {
                 return response;
+            }
+            if (response.body() instanceof java.io.Closeable streamed) {
+                streamed.close();
             }
             long waitSeconds = response.headers().firstValueAsLong("Retry-After").orElse(2L);
             long jitterMillis = ThreadLocalRandom.current().nextLong(500);

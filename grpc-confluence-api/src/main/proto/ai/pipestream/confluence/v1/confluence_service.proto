@@ -424,17 +424,6 @@ enum PageSubtype {
   PAGE_SUBTYPE_PAGE = 2;
 }
 
-// The kind of a comment, which selects the v2 route family.
-enum CommentKind {
-  // Zero value: both kinds where the container supports both (footer then
-  // inline), footer only where it does not.
-  COMMENT_KIND_UNSPECIFIED = 0;
-  // A footer comment.
-  COMMENT_KIND_FOOTER = 1;
-  // An inline comment.
-  COMMENT_KIND_INLINE = 2;
-}
-
 // A label prefix (namespace).
 enum LabelPrefix {
   // Zero value; no prefix filter.

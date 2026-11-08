@@ -39,6 +39,18 @@ message InlineCommentProperties {
   string inline_original_selection = 2;
 }
 
+// The kind of a comment, which selects the v2 route family.
+enum CommentKind {
+  // Zero value. On a Comment: the kind is unknown. As a list filter: both
+  // kinds where the container supports both (footer then inline), footer
+  // only where it does not. As a single-read hint: footer, then inline.
+  COMMENT_KIND_UNSPECIFIED = 0;
+  // A footer comment.
+  COMMENT_KIND_FOOTER = 1;
+  // An inline comment.
+  COMMENT_KIND_INLINE = 2;
+}
+
 // A comment on a page, blog post, attachment or custom content, top-level
 // or a reply. Footer and inline comments share this shape; the inline-only
 // fields (resolution state, highlighted text) are unset on footer comments.
@@ -84,6 +96,10 @@ message Comment {
   repeated Version versions = 18;
   // Human-facing URL of the content, for search results and UIs.
   string web_url = 19;
+  // Whether this is a footer or an inline comment. The v2 API serves the
+  // two from different routes and does not echo the kind, so the server sets
+  // it from the route it read.
+  CommentKind kind = 20;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }

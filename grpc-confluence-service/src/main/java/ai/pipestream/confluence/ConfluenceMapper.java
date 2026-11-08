@@ -1,11 +1,9 @@
 package ai.pipestream.confluence;
 
-import java.util.List;
-import java.util.ArrayList;
-import ai.pipestream.confluence.v1.WebResources;
-import ai.pipestream.confluence.v1.WebResourceBatch;
 import ai.pipestream.confluence.v1.AccountStatus;
 import ai.pipestream.confluence.v1.AccountType;
+import ai.pipestream.confluence.v1.Ancestor;
+import ai.pipestream.confluence.v1.AncestorType;
 import ai.pipestream.confluence.v1.Attachment;
 import ai.pipestream.confluence.v1.BlogPost;
 import ai.pipestream.confluence.v1.BlogPostContentStatus;
@@ -16,32 +14,94 @@ import ai.pipestream.confluence.v1.ClassificationLevel;
 import ai.pipestream.confluence.v1.ClassificationLevelColor;
 import ai.pipestream.confluence.v1.ClassificationLevelStatus;
 import ai.pipestream.confluence.v1.Comment;
+import ai.pipestream.confluence.v1.CommentKind;
+import ai.pipestream.confluence.v1.ContentPermission;
+import ai.pipestream.confluence.v1.ContentPermissionOperation;
+import ai.pipestream.confluence.v1.ContentPermissionPrincipal;
+import ai.pipestream.confluence.v1.ContentPermissionPrincipalType;
 import ai.pipestream.confluence.v1.ContentProperty;
+import ai.pipestream.confluence.v1.ContentRestrictionState;
 import ai.pipestream.confluence.v1.ContentStatus;
+import ai.pipestream.confluence.v1.ContentTreeEntry;
 import ai.pipestream.confluence.v1.CustomContent;
+import ai.pipestream.confluence.v1.DataPolicy;
+import ai.pipestream.confluence.v1.DataPolicyMetadata;
 import ai.pipestream.confluence.v1.Database;
+import ai.pipestream.confluence.v1.DatabaseAiSummaryFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseAiSummaryUpdater;
+import ai.pipestream.confluence.v1.DatabaseAiSummaryValue;
+import ai.pipestream.confluence.v1.DatabaseAiSummaryValueMetadata;
+import ai.pipestream.confluence.v1.DatabaseAttachmentValue;
+import ai.pipestream.confluence.v1.DatabaseBacklinkFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseDateFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseEntry;
+import ai.pipestream.confluence.v1.DatabaseEntryDetailsFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseEntryLinkValue;
+import ai.pipestream.confluence.v1.DatabaseEntryRef;
+import ai.pipestream.confluence.v1.DatabaseField;
+import ai.pipestream.confluence.v1.DatabaseFieldType;
+import ai.pipestream.confluence.v1.DatabaseFieldValue;
+import ai.pipestream.confluence.v1.DatabaseHyperlinkItem;
+import ai.pipestream.confluence.v1.DatabaseHyperlinkValue;
+import ai.pipestream.confluence.v1.DatabaseJiraIssueDetailsFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseJiraIssueFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseJiraIssueRef;
+import ai.pipestream.confluence.v1.DatabaseJiraIssueValue;
+import ai.pipestream.confluence.v1.DatabaseNumberFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseNumberFormat;
+import ai.pipestream.confluence.v1.DatabaseNumberFormatType;
+import ai.pipestream.confluence.v1.DatabasePageDetailsFieldSettings;
+import ai.pipestream.confluence.v1.DatabasePageLinkValue;
+import ai.pipestream.confluence.v1.DatabaseSelectFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseSelectOption;
+import ai.pipestream.confluence.v1.DatabaseSelectValue;
+import ai.pipestream.confluence.v1.DatabaseSourceFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseTextFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseTextValue;
+import ai.pipestream.confluence.v1.DatabaseUserValue;
 import ai.pipestream.confluence.v1.Folder;
 import ai.pipestream.confluence.v1.Icon;
 import ai.pipestream.confluence.v1.InlineCommentProperties;
 import ai.pipestream.confluence.v1.InlineCommentResolutionStatus;
 import ai.pipestream.confluence.v1.Label;
+import ai.pipestream.confluence.v1.Like;
+import ai.pipestream.confluence.v1.OnlyArchivedAndCurrentContentStatus;
+import ai.pipestream.confluence.v1.Operation;
 import ai.pipestream.confluence.v1.Page;
 import ai.pipestream.confluence.v1.ParentContentType;
+import ai.pipestream.confluence.v1.Principal;
+import ai.pipestream.confluence.v1.PrincipalType;
 import ai.pipestream.confluence.v1.PropertyKey;
 import ai.pipestream.confluence.v1.PropertyValue;
+import ai.pipestream.confluence.v1.RestrictionState;
+import ai.pipestream.confluence.v1.RoleType;
+import ai.pipestream.confluence.v1.SmartLink;
 import ai.pipestream.confluence.v1.Space;
 import ai.pipestream.confluence.v1.SpaceDescription;
 import ai.pipestream.confluence.v1.SpaceIcon;
+import ai.pipestream.confluence.v1.SpacePermissionAssignment;
+import ai.pipestream.confluence.v1.SpacePermissionOperation;
+import ai.pipestream.confluence.v1.SpacePermissionOperationKey;
+import ai.pipestream.confluence.v1.SpacePermissionOperationTargetType;
+import ai.pipestream.confluence.v1.SpacePermissionPrincipal;
+import ai.pipestream.confluence.v1.SpacePermissionPrincipalType;
 import ai.pipestream.confluence.v1.SpaceProperty;
 import ai.pipestream.confluence.v1.SpacePropertyVersion;
+import ai.pipestream.confluence.v1.SpaceRole;
+import ai.pipestream.confluence.v1.SpaceRoleAssignment;
+import ai.pipestream.confluence.v1.SpaceRoleMode;
 import ai.pipestream.confluence.v1.SpaceStatus;
 import ai.pipestream.confluence.v1.SpaceType;
 import ai.pipestream.confluence.v1.Task;
 import ai.pipestream.confluence.v1.TaskStatus;
 import ai.pipestream.confluence.v1.User;
 import ai.pipestream.confluence.v1.Version;
+import ai.pipestream.confluence.v1.WebResourceBatch;
+import ai.pipestream.confluence.v1.WebResources;
 import ai.pipestream.confluence.v1.Whiteboard;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.Message;
 import com.google.protobuf.Struct;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.Value;
@@ -50,6 +110,8 @@ import java.net.URI;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -124,6 +186,7 @@ public final class ConfluenceMapper {
                     .build());
         }
         b.setWebUrl(absolute(webui(node)));
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -181,6 +244,7 @@ public final class ConfluenceMapper {
         if (node.path("webResources").isObject()) {
             b.setWebResources(toWebResources(node.path("webResources")));
         }
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -206,6 +270,7 @@ public final class ConfluenceMapper {
         if (node.path("webResources").isObject()) {
             b.setWebResources(toWebResources(node.path("webResources")));
         }
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -222,6 +287,18 @@ public final class ConfluenceMapper {
      * @return the proto; missing fields stay unset
      */
     public Comment toComment(JsonNode node) {
+        return toComment(node, CommentKind.COMMENT_KIND_UNSPECIFIED);
+    }
+
+    /**
+     * Maps a REST v2 {@code Comment} JSON object read from a footer or inline
+     * route. The API does not echo the kind, so the caller passes it.
+     *
+     * @param node the API object
+     * @param kind the kind of the route the comment was read from
+     * @return the proto; missing fields stay unset
+     */
+    public Comment toComment(JsonNode node, CommentKind kind) {
         Comment.Builder b = Comment.newBuilder()
                 .setId(text(node, "id"))
                 .setStatus(wireEnum(ContentStatus.class, "CONTENT_STATUS_", text(node, "status"),
@@ -234,7 +311,8 @@ public final class ConfluenceMapper {
                 .setParentCommentId(text(node, "parentCommentId"))
                 .setResolutionStatus(wireEnum(InlineCommentResolutionStatus.class,
                         "INLINE_COMMENT_RESOLUTION_STATUS_", text(node, "resolutionStatus"),
-                        InlineCommentResolutionStatus.INLINE_COMMENT_RESOLUTION_STATUS_UNSPECIFIED));
+                        InlineCommentResolutionStatus.INLINE_COMMENT_RESOLUTION_STATUS_UNSPECIFIED))
+                .setKind(kind);
         setVersion(node, b::setVersion);
         setBody(node, b::setBody);
         if (hasText(node, "resolutionLastModifierId")) {
@@ -260,6 +338,7 @@ public final class ConfluenceMapper {
                     .build());
         }
         b.setWebUrl(absolute(webui(node)));
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -301,6 +380,7 @@ public final class ConfluenceMapper {
                 : text(node.path("_links"), "download");
         b.setDownloadUrl(absolute(download));
         b.addAllCollaboratorAccountIds(collaboratorIds(node));
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -425,6 +505,7 @@ public final class ConfluenceMapper {
         setVersion(node, b::setVersion);
         b.setWebUrl(absolute(webui(node)));
         b.addAllCollaboratorAccountIds(collaboratorIds(node));
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -454,6 +535,7 @@ public final class ConfluenceMapper {
         setVersion(node, b::setVersion);
         b.setWebUrl(absolute(webui(node)));
         b.addAllCollaboratorAccountIds(collaboratorIds(node));
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -483,6 +565,7 @@ public final class ConfluenceMapper {
         setVersion(node, b::setVersion);
         b.setWebUrl(absolute(webui(node)));
         b.addAllCollaboratorAccountIds(collaboratorIds(node));
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -509,6 +592,7 @@ public final class ConfluenceMapper {
         setBody(node, b::setBody);
         b.setWebUrl(absolute(webui(node)));
         b.addAllCollaboratorAccountIds(collaboratorIds(node));
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -676,6 +760,531 @@ public final class ConfluenceMapper {
                         text(node, "color"),
                         ClassificationLevelColor.CLASSIFICATION_LEVEL_COLOR_UNSPECIFIED));
         return b.build();
+    }
+
+    // ======================================================================
+    // SMART LINKS AND THE CONTENT TREE
+    // ======================================================================
+
+    /**
+     * Maps a REST v2 {@code SmartLink} ({@code /embeds/{id}}) JSON object to the domain proto.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public SmartLink toSmartLink(JsonNode node) {
+        SmartLink.Builder b = SmartLink.newBuilder()
+                .setId(text(node, "id"))
+                .setType(text(node, "type"))
+                .setStatus(wireEnum(ContentStatus.class, "CONTENT_STATUS_", text(node, "status"),
+                        ContentStatus.CONTENT_STATUS_UNSPECIFIED))
+                .setTitle(text(node, "title"))
+                .setParentId(text(node, "parentId"))
+                .setParentType(wireEnum(ParentContentType.class, "PARENT_CONTENT_TYPE_",
+                        text(node, "parentType"), ParentContentType.PARENT_CONTENT_TYPE_UNSPECIFIED))
+                .setAuthorId(text(node, "authorId"))
+                .setOwnerId(text(node, "ownerId"))
+                .setEmbedUrl(text(node, "embedUrl"))
+                .setSpaceId(text(node, "spaceId"));
+        if (node.path("position").isIntegralNumber()) {
+            b.setPosition(node.path("position").intValue());
+        }
+        setTimestamp(node, "createdAt", b::setCreatedAt);
+        setVersion(node, b::setVersion);
+        b.setWebUrl(absolute(webui(node)));
+        b.addAllCollaboratorAccountIds(collaboratorIds(node));
+        applyIncludes(b, node);
+        return b.build();
+    }
+
+    /**
+     * Maps a direct-children, descendants or custom-content child entry.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public ContentTreeEntry toTreeEntry(JsonNode node) {
+        ContentTreeEntry.Builder b = ContentTreeEntry.newBuilder()
+                .setId(text(node, "id"))
+                .setStatus(wireEnum(OnlyArchivedAndCurrentContentStatus.class,
+                        "ONLY_ARCHIVED_AND_CURRENT_CONTENT_STATUS_", text(node, "status"),
+                        OnlyArchivedAndCurrentContentStatus.ONLY_ARCHIVED_AND_CURRENT_CONTENT_STATUS_UNSPECIFIED))
+                .setTitle(text(node, "title"))
+                .setType(text(node, "type"))
+                .setSpaceId(text(node, "spaceId"))
+                .setParentId(text(node, "parentId"));
+        if (node.path("depth").isIntegralNumber()) {
+            b.setDepth(node.path("depth").intValue());
+        }
+        if (node.path("childPosition").isIntegralNumber()) {
+            b.setChildPosition(node.path("childPosition").intValue());
+        }
+        return b.build();
+    }
+
+    /**
+     * Maps an ancestor entry.
+     *
+     * @param node the API object
+     * @return the proto
+     */
+    public Ancestor toAncestor(JsonNode node) {
+        return Ancestor.newBuilder()
+                .setId(text(node, "id"))
+                .setType(wireEnum(AncestorType.class, "ANCESTOR_TYPE_", text(node, "type"),
+                        AncestorType.ANCESTOR_TYPE_UNSPECIFIED))
+                .build();
+    }
+
+    // ======================================================================
+    // PERMISSIONS
+    // ======================================================================
+
+    /**
+     * Maps a {@code restriction-state} response.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public RestrictionState toRestrictionState(JsonNode node) {
+        RestrictionState.Builder b = RestrictionState.newBuilder()
+                .setState(wireEnum(ContentRestrictionState.class, "CONTENT_RESTRICTION_STATE_",
+                        text(node, "state"), ContentRestrictionState.CONTENT_RESTRICTION_STATE_UNSPECIFIED));
+        setTimestamp(node, "createdAt", b::setCreatedAt);
+        String createdBy = hasText(node, "createdByAaid") ? text(node, "createdByAaid")
+                : text(node, "createdBy");
+        if (!createdBy.isEmpty()) {
+            b.setCreatedBy(createdBy);
+        }
+        return b.build();
+    }
+
+    /**
+     * Maps one direct content permission entry ({@code /{content-type}/{id}/permissions}).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public ContentPermission toContentPermission(JsonNode node) {
+        JsonNode principal = node.path("principal");
+        ContentPermission.Builder b = ContentPermission.newBuilder()
+                .setOperation(wireEnum(ContentPermissionOperation.class, "CONTENT_PERMISSION_OPERATION_",
+                        text(node, "operation"), ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_UNSPECIFIED))
+                .setPrincipal(ContentPermissionPrincipal.newBuilder()
+                        .setPrincipalType(wireEnum(ContentPermissionPrincipalType.class,
+                                "CONTENT_PERMISSION_PRINCIPAL_TYPE_", text(principal, "principalType"),
+                                ContentPermissionPrincipalType.CONTENT_PERMISSION_PRINCIPAL_TYPE_UNSPECIFIED))
+                        .setPrincipalId(text(principal, "principalId")))
+                .setCreatedBy(hasText(node, "createdByAaid") ? text(node, "createdByAaid")
+                        : text(node, "createdBy"));
+        setTimestamp(node, "createdAt", b::setCreatedAt);
+        return b.build();
+    }
+
+    /**
+     * Maps one space permission assignment ({@code /spaces/{id}/permissions}).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public SpacePermissionAssignment toSpacePermissionAssignment(JsonNode node) {
+        JsonNode principal = node.path("principal");
+        JsonNode operation = node.path("operation");
+        return SpacePermissionAssignment.newBuilder()
+                .setId(text(node, "id"))
+                .setPrincipal(SpacePermissionPrincipal.newBuilder()
+                        .setType(wireEnum(SpacePermissionPrincipalType.class,
+                                "SPACE_PERMISSION_PRINCIPAL_TYPE_", text(principal, "type"),
+                                SpacePermissionPrincipalType.SPACE_PERMISSION_PRINCIPAL_TYPE_UNSPECIFIED))
+                        .setId(text(principal, "id")))
+                .setOperation(SpacePermissionOperation.newBuilder()
+                        .setKey(wireEnum(SpacePermissionOperationKey.class,
+                                "SPACE_PERMISSION_OPERATION_KEY_", text(operation, "key"),
+                                SpacePermissionOperationKey.SPACE_PERMISSION_OPERATION_KEY_UNSPECIFIED))
+                        .setTargetType(wireEnum(SpacePermissionOperationTargetType.class,
+                                "SPACE_PERMISSION_OPERATION_TARGET_TYPE_", snake(text(operation, "targetType")),
+                                SpacePermissionOperationTargetType.SPACE_PERMISSION_OPERATION_TARGET_TYPE_UNSPECIFIED)))
+                .build();
+    }
+
+    /**
+     * Maps one space role ({@code /space-roles}).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public SpaceRole toSpaceRole(JsonNode node) {
+        SpaceRole.Builder b = SpaceRole.newBuilder()
+                .setId(text(node, "id"))
+                .setType(wireEnum(RoleType.class, "ROLE_TYPE_", text(node, "type"),
+                        RoleType.ROLE_TYPE_UNSPECIFIED))
+                .setName(text(node, "name"))
+                .setDescription(text(node, "description"));
+        node.path("spacePermissions").forEach(permission -> {
+            if (permission.isTextual()) {
+                b.addSpacePermissions(permission.asText());
+            }
+        });
+        return b.build();
+    }
+
+    /**
+     * Maps one space role assignment ({@code /spaces/{id}/role-assignments}).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public SpaceRoleAssignment toSpaceRoleAssignment(JsonNode node) {
+        return SpaceRoleAssignment.newBuilder()
+                .setPrincipal(toPrincipal(node.path("principal")))
+                .setRoleId(text(node, "roleId"))
+                .build();
+    }
+
+    private static Principal toPrincipal(JsonNode node) {
+        return Principal.newBuilder()
+                .setPrincipalType(wireEnum(PrincipalType.class, "PRINCIPAL_TYPE_",
+                        text(node, "principalType"), PrincipalType.PRINCIPAL_TYPE_UNSPECIFIED))
+                .setPrincipalId(text(node, "principalId"))
+                .build();
+    }
+
+    /**
+     * Maps the {@code /space-role-mode} response.
+     *
+     * @param node the API object
+     * @return the mode; UNSPECIFIED when unknown
+     */
+    public static SpaceRoleMode toSpaceRoleMode(JsonNode node) {
+        return wireEnum(SpaceRoleMode.class, "SPACE_ROLE_MODE_", text(node, "mode"),
+                SpaceRoleMode.SPACE_ROLE_MODE_UNSPECIFIED);
+    }
+
+    // ======================================================================
+    // DATA POLICIES
+    // ======================================================================
+
+    /**
+     * Maps one {@code /data-policies/spaces} entry.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public DataPolicy toDataPolicy(JsonNode node) {
+        DataPolicy.Builder b = DataPolicy.newBuilder()
+                .setId(text(node, "id"))
+                .setKey(text(node, "key"))
+                .setName(text(node, "name"))
+                .setAnyContentBlocked(node.path("dataPolicy").path("anyContentBlocked").asBoolean(false));
+        if (node.path("description").isObject()) {
+            b.setDescription(toSpaceDescription(node.path("description")));
+        }
+        JsonNode icon = node.path("icon");
+        if (icon.isObject()) {
+            b.setIcon(SpaceIcon.newBuilder()
+                    .setPath(text(icon, "path"))
+                    .setApiDownloadUrl(absolute(text(icon, "apiDownloadLink"))));
+        }
+        b.setWebUrl(absolute(webui(node)));
+        return b.build();
+    }
+
+    /**
+     * Maps the {@code /data-policies/metadata} response.
+     *
+     * @param node the API object
+     * @return the proto
+     */
+    public DataPolicyMetadata toDataPolicyMetadata(JsonNode node) {
+        return DataPolicyMetadata.newBuilder()
+                .setAnyContentBlocked(node.path("anyContentBlocked").asBoolean(false))
+                .build();
+    }
+
+    // ======================================================================
+    // DATABASE DATA (experimental upstream)
+    // ======================================================================
+
+    /**
+     * Maps one database field definition; the settings arm follows {@code type}.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public DatabaseField toDatabaseField(JsonNode node) {
+        DatabaseFieldType type = databaseFieldType(text(node, "type"));
+        DatabaseField.Builder b = DatabaseField.newBuilder()
+                .setId(text(node, "id"))
+                .setName(text(node, "name"))
+                .setDescription(text(node, "description"))
+                .setType(type);
+        JsonNode settings = node.path("settings");
+        switch (type) {
+            case DATABASE_FIELD_TYPE_TEXT -> b.setText(DatabaseTextFieldSettings.newBuilder()
+                    .setRichText(settings.path("richText").asBoolean(false)));
+            case DATABASE_FIELD_TYPE_AI_SUMMARY -> b.setAiSummary(DatabaseAiSummaryFieldSettings.newBuilder()
+                    .setLastAiRunUserAccountId(text(settings.path("aiRunMetadata"), "lastAiRunUserAccountId")));
+            case DATABASE_FIELD_TYPE_NUMBER -> {
+                DatabaseNumberFieldSettings.Builder number = DatabaseNumberFieldSettings.newBuilder();
+                JsonNode format = settings.path("format");
+                if (format.isObject()) {
+                    DatabaseNumberFormat.Builder fb = DatabaseNumberFormat.newBuilder()
+                            .setType(wireEnum(DatabaseNumberFormatType.class, "DATABASE_NUMBER_FORMAT_TYPE_",
+                                    text(format, "type"), DatabaseNumberFormatType.DATABASE_NUMBER_FORMAT_TYPE_UNSPECIFIED))
+                            .setPrefix(text(format, "prefix"))
+                            .setSuffix(text(format, "suffix"));
+                    if (format.path("decimalPlaces").isIntegralNumber()) {
+                        fb.setDecimalPlaces(format.path("decimalPlaces").intValue());
+                    }
+                    number.setFormat(fb);
+                }
+                b.setNumber(number);
+            }
+            case DATABASE_FIELD_TYPE_SELECT -> {
+                DatabaseSelectFieldSettings.Builder select = DatabaseSelectFieldSettings.newBuilder();
+                settings.path("options").forEach(option -> select.addOptions(toSelectOption(option)));
+                b.setSelect(select);
+            }
+            case DATABASE_FIELD_TYPE_DATE -> b.setDate(DatabaseDateFieldSettings.newBuilder()
+                    .setIncludesTime(settings.path("includesTime").asBoolean(false)));
+            case DATABASE_FIELD_TYPE_JIRA_ISSUE -> b.setJiraIssue(DatabaseJiraIssueFieldSettings.newBuilder()
+                    .setCloudId(text(settings, "cloudId"))
+                    .setServerId(text(settings, "serverId")));
+            case DATABASE_FIELD_TYPE_ENTRY_DETAILS -> b.setEntryDetails(DatabaseEntryDetailsFieldSettings.newBuilder()
+                    .setSourceFieldId(text(settings, "sourceFieldId"))
+                    .setLookupFieldId(text(settings, "lookupFieldId")));
+            case DATABASE_FIELD_TYPE_JIRA_ISSUE_DETAILS -> b.setJiraIssueDetails(
+                    DatabaseJiraIssueDetailsFieldSettings.newBuilder()
+                            .setSourceFieldId(text(settings, "sourceFieldId"))
+                            .setJiraFieldKey(text(settings, "jiraFieldKey")));
+            case DATABASE_FIELD_TYPE_PAGE_DETAILS -> b.setPageDetails(DatabasePageDetailsFieldSettings.newBuilder()
+                    .setSourceFieldId(text(settings, "sourceFieldId"))
+                    .setPagePropertyKey(text(settings, "pagePropertyKey")));
+            case DATABASE_FIELD_TYPE_PAGE_LABELS, DATABASE_FIELD_TYPE_PAGE_STATUS -> b.setSource(
+                    DatabaseSourceFieldSettings.newBuilder().setSourceFieldId(text(settings, "sourceFieldId")));
+            case DATABASE_FIELD_TYPE_BACKLINK -> b.setBacklink(DatabaseBacklinkFieldSettings.newBuilder()
+                    .setSourceDatabaseContentId(text(settings, "sourceDatabaseContentId")));
+            default -> {
+                // checkbox, hyperlink, user, attachment, pageLink, entryLink: no settings
+            }
+        }
+        return b.build();
+    }
+
+    /**
+     * Maps one database entry (row); every field value is typed by its {@code type}.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public DatabaseEntry toDatabaseEntry(JsonNode node) {
+        DatabaseEntry.Builder b = DatabaseEntry.newBuilder()
+                .setId(text(node, "id"))
+                .setDatabaseId(text(node, "databaseId"));
+        for (Map.Entry<String, JsonNode> value : node.path("values").properties()) {
+            b.putValues(value.getKey(), toDatabaseFieldValue(value.getValue()));
+        }
+        return b.build();
+    }
+
+    private DatabaseFieldValue toDatabaseFieldValue(JsonNode node) {
+        DatabaseFieldType type = databaseFieldType(text(node, "type"));
+        DatabaseFieldValue.Builder b = DatabaseFieldValue.newBuilder().setType(type);
+        JsonNode value = node.path("value");
+        switch (type) {
+            case DATABASE_FIELD_TYPE_TEXT -> {
+                if (!node.path("plain").isNull() || !node.path("rich").isNull()) {
+                    DatabaseTextValue.Builder text = DatabaseTextValue.newBuilder()
+                            .setPlain(text(node, "plain"));
+                    if (node.path("rich").isObject()) {
+                        text.setRich(adf(node.path("rich")));
+                    }
+                    b.setText(text);
+                }
+            }
+            case DATABASE_FIELD_TYPE_AI_SUMMARY -> {
+                DatabaseAiSummaryValue.Builder summary = DatabaseAiSummaryValue.newBuilder()
+                        .setPlain(text(node, "plain"));
+                if (node.path("rich").isObject()) {
+                    summary.setRich(adf(node.path("rich")));
+                }
+                JsonNode metadata = node.path("metadata");
+                if (metadata.isObject()) {
+                    DatabaseAiSummaryValueMetadata.Builder mb = DatabaseAiSummaryValueMetadata.newBuilder()
+                            .setLastUpdatedBy(wireEnum(DatabaseAiSummaryUpdater.class,
+                                    "DATABASE_AI_SUMMARY_UPDATER_", text(metadata, "lastUpdatedBy"),
+                                    DatabaseAiSummaryUpdater.DATABASE_AI_SUMMARY_UPDATER_UNSPECIFIED))
+                            .setLastUpdatedUserAccountId(text(metadata, "lastUpdatedUserAccountId"));
+                    setTimestamp(metadata, "lastUpdatedAt", mb::setLastUpdatedAt);
+                    summary.setSummaryMetadata(mb);
+                }
+                b.setAiSummary(summary);
+            }
+            case DATABASE_FIELD_TYPE_NUMBER -> {
+                if (value.isTextual()) {
+                    b.setNumber(value.asText());
+                }
+            }
+            case DATABASE_FIELD_TYPE_CHECKBOX -> {
+                if (value.isBoolean()) {
+                    b.setCheckbox(value.asBoolean());
+                }
+            }
+            case DATABASE_FIELD_TYPE_DATE -> {
+                if (value.isTextual()) {
+                    b.setDate(value.asText());
+                }
+            }
+            case DATABASE_FIELD_TYPE_SELECT -> {
+                if (value.isArray()) {
+                    DatabaseSelectValue.Builder select = DatabaseSelectValue.newBuilder();
+                    value.forEach(option -> select.addOptions(toSelectOption(option)));
+                    b.setSelect(select);
+                }
+            }
+            case DATABASE_FIELD_TYPE_HYPERLINK -> {
+                if (value.isArray()) {
+                    DatabaseHyperlinkValue.Builder links = DatabaseHyperlinkValue.newBuilder();
+                    value.forEach(item -> links.addItems(DatabaseHyperlinkItem.newBuilder()
+                            .setUrl(text(item, "url")).setLabel(text(item, "label"))));
+                    b.setHyperlink(links);
+                }
+            }
+            case DATABASE_FIELD_TYPE_USER -> {
+                if (value.isArray()) {
+                    DatabaseUserValue.Builder users = DatabaseUserValue.newBuilder();
+                    value.forEach(item -> users.addAccountIds(text(item, "accountId")));
+                    b.setUser(users);
+                }
+            }
+            case DATABASE_FIELD_TYPE_ATTACHMENT -> {
+                if (value.isArray()) {
+                    DatabaseAttachmentValue.Builder media = DatabaseAttachmentValue.newBuilder();
+                    value.forEach(item -> media.addMediaIds(text(item, "mediaId")));
+                    b.setAttachment(media);
+                }
+            }
+            case DATABASE_FIELD_TYPE_JIRA_ISSUE -> {
+                if (value.isArray()) {
+                    DatabaseJiraIssueValue.Builder issues = DatabaseJiraIssueValue.newBuilder();
+                    value.forEach(item -> issues.addIssues(DatabaseJiraIssueRef.newBuilder()
+                            .setKey(text(item, "key"))
+                            .setCloudId(text(item, "cloudId"))
+                            .setServerId(text(item, "serverId"))));
+                    b.setJiraIssue(issues);
+                }
+            }
+            case DATABASE_FIELD_TYPE_PAGE_LINK -> {
+                if (value.isArray()) {
+                    DatabasePageLinkValue.Builder pages = DatabasePageLinkValue.newBuilder();
+                    value.forEach(item -> pages.addContentIds(text(item, "contentId")));
+                    b.setPageLink(pages);
+                }
+            }
+            case DATABASE_FIELD_TYPE_ENTRY_LINK -> {
+                if (value.isArray()) {
+                    DatabaseEntryLinkValue.Builder entries = DatabaseEntryLinkValue.newBuilder();
+                    value.forEach(item -> entries.addEntries(DatabaseEntryRef.newBuilder()
+                            .setEntryId(text(item, "entryId"))
+                            .setDatabaseContentId(text(item, "databaseContentId"))));
+                    b.setEntryLink(entries);
+                }
+            }
+            default -> {
+                // lookup fields (entryDetails, backlink, pageDetails, pageLabels,
+                // pageStatus, jiraIssueDetails) always carry a null value
+            }
+        }
+        return b.build();
+    }
+
+    private static DatabaseSelectOption toSelectOption(JsonNode node) {
+        return DatabaseSelectOption.newBuilder()
+                .setId(text(node, "id"))
+                .setLabel(text(node, "label"))
+                .build();
+    }
+
+    /** An ADF document is serialized content in a declared format, kept as its JSON text. */
+    private static BodyType adf(JsonNode document) {
+        return BodyType.newBuilder()
+                .setFormat(BodyFormat.BODY_FORMAT_ATLAS_DOC_FORMAT)
+                .setValue(document.toString())
+                .build();
+    }
+
+    private static DatabaseFieldType databaseFieldType(String wire) {
+        return wireEnum(DatabaseFieldType.class, "DATABASE_FIELD_TYPE_", snake(wire),
+                DatabaseFieldType.DATABASE_FIELD_TYPE_UNSPECIFIED);
+    }
+
+    // ======================================================================
+    // INCLUDE-* EXPANSIONS
+    // ======================================================================
+
+    /**
+     * Copies the {@code include-*} expansions present on a single-entity read
+     * into the matching repeated fields of the builder, by field name. A
+     * field the message does not declare is skipped, so one routine serves
+     * every content kind. Space properties land in {@code space_properties}.
+     *
+     * @param b the builder of the mapped entity
+     * @param node the API object
+     */
+    void applyIncludes(Message.Builder b, JsonNode node) {
+        Descriptors.Descriptor type = b.getDescriptorForType();
+        boolean space = type.getName().equals("Space");
+        addEach(b, "labels", node.path("labels"), this::toLabel);
+        addEach(b, "operations", node.path("operations"), ConfluenceMapper::toOperation);
+        addEach(b, "likes", node.path("likes"),
+                like -> Like.newBuilder().setAccountId(text(like, "accountId")).build());
+        addEach(b, "versions", node.path("versions"), this::toVersion);
+        addEach(b, "direct_children", node.path("directChildren"), this::toTreeEntry);
+        if (space) {
+            addEach(b, "space_properties", node.path("properties"), this::toSpaceProperty);
+            addEach(b, "permissions", node.path("permissions"), this::toSpacePermissionAssignment);
+            addEach(b, "role_assignments", node.path("roleAssignments"), this::toSpaceRoleAssignment);
+        } else {
+            addEach(b, "properties", node.path("properties"), this::toContentProperty);
+        }
+        Descriptors.FieldDescriptor favorited = type.findFieldByName("is_favorited_by_current_user");
+        if (favorited != null && node.path("isFavoritedByCurrentUser").isBoolean()) {
+            b.setField(favorited, node.path("isFavoritedByCurrentUser").asBoolean());
+        }
+    }
+
+    /** An include expansion is {@code {results: [...]}}; anything else is not an expansion. */
+    private static void addEach(Message.Builder b, String fieldName, JsonNode expansion,
+            java.util.function.Function<JsonNode, Message> map) {
+        Descriptors.FieldDescriptor field = b.getDescriptorForType().findFieldByName(fieldName);
+        JsonNode results = expansion.path("results");
+        if (field == null || !field.isRepeated() || !results.isArray()) {
+            return;
+        }
+        results.forEach(item -> b.addRepeatedField(field, map.apply(item)));
+    }
+
+    private static Operation toOperation(JsonNode node) {
+        return Operation.newBuilder()
+                .setOperation(text(node, "operation"))
+                .setTargetType(text(node, "targetType"))
+                .build();
+    }
+
+    /** camelCase wire values ({@code aiSummary}, {@code userProfile}) to snake_case. */
+    static String snake(String wire) {
+        if (wire == null) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder(wire.length() + 4);
+        for (int i = 0; i < wire.length(); i++) {
+            char c = wire.charAt(i);
+            if (Character.isUpperCase(c) && i > 0) {
+                out.append('_');
+            }
+            out.append(Character.toLowerCase(c));
+        }
+        return out.toString();
     }
 
     // ======================================================================
