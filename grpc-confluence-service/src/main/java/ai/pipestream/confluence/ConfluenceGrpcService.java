@@ -638,6 +638,214 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     }
 
     // ======================================================================
+    // COMMENTS
+    // ======================================================================
+
+    /** Statuses {@code GET /pages/{id}/{footer,inline}-comments} accept. */
+    private static final Set<String> PAGE_COMMENT_STATUSES =
+            values("current", "archived", "trashed", "deleted", "historical", "draft");
+    /** Statuses {@code GET /blogposts/{id}/{footer,inline}-comments} accept. */
+    private static final Set<String> BLOG_POST_COMMENT_STATUSES =
+            values("current", "deleted", "trashed", "historical", "draft");
+
+    /** One comment route to walk and the kind its comments carry. */
+    private record CommentRoute(String path, String route, CommentKind kind) {
+    }
+
+    /**
+     * Scope resolution follows the request docs: {@code parent_comment_id},
+     * else {@code container}, else the workspace. Kind UNSPECIFIED means
+     * both kinds where a route serves both (footer first), except that
+     * resolution filters only exist on inline comments and so select the
+     * inline route alone; for replies it means footer, then inline when the
+     * footer route does not know the comment.
+     */
+    @Override
+    public void listComments(ListCommentsRequest request,
+            StreamObserver<ListCommentsResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            CommentKind kind = request.getKind();
+            boolean resolution = !request.getResolutionStatusesList().isEmpty();
+            if (resolution && kind == CommentKind.COMMENT_KIND_FOOTER) {
+                throw invalid("resolution_statuses only apply to inline comments");
+            }
+            List<CommentRoute> routes = new ArrayList<>();
+            boolean fallBackToInline = false;
+            Set<String> statuses = null;
+            if (!request.getParentCommentId().isBlank()) {
+                String id = request.getParentCommentId();
+                if (kind != CommentKind.COMMENT_KIND_INLINE && !resolution) {
+                    routes.add(new CommentRoute("/api/v2/footer-comments/" + id + "/children",
+                            "GET /footer-comments/{id}/children", CommentKind.COMMENT_KIND_FOOTER));
+                }
+                if (kind != CommentKind.COMMENT_KIND_FOOTER) {
+                    routes.add(new CommentRoute("/api/v2/inline-comments/" + id + "/children",
+                            "GET /inline-comments/{id}/children", CommentKind.COMMENT_KIND_INLINE));
+                }
+                fallBackToInline = routes.size() == 2;
+                reject(!request.getStatusesList().isEmpty(), "statuses", "GET /{kind}-comments/{id}/children");
+                reject(resolution, "resolution_statuses", "GET /{kind}-comments/{id}/children");
+            } else if (request.hasContainer()) {
+                ContentRef container = request.getContainer();
+                String base = ConfluenceRoutes.contentPath(container, java.util.EnumSet.of(
+                        ContentType.CONTENT_TYPE_PAGE, ContentType.CONTENT_TYPE_BLOG_POST,
+                        ContentType.CONTENT_TYPE_ATTACHMENT, ContentType.CONTENT_TYPE_CUSTOM_CONTENT),
+                        "ListComments container");
+                String segment = ConfluenceRoutes.segment(container.getType());
+                boolean inlineCapable = container.getType() == ContentType.CONTENT_TYPE_PAGE
+                        || container.getType() == ContentType.CONTENT_TYPE_BLOG_POST;
+                if (!inlineCapable && (kind == CommentKind.COMMENT_KIND_INLINE || resolution)) {
+                    throw invalid("inline comments exist on pages and blog posts only");
+                }
+                if (kind != CommentKind.COMMENT_KIND_INLINE && !resolution) {
+                    routes.add(new CommentRoute(base + "/footer-comments",
+                            "GET /" + segment + "/{id}/footer-comments", CommentKind.COMMENT_KIND_FOOTER));
+                }
+                if (inlineCapable && kind != CommentKind.COMMENT_KIND_FOOTER) {
+                    routes.add(new CommentRoute(base + "/inline-comments",
+                            "GET /" + segment + "/{id}/inline-comments", CommentKind.COMMENT_KIND_INLINE));
+                }
+                if (inlineCapable) {
+                    statuses = container.getType() == ContentType.CONTENT_TYPE_PAGE
+                            ? PAGE_COMMENT_STATUSES : BLOG_POST_COMMENT_STATUSES;
+                } else {
+                    reject(!request.getStatusesList().isEmpty(), "statuses",
+                            "GET /" + segment + "/{id}/footer-comments");
+                }
+            } else {
+                reject(!request.getStatusesList().isEmpty(), "statuses",
+                        "GET /footer-comments, GET /inline-comments");
+                reject(resolution, "resolution_statuses", "GET /inline-comments");
+                if (kind != CommentKind.COMMENT_KIND_INLINE) {
+                    routes.add(new CommentRoute("/api/v2/footer-comments", "GET /footer-comments",
+                            CommentKind.COMMENT_KIND_FOOTER));
+                }
+                if (kind != CommentKind.COMMENT_KIND_FOOTER) {
+                    routes.add(new CommentRoute("/api/v2/inline-comments", "GET /inline-comments",
+                            CommentKind.COMMENT_KIND_INLINE));
+                }
+            }
+            for (CommentRoute route : routes) {
+                Query query = limit(session)
+                        .put("sort", ConfluenceRoutes.sort(request.getSort(),
+                                ConfluenceRoutes.DATED_SORT, route.route()));
+                listBodyFormat(query, request.getBodyFormat(), ConfluenceRoutes.PRIMARY_BODY,
+                        route.route());
+                if (statuses != null) {
+                    query.put("status", ConfluenceRoutes.contentStatuses(request.getStatusesList(),
+                            statuses, route.route()));
+                }
+                if (route.kind() == CommentKind.COMMENT_KIND_INLINE && resolution) {
+                    List<String> wire = new ArrayList<>();
+                    for (InlineCommentResolutionStatus status : request.getResolutionStatusesList()) {
+                        wire.add(ConfluenceRoutes.status(status.getValueDescriptor().getName(),
+                                "INLINE_COMMENT_RESOLUTION_STATUS_",
+                                values("resolved", "open", "dangling", "reopened"), route.route()));
+                    }
+                    query.list("resolution-status", wire);
+                }
+                Consumer<JsonNode> emit = node -> observer.onNext(ListCommentsResponse.newBuilder()
+                        .setComment(requireValid(session.mapper.toComment(node, route.kind())))
+                        .build());
+                if (fallBackToInline && route.kind() == CommentKind.COMMENT_KIND_FOOTER) {
+                    if (walkIfFound(session, route.path(), query.map(), emit)) {
+                        break; // the parent is a footer comment: its replies are footer comments
+                    }
+                    continue;
+                }
+                walk(session, route.path(), query.map(), emit);
+            }
+            observer.onCompleted();
+        });
+    }
+
+    @Override
+    public void getComment(GetCommentRequest request, StreamObserver<GetCommentResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            String id = requireId(request.getId(), "id");
+            Query query = singleBodyQuery(request.getBodyFormat(), ConfluenceRoutes.SINGLE_BODY,
+                    "GET /{kind}-comments/{id}");
+            if (request.hasVersion()) {
+                query.put("version", String.valueOf(request.getVersion()));
+            }
+            includes(query, request.getInclude(), COMMENT_INCLUDES);
+            CommentKind kind = request.getKind();
+            JsonNode node;
+            if (kind == CommentKind.COMMENT_KIND_INLINE) {
+                node = session.client.get("/api/v2/inline-comments/" + id, query.map());
+            } else if (kind == CommentKind.COMMENT_KIND_FOOTER) {
+                node = session.client.get("/api/v2/footer-comments/" + id, query.map());
+            } else {
+                try {
+                    node = session.client.get("/api/v2/footer-comments/" + id, query.map());
+                    kind = CommentKind.COMMENT_KIND_FOOTER;
+                } catch (ConfluenceClient.ConfluenceApiException e) {
+                    if (e.status() != 404) {
+                        throw e;
+                    }
+                    node = session.client.get("/api/v2/inline-comments/" + id, query.map());
+                    kind = CommentKind.COMMENT_KIND_INLINE;
+                }
+            }
+            reply(observer, GetCommentResponse.newBuilder()
+                    .setComment(requireValid(session.mapper.toComment(node, kind))).build());
+        });
+    }
+
+    // ======================================================================
+    // CUSTOM CONTENT
+    // ======================================================================
+
+    @Override
+    public void listCustomContent(ListCustomContentRequest request,
+            StreamObserver<ListCustomContentResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            Query query = limit(session).put("type", requireId(request.getType(), "type"));
+            String path;
+            String route;
+            if (request.hasContainer()) {
+                ContentRef container = request.getContainer();
+                path = ConfluenceRoutes.contentPath(container, java.util.EnumSet.of(
+                        ContentType.CONTENT_TYPE_PAGE, ContentType.CONTENT_TYPE_BLOG_POST),
+                        "ListCustomContent container (a space scope is space_ids)") + "/custom-content";
+                route = "GET /" + ConfluenceRoutes.segment(container.getType()) + "/{id}/custom-content";
+                reject(!request.getIdsList().isEmpty(), "ids", route);
+                reject(!request.getSpaceIdsList().isEmpty(), "space_ids", route);
+            } else {
+                path = "/api/v2/custom-content";
+                route = "GET /custom-content";
+                query.list("id", request.getIdsList()).list("space-id", request.getSpaceIdsList());
+            }
+            query.put("sort", ConfluenceRoutes.sort(request.getSort(),
+                    ConfluenceRoutes.CUSTOM_CONTENT_SORT, route));
+            listBodyFormat(query, request.getBodyFormat(), ConfluenceRoutes.CUSTOM_BODY, route);
+            stream(session, path, query, observer, node -> ListCustomContentResponse.newBuilder()
+                    .setCustomContent(requireValid(session.mapper.toCustomContent(node))).build());
+        });
+    }
+
+    @Override
+    public void getCustomContent(GetCustomContentRequest request,
+            StreamObserver<GetCustomContentResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            Query query = singleBodyQuery(request.getBodyFormat(),
+                    ConfluenceRoutes.CUSTOM_SINGLE_BODY, "GET /custom-content/{id}");
+            if (request.hasVersion()) {
+                query.put("version", String.valueOf(request.getVersion()));
+            }
+            includes(query, request.getInclude(), ATTACHMENT_INCLUDES);
+            JsonNode node = session.client.get(
+                    "/api/v2/custom-content/" + requireId(request.getId(), "id"), query.map());
+            reply(observer, GetCustomContentResponse.newBuilder()
+                    .setCustomContent(requireValid(session.mapper.toCustomContent(node))).build());
+        });
+    }
+
+    // ======================================================================
     // SYNC AND PROBE
     // ======================================================================
 
@@ -935,6 +1143,29 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
             url = resultPage.nextUrl();
             params = Map.of();
         }
+    }
+
+    /**
+     * Walks a list route like {@link #walk}, but answers {@code false}
+     * instead of failing when the first page is a 404 (the id is not of
+     * this route's kind).
+     */
+    private boolean walkIfFound(Session session, String path, Map<String, String> query,
+            Consumer<JsonNode> onNode) throws IOException, InterruptedException {
+        ConfluenceClient.ResultPage first;
+        try {
+            first = session.client.getPage(path, query);
+        } catch (ConfluenceClient.ConfluenceApiException e) {
+            if (e.status() == 404) {
+                return false;
+            }
+            throw e;
+        }
+        first.body().path("results").forEach(onNode);
+        if (first.nextUrl() != null) {
+            walk(session, first.nextUrl(), Map.of(), onNode);
+        }
+        return true;
     }
 
     private void walk(Session session, String path, Map<String, String> query,

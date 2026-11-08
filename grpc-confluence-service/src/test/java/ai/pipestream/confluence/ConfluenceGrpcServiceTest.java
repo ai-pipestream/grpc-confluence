@@ -730,6 +730,203 @@ class ConfluenceGrpcServiceTest {
     }
 
     // ======================================================================
+    // COMMENTS AND CUSTOM CONTENT
+    // ======================================================================
+
+    private static final String CUSTOM_JSON = """
+            {"id":"cc1","type":"ac:app:thing","status":"current","title":"Thing",
+             "spaceId":"100","pageId":"200","authorId":"acc-1",
+             "createdAt":"2024-02-01T10:00:00.000Z",
+             "version":{"number":4,"createdAt":"2024-02-02T10:00:00.000Z"},
+             "body":{"raw":{"representation":"raw","value":"{\\"a\\":1}"}},
+             "_links":{"webui":"/spaces/ENG/customcontent/cc1"}}
+            """;
+
+    private List<Comment> comments(ListCommentsRequest request) {
+        List<Comment> out = new ArrayList<>();
+        stub.listComments(request).forEachRemaining(r -> out.add(r.getComment()));
+        return out;
+    }
+
+    @Test
+    void listCommentsOfAPageWalksFooterThenInlineAndSetsKind() {
+        fake.stub("/wiki/api/v2/pages/200/footer-comments", ConfluenceFixtures.listJson(null, "",
+                ConfluenceFixtures.footerCommentJson("c1", "200")));
+        fake.stub("/wiki/api/v2/pages/200/inline-comments", ConfluenceFixtures.listJson(null, "",
+                ConfluenceFixtures.inlineCommentJson("c2", "200")));
+
+        List<Comment> comments = comments(ListCommentsRequest.newBuilder()
+                .setContainer(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_PAGE)
+                        .setId("200"))
+                .setBodyFormat(BodyFormat.BODY_FORMAT_STORAGE_XHTML)
+                .addStatuses(ContentStatus.CONTENT_STATUS_CURRENT)
+                .addStatuses(ContentStatus.CONTENT_STATUS_ARCHIVED)
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_CREATED_DATE)
+                        .setDescending(true))
+                .build());
+
+        assertThat(comments).extracting(Comment::getId, Comment::getKind).containsExactly(
+                org.assertj.core.groups.Tuple.tuple("c1", CommentKind.COMMENT_KIND_FOOTER),
+                org.assertj.core.groups.Tuple.tuple("c2", CommentKind.COMMENT_KIND_INLINE));
+        assertThat(comments.get(1).getInlineProperties().getInlineOriginalSelection())
+                .isEqualTo("teh");
+        java.util.Map<String, String> expected = java.util.Map.of("limit", "100",
+                "body-format", "storage", "status", "current,archived", "sort", "-created-date");
+        assertThat(fake.lastTo("/wiki/api/v2/pages/200/footer-comments").params())
+                .containsExactlyInAnyOrderEntriesOf(expected);
+        assertThat(fake.lastTo("/wiki/api/v2/pages/200/inline-comments").params())
+                .containsExactlyInAnyOrderEntriesOf(expected);
+    }
+
+    @Test
+    void listCommentsResolutionFilterSelectsTheInlineRoute() {
+        fake.stub("/wiki/api/v2/blogposts/300/inline-comments", ConfluenceFixtures.listJson(null, "",
+                ConfluenceFixtures.inlineCommentJson("c2", "300")));
+
+        List<Comment> comments = comments(ListCommentsRequest.newBuilder()
+                .setContainer(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_BLOG_POST)
+                        .setId("300"))
+                .addResolutionStatuses(InlineCommentResolutionStatus.INLINE_COMMENT_RESOLUTION_STATUS_OPEN)
+                .addResolutionStatuses(InlineCommentResolutionStatus.INLINE_COMMENT_RESOLUTION_STATUS_REOPENED)
+                .build());
+
+        assertThat(comments).extracting(Comment::getKind)
+                .containsExactly(CommentKind.COMMENT_KIND_INLINE);
+        assertThat(fake.requestsTo("/wiki/api/v2/blogposts/300/footer-comments")).isEmpty();
+        assertThat(fake.lastTo("/wiki/api/v2/blogposts/300/inline-comments").params())
+                .containsEntry("resolution-status", "open,reopened");
+        // Blog post comments have no archived status.
+        assertInvalid(() -> comments(ListCommentsRequest.newBuilder()
+                .setContainer(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_BLOG_POST)
+                        .setId("300"))
+                .addStatuses(ContentStatus.CONTENT_STATUS_ARCHIVED).build()));
+    }
+
+    @Test
+    void listCommentsOfAnAttachmentAreFooterOnly() {
+        fake.stub("/wiki/api/v2/attachments/a1/footer-comments", ConfluenceFixtures.listJson(null, "",
+                ConfluenceFixtures.footerCommentJson("c5", "200")));
+
+        assertThat(comments(ListCommentsRequest.newBuilder()
+                .setContainer(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_ATTACHMENT)
+                        .setId("a1")).build()))
+                .extracting(Comment::getId, Comment::getKind)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("c5",
+                        CommentKind.COMMENT_KIND_FOOTER));
+        assertInvalid(() -> comments(ListCommentsRequest.newBuilder()
+                .setContainer(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_ATTACHMENT)
+                        .setId("a1"))
+                .setKind(CommentKind.COMMENT_KIND_INLINE).build()));
+        assertInvalid(() -> comments(ListCommentsRequest.newBuilder()
+                .setContainer(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_WHITEBOARD)
+                        .setId("w1")).build()));
+    }
+
+    @Test
+    void listCommentRepliesFallBackFromFooterToInline() {
+        // c2 is an inline comment: the footer children route does not know it.
+        fake.stub("/wiki/api/v2/inline-comments/c2/children", ConfluenceFixtures.listJson(null, "",
+                ConfluenceFixtures.inlineCommentJson("c3", "200")));
+
+        List<Comment> replies = comments(ListCommentsRequest.newBuilder()
+                .setParentCommentId("c2")
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_MODIFIED_DATE))
+                .build());
+
+        assertThat(replies).extracting(Comment::getId, Comment::getKind).containsExactly(
+                org.assertj.core.groups.Tuple.tuple("c3", CommentKind.COMMENT_KIND_INLINE));
+        assertThat(fake.requestsTo("/wiki/api/v2/footer-comments/c2/children")).hasSize(1);
+        assertThat(fake.lastTo("/wiki/api/v2/inline-comments/c2/children").params())
+                .containsEntry("sort", "modified-date");
+    }
+
+    @Test
+    void listCommentsOfTheWorkspaceWalksBothKinds() {
+        fake.stub("/wiki/api/v2/footer-comments", ConfluenceFixtures.listJson(null, "",
+                ConfluenceFixtures.footerCommentJson("c1", "200")));
+        fake.stub("/wiki/api/v2/inline-comments", ConfluenceFixtures.listJson(null, "",
+                ConfluenceFixtures.inlineCommentJson("c2", "200")));
+
+        assertThat(comments(ListCommentsRequest.getDefaultInstance()))
+                .extracting(Comment::getKind)
+                .containsExactly(CommentKind.COMMENT_KIND_FOOTER, CommentKind.COMMENT_KIND_INLINE);
+        assertThat(comments(ListCommentsRequest.newBuilder()
+                .setKind(CommentKind.COMMENT_KIND_INLINE).build())).hasSize(1);
+        // The workspace routes have no status filter.
+        assertInvalid(() -> comments(ListCommentsRequest.newBuilder()
+                .addStatuses(ContentStatus.CONTENT_STATUS_CURRENT).build()));
+    }
+
+    @Test
+    void getCommentTriesFooterThenInline() {
+        fake.stub("/wiki/api/v2/inline-comments/c2", ConfluenceFixtures.inlineCommentJson("c2", "200"));
+
+        GetCommentResponse response = stub.getComment(GetCommentRequest.newBuilder().setId("c2")
+                .setVersion(1)
+                .setInclude(ContentIncludes.newBuilder().setLikes(true).setLabels(true))
+                .build());
+
+        assertThat(response.getComment().getKind()).isEqualTo(CommentKind.COMMENT_KIND_INLINE);
+        assertThat(fake.requestsTo("/wiki/api/v2/footer-comments/c2")).hasSize(1);
+        // include-labels is not offered on comments: ignored.
+        assertThat(fake.lastTo("/wiki/api/v2/inline-comments/c2").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("body-format", "storage",
+                        "version", "1", "include-likes", "true"));
+
+        fake.stub("/wiki/api/v2/footer-comments/c1", ConfluenceFixtures.footerCommentJson("c1", "200"));
+        assertThat(stub.getComment(GetCommentRequest.newBuilder().setId("c1")
+                .setKind(CommentKind.COMMENT_KIND_FOOTER).build()).getComment().getKind())
+                .isEqualTo(CommentKind.COMMENT_KIND_FOOTER);
+    }
+
+    @Test
+    void listCustomContentForwardsTypeIdsSpacesSortAndBody() {
+        fake.stub("/wiki/api/v2/custom-content", ConfluenceFixtures.listJson(null, "", CUSTOM_JSON));
+        fake.stub("/wiki/api/v2/pages/200/custom-content",
+                ConfluenceFixtures.listJson(null, "", CUSTOM_JSON));
+
+        List<CustomContent> items = new ArrayList<>();
+        stub.listCustomContent(ListCustomContentRequest.newBuilder().setType("ac:app:thing")
+                .addIds("cc1").addSpaceIds("100")
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_TITLE))
+                .setBodyFormat(BodyFormat.BODY_FORMAT_RAW).build())
+                .forEachRemaining(r -> items.add(r.getCustomContent()));
+
+        assertThat(items).singleElement().satisfies(c -> {
+            assertThat(c.getType()).isEqualTo("ac:app:thing");
+            assertThat(c.getBody().getRaw().getFormat()).isEqualTo(BodyFormat.BODY_FORMAT_RAW);
+        });
+        assertThat(fake.lastTo("/wiki/api/v2/custom-content").params()).containsExactlyInAnyOrderEntriesOf(
+                java.util.Map.of("limit", "100", "type", "ac:app:thing", "id", "cc1",
+                        "space-id", "100", "sort", "title", "body-format", "raw"));
+
+        stub.listCustomContent(ListCustomContentRequest.newBuilder().setType("ac:app:thing")
+                .setContainer(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_PAGE)
+                        .setId("200")).build()).forEachRemaining(r -> { });
+        assertThat(fake.lastTo("/wiki/api/v2/pages/200/custom-content").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("limit", "100",
+                        "type", "ac:app:thing"));
+        assertInvalid(() -> stub.listCustomContent(ListCustomContentRequest.getDefaultInstance())
+                .hasNext());
+    }
+
+    @Test
+    void getCustomContentForwardsBodyVersionAndIncludes() {
+        fake.stub("/wiki/api/v2/custom-content/cc1", CUSTOM_JSON);
+
+        GetCustomContentResponse response = stub.getCustomContent(GetCustomContentRequest.newBuilder()
+                .setId("cc1").setBodyFormat(BodyFormat.BODY_FORMAT_ANONYMOUS_EXPORT_XHTML)
+                .setVersion(4).setInclude(ContentIncludes.newBuilder().setCollaborators(true))
+                .build());
+
+        assertThat(response.getCustomContent().getVersion().getNumber()).isEqualTo(4);
+        assertThat(fake.lastTo("/wiki/api/v2/custom-content/cc1").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of(
+                        "body-format", "anonymous_export_view", "version", "4",
+                        "include-collaborators", "true"));
+    }
+
+    // ======================================================================
     // SYNC
     // ======================================================================
 
