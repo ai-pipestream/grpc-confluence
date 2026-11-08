@@ -240,7 +240,7 @@ class ConnectionSetupMcpTest {
     }
 
     private static McpSchema.CallToolRequest tool(String name, Map<String, Object> args) {
-        return McpSchema.CallToolRequest.builder().name(name).arguments(args).build();
+        return McpSchema.CallToolRequest.builder(name).arguments(args).build();
     }
 
     private static String text(McpSchema.CallToolResult result) {

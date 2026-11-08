@@ -4,10 +4,10 @@ import ai.pipestream.confluence.v1.ConfluenceServiceGrpc;
 import ai.pipestream.confluence.v1.GetPageRequest;
 import ai.pipestream.confluence.v1.ListAttachmentsRequest;
 import ai.pipestream.confluence.v1.ListAttachmentsResponse;
-import ai.pipestream.confluence.v1.ListSpacesRequest;
-import ai.pipestream.confluence.v1.ListSpacesResponse;
 import ai.pipestream.confluence.v1.Page;
 import ai.pipestream.confluence.v1.Space;
+import ai.pipestream.confluence.v1.StreamSpacesRequest;
+import ai.pipestream.confluence.v1.StreamSpacesResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
@@ -74,15 +74,16 @@ class ConfluenceLiveSmokeIT {
         try {
             ConfluenceServiceGrpc.ConfluenceServiceBlockingStub stub =
                     ConfluenceServiceGrpc.newBlockingStub(channel);
-            ListSpacesResponse response = stub.listSpaces(
-                    ListSpacesRequest.newBuilder().setLimit(1).build());
+            List<StreamSpacesResponse> spaces = new ArrayList<>();
+            stub.streamSpaces(StreamSpacesRequest.newBuilder().setLimit(1).build())
+                    .forEachRemaining(spaces::add);
 
-            assertThat(response.getSpacesCount()).isEqualTo(1);
-            Space space = response.getSpaces(0);
+            assertThat(spaces).hasSize(1);
+            Space space = spaces.get(0).getSpace();
             assertThat(space.getId()).isNotBlank();
             assertThat(space.getKey()).isNotBlank();
             assertThat(VALIDATOR.validate(space).violations()).isEmpty();
-            System.out.println("[ConfluenceLiveSmokeIT] ListSpaces limit=1 -> key="
+            System.out.println("[ConfluenceLiveSmokeIT] StreamSpaces limit=1 -> key="
                     + space.getKey() + " name=" + space.getName()
                     + " homepage=" + space.getHomepageId());
 

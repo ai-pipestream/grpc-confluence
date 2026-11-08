@@ -263,6 +263,8 @@ class ConfluenceLiveCoverageIT {
     // THE RUN
     // ======================================================================
 
+    // Exercises every rpc, the deprecated ListSpaces included.
+    @SuppressWarnings("deprecation")
     private void exercise(List<String> spaceKeys) {
         // ------------------------------------------------------- spaces --
         int candidates = spaceKeys.isEmpty() ? SPACE_CANDIDATES : spaceKeys.size();

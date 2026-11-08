@@ -4,9 +4,8 @@ import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.health.v1.HealthCheckResponse;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
-import io.grpc.protobuf.services.ProtoReflectionService;
+import io.grpc.protobuf.services.HealthStatusManager;
 import io.grpc.protobuf.services.ProtoReflectionServiceV1;
-import io.grpc.services.HealthStatusManager;
 
 import java.io.IOException;
 import java.util.concurrent.Executors;
@@ -95,7 +94,6 @@ public final class SyncTableServer {
         }
         Server server = builder
                 .addService(health.getHealthService())
-                .addService(ProtoReflectionService.newInstance())
                 .addService(ProtoReflectionServiceV1.newInstance())
                 .build()
                 .start();

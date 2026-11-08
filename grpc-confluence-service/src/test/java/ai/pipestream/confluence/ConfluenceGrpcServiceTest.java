@@ -37,10 +37,10 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
-import io.grpc.protobuf.services.ProtoReflectionService;
-import io.grpc.reflection.v1alpha.ServerReflectionGrpc;
-import io.grpc.reflection.v1alpha.ServerReflectionRequest;
-import io.grpc.reflection.v1alpha.ServerReflectionResponse;
+import io.grpc.protobuf.services.ProtoReflectionServiceV1;
+import io.grpc.reflection.v1.ServerReflectionGrpc;
+import io.grpc.reflection.v1.ServerReflectionRequest;
+import io.grpc.reflection.v1.ServerReflectionResponse;
 import io.grpc.stub.StreamObserver;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -96,7 +96,7 @@ class ConfluenceGrpcServiceTest {
         server = InProcessServerBuilder.forName("confluence-facade-test")
                 .executor(Executors.newVirtualThreadPerTaskExecutor())
                 .addService(service)
-                .addService(ProtoReflectionService.newInstance())
+                .addService(ProtoReflectionServiceV1.newInstance())
                 .build().start();
         channel = InProcessChannelBuilder.forName("confluence-facade-test").build();
         stub = ConfluenceServiceGrpc.newBlockingStub(channel);
@@ -113,6 +113,8 @@ class ConfluenceGrpcServiceTest {
     // READ RPCS
     // ======================================================================
 
+    // Covers the deprecated ListSpaces rpc, which the service still serves.
+    @SuppressWarnings("deprecation")
     @Test
     void listSpacesReturnsAllOrFilteredByKeys() {
         fake.stub("/wiki/api/v2/spaces",
@@ -350,6 +352,8 @@ class ConfluenceGrpcServiceTest {
         assertThat(fake.requests()).isEmpty();
     }
 
+    // Covers the deprecated ListSpaces rpc, which the service still serves.
+    @SuppressWarnings("deprecation")
     @Test
     void listSpacesForwardsEveryFilter() {
         fake.stub("/wiki/api/v2/spaces", ConfluenceFixtures.spaceListJson(null,
@@ -374,6 +378,8 @@ class ConfluenceGrpcServiceTest {
                 .containsExactlyInAnyOrderEntriesOf(expected);
     }
 
+    // Covers the deprecated ListSpaces rpc, which the service still serves.
+    @SuppressWarnings("deprecation")
     @Test
     void listSpacesRejectsASortTheRouteDoesNotOffer() {
         assertInvalid(() -> stub.listSpaces(ListSpacesRequest.newBuilder()

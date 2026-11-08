@@ -2,8 +2,8 @@ package ai.pipestream.confluence;
 
 import ai.pipestream.confluence.v1.ConfluenceServiceGrpc;
 import ai.pipestream.confluence.v1.GetPageRequest;
-import ai.pipestream.confluence.v1.ListSpacesRequest;
 import ai.pipestream.confluence.v1.ProbeConnectionRequest;
+import ai.pipestream.confluence.v1.StreamSpacesRequest;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.Status;
@@ -72,7 +72,8 @@ class ConfluenceAuthErrorMappingTest {
         String body = capture("v2-spaces-auth-masked-404.json");
         fake.stub("/wiki/api/v2/spaces", new FakeConfluenceServer.Stub(404, body, Map.of()));
 
-        assertThatThrownBy(() -> stub.listSpaces(ListSpacesRequest.getDefaultInstance()))
+        assertThatThrownBy(() -> stub.streamSpaces(StreamSpacesRequest.getDefaultInstance())
+                .hasNext())
                 .isInstanceOfSatisfying(StatusRuntimeException.class, e -> {
                     assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.NOT_FOUND);
                     assertThat(e.getStatus().getDescription()).contains("NOT_FOUND");
@@ -94,7 +95,8 @@ class ConfluenceAuthErrorMappingTest {
         String body = capture("v1-space-forbidden-403.json");
         fake.stub("/wiki/api/v2/spaces", new FakeConfluenceServer.Stub(403, body, Map.of()));
 
-        assertThatThrownBy(() -> stub.listSpaces(ListSpacesRequest.getDefaultInstance()))
+        assertThatThrownBy(() -> stub.streamSpaces(StreamSpacesRequest.getDefaultInstance())
+                .hasNext())
                 .isInstanceOfSatisfying(StatusRuntimeException.class, e -> {
                     assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.PERMISSION_DENIED);
                     assertThat(e.getStatus().getDescription())

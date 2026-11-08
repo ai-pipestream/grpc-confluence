@@ -10,9 +10,8 @@ import io.grpc.ManagedChannelBuilder;
 import io.grpc.Server;
 import io.grpc.health.v1.HealthCheckResponse;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
-import io.grpc.protobuf.services.ProtoReflectionService;
+import io.grpc.protobuf.services.HealthStatusManager;
 import io.grpc.protobuf.services.ProtoReflectionServiceV1;
-import io.grpc.services.HealthStatusManager;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -182,7 +181,6 @@ public final class ConfluenceServer {
                 .executor(Executors.newVirtualThreadPerTaskExecutor())
                 .addService(service)
                 .addService(health.getHealthService())
-                .addService(ProtoReflectionService.newInstance())
                 .addService(ProtoReflectionServiceV1.newInstance())
                 .build().start();
         health.setStatus("", HealthCheckResponse.ServingStatus.SERVING);

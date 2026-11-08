@@ -209,6 +209,12 @@ public final class ConfluenceGrpcService
     // SPACES
     // ======================================================================
 
+    /**
+     * Serves the deprecated unary rpc for existing callers.
+     *
+     * @deprecated the contract deprecates {@code ListSpaces}; use {@link #streamSpaces}.
+     */
+    @Deprecated
     @Override
     public void listSpaces(ListSpacesRequest request,
             StreamObserver<ListSpacesResponse> observer) {

@@ -259,6 +259,9 @@ public final class ConfluenceValidator {
         visitTruncatedIncludes(prefix, attachment.getTruncatedIncludesList(), out);
     }
 
+    // Space.properties is deprecated in the contract but still carried on the
+    // wire for existing producers, so it is still validated.
+    @SuppressWarnings("deprecation")
     private static void visitSpace(String prefix, Space space, List<Violation> out) {
         required(prefix, "id", space.getId(), out);
         required(prefix, "key", space.getKey(), out);
