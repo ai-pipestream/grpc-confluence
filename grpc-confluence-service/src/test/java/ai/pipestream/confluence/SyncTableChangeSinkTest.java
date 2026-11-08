@@ -57,6 +57,28 @@ class SyncTableChangeSinkTest {
     }
 
     @Test
+    void mapsTheSecurityTrimmingArmsUnderTheirComposedIds() {
+        ConfluenceChange restriction = ConfluenceChange.newBuilder()
+                .setChangeId("c3")
+                .setOperation(ChangeOperation.CHANGE_OPERATION_UPSERT)
+                .setSource(ChangeSource.CHANGE_SOURCE_CRAWL)
+                .setCursor("run-1")
+                .setEntity(ConfluenceEntity.newBuilder()
+                        .setEntityId("page:200/permission/read/user/abc")
+                        .setIngestedAt(Timestamp.newBuilder().setSeconds(1))
+                        .setContentPermission(ai.pipestream.confluence.v1.ContentPermission.newBuilder()
+                                .setOperation(ai.pipestream.confluence.v1.ContentPermissionOperation
+                                        .CONTENT_PERMISSION_OPERATION_READ)))
+                .build();
+        Asset asset = SyncTableChangeSink.toAsset(restriction);
+        assertThat(asset.getAssetId())
+                .isEqualTo("confluence:default:content_permission:page:200/permission/read/user/abc");
+        assertThat(asset.getKind()).isEqualTo("content_permission");
+        assertThat(asset.getTitle()).isEqualTo("page:200/permission/read/user/abc");
+        assertThat(asset.getAttachment()).isFalse();
+    }
+
+    @Test
     void mapsSpaceBlogAndDeletePhase() {
         Asset space = SyncTableChangeSink.toAsset(ConfluenceChange.newBuilder()
                 .setChangeId("c3")
