@@ -354,7 +354,8 @@ public final class ConfluenceCrawler {
                 changeCursor);
         count(counts, "page");
         crawlComments("/api/v2/pages/" + page.getId(), source, changeCursor, counts);
-        crawlSubEntities("/api/v2/pages/" + page.getId(), source, changeCursor, counts);
+        crawlSubEntities("/api/v2/pages/" + page.getId(), "page:" + page.getId(), source,
+                changeCursor, counts);
         crawlTreeChildren("pages", page.getId(), source, changeCursor, counts, seenTree, stopAt);
     }
 
@@ -367,7 +368,8 @@ public final class ConfluenceCrawler {
                 .build(), source, changeCursor);
         count(counts, "blogpost");
         crawlComments("/api/v2/blogposts/" + blogPost.getId(), source, changeCursor, counts);
-        crawlSubEntities("/api/v2/blogposts/" + blogPost.getId(), source, changeCursor, counts);
+        crawlSubEntities("/api/v2/blogposts/" + blogPost.getId(), "blogpost:" + blogPost.getId(),
+                source, changeCursor, counts);
     }
 
     /** Footer plus inline comments of one page or blog post. */
@@ -387,8 +389,14 @@ public final class ConfluenceCrawler {
         }
     }
 
-    /** Attachments (metadata only), labels and content properties of one page or blog post. */
-    private void crawlSubEntities(String contentPath, ChangeSource source, String changeCursor,
+    /**
+     * Attachments (metadata only), labels and content properties of one page or blog post.
+     * A label is shared by every item that carries it, so its record is keyed
+     * {@code <owner>/label/<labelId>}: one record per (item, label) pair keeps the
+     * association and the entity ids unique within a run.
+     */
+    private void crawlSubEntities(String contentPath, String owner, ChangeSource source,
+            String changeCursor,
             Map<String, Long> counts) throws IOException, InterruptedException {
         for (JsonNode node : listAll(contentPath + "/attachments",
                 Map.of("limit", String.valueOf(config.pageSize())))) {
@@ -400,7 +408,7 @@ public final class ConfluenceCrawler {
         for (JsonNode node : listAll(contentPath + "/labels",
                 Map.of("limit", String.valueOf(config.pageSize())))) {
             Label label = mapper.toLabel(node);
-            emit(entity(label.getId()).setLabel(label).build(), source, changeCursor);
+            emit(entity(owner + "/label/" + label.getId()).setLabel(label).build(), source, changeCursor);
             count(counts, "label");
         }
         for (JsonNode node : listAll(contentPath + "/properties",

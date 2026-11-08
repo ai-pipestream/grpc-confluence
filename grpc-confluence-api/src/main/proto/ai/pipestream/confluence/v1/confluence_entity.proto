@@ -34,7 +34,9 @@ option java_package = "ai.pipestream.confluence.v1";
 // declares ids as strings holding numbers). One arm per entity kind.
 // ============================================================================
 message ConfluenceEntity {
-  // The Confluence id of the wrapped entity.
+  // The Confluence id of the wrapped entity. Records that only exist in
+  // relation to an owner are keyed under it, e.g. `page:<id>/label/<id>`,
+  // `space:<id>/permission/...`, `page:<id>/restriction-state`.
   string entity_id = 1;
   // When the crawler ingested this record.
   google.protobuf.Timestamp ingested_at = 2;
