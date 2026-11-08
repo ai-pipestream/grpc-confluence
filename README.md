@@ -14,7 +14,7 @@ to have all of the same features. So there's no data loss: if the API sends it,
 gRPC also captures it.
 
 Attachments are supported and linked, and `GetAttachment` can inline the
-bytes (25 MiB cap, redirect to the media CDN followed server-side).
+bytes (no size cap by default, redirect to the media CDN followed server-side).
 
 An **MCP endpoint** (Streamable HTTP, official MCP Java SDK) exposes the
 same surface as tools so an LLM can set up connections, configure output,
@@ -68,7 +68,7 @@ CONFLUENCE_KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 ```
 
 RPCs: `ListSpaces`, `GetPage`, `GetBlogPost`, `ListPages`, `ListBlogPosts`,
-`GetAttachment` (`include_content`, 25 MiB cap), `ListAttachments` (stream),
+`GetAttachment` (`include_content`, optional `CONFLUENCE_ATTACHMENT_MAX_BYTES` cap), `ListAttachments` (stream),
 `Sync` (stream), `ProbeConnection`. Handlers run on virtual threads.
 `ProbeConnection` reports a failed probe in-band (`ok=false` +
 `error_message`); only catalog-resolution problems (unknown connection,

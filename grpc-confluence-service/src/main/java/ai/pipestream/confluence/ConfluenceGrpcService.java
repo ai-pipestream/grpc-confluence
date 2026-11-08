@@ -59,8 +59,8 @@ import java.util.function.Consumer;
  */
 public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.ConfluenceServiceImplBase {
 
-    /** Default cap for inlined attachment bytes: 25 MiB. */
-    public static final long DEFAULT_ATTACHMENT_MAX_BYTES = 25L * 1024 * 1024;
+    /** Default inline byte cap: 0, meaning no cap. Set a positive value to enforce one. */
+    public static final long DEFAULT_ATTACHMENT_MAX_BYTES = 0L;
 
     private static final ConfluenceValidator VALIDATOR = ConfluenceValidator.create();
 
@@ -77,7 +77,7 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
      *
      * @param config connector config
      * @param client the authorized REST client
-     * @param attachmentMaxBytes inline attachment byte cap; must be positive
+     * @param attachmentMaxBytes inline attachment byte cap; 0 or less means no cap
      */
     public ConfluenceGrpcService(ConfluenceConnectorConfig config, ConfluenceClient client,
             long attachmentMaxBytes) {
@@ -90,7 +90,7 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
      *
      * @param config connector config
      * @param client the authorized REST client
-     * @param attachmentMaxBytes inline attachment byte cap; must be positive
+     * @param attachmentMaxBytes inline attachment byte cap; 0 or less means no cap
      * @param downstream optional extra sink for {@code Sync} emissions; {@code null} for none
      */
     public ConfluenceGrpcService(ConfluenceConnectorConfig config, ConfluenceClient client,
@@ -106,7 +106,7 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
      * @param config process-default connector config; {@code null} when only
      *        catalog connections are used
      * @param client process-default REST client; {@code null} when {@code config} is
-     * @param attachmentMaxBytes inline attachment byte cap; must be positive
+     * @param attachmentMaxBytes inline attachment byte cap; 0 or less means no cap
      * @param downstream optional extra sink for {@code Sync}
      * @param connections generated {@code ConnectionService} stub; {@code null}
      *        when the catalog is not configured
@@ -123,9 +123,6 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
         this.config = config;
         this.client = client;
         this.mapper = config == null ? null : new ConfluenceMapper(config.baseUrl());
-        if (attachmentMaxBytes <= 0) {
-            throw new IllegalArgumentException("attachmentMaxBytes must be positive");
-        }
         this.attachmentMaxBytes = attachmentMaxBytes;
         this.downstream = downstream;
         this.connections = connections;
@@ -418,9 +415,13 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
         }
     }
 
+    private boolean overCap(long size) {
+        return attachmentMaxBytes > 0 && size > attachmentMaxBytes;
+    }
+
     private Attachment withContent(Session session, Attachment attachment)
             throws IOException, InterruptedException {
-        if (attachment.getFileSize() > attachmentMaxBytes) {
+        if (overCap(attachment.getFileSize())) {
             throw Status.FAILED_PRECONDITION
                     .withDescription("attachment " + attachment.getId() + " is "
                             + attachment.getFileSize() + " bytes, above the " + attachmentMaxBytes
@@ -433,7 +434,7 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
                     .asRuntimeException();
         }
         byte[] bytes = session.client.downloadAttachmentBytes(attachment.getDownloadUrl());
-        if (bytes.length > attachmentMaxBytes) {
+        if (overCap(bytes.length)) {
             throw Status.FAILED_PRECONDITION
                     .withDescription("attachment " + attachment.getId() + " downloaded to "
                             + bytes.length + " bytes, above the " + attachmentMaxBytes

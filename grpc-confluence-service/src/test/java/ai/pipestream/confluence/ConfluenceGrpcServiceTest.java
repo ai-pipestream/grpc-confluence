@@ -245,6 +245,21 @@ class ConfluenceGrpcServiceTest {
     }
 
     @Test
+    void getAttachmentHasNoInlineCapByDefault() {
+        long thirtyMiB = 30L * 1024 * 1024;
+        fake.stub("/wiki/api/v2/attachments/a1", ConfluenceFixtures.attachmentJson("a1", "200")
+                .replace("\"fileSize\": 12345", "\"fileSize\": " + thirtyMiB));
+        fake.stub("/wiki/download/attachments/a1/diagram.png", "png-bytes");
+
+        GetAttachmentResponse response = stub.getAttachment(GetAttachmentRequest.newBuilder()
+                .setId("a1").setIncludeContent(true).build());
+
+        assertThat(ConfluenceGrpcService.DEFAULT_ATTACHMENT_MAX_BYTES).isZero();
+        assertThat(response.getAttachment().getFileSize()).isEqualTo(thirtyMiB);
+        assertThat(response.getAttachment().hasContent()).isTrue();
+    }
+
+    @Test
     void getAttachmentAboveTheInlineCapIsFailedPrecondition() throws Exception {
         server.shutdown();
         channel.shutdownNow();
