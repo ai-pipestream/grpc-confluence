@@ -30,10 +30,11 @@ application {
     mainClass = "ai.pipestream.confluence.ConfluenceServer"
 }
 
-// The live smoke test hits the real workspace, so it never runs in the
-// default test task (and is assumption-gated on credentials as a second guard).
+// The live smoke and coverage tests hit the real workspace, so they never run
+// in the default test task (and are assumption-gated on credentials as a second guard).
 tasks.named<Test>("test") {
     exclude("**/ConfluenceLiveSmokeIT.class")
+    exclude("**/ConfluenceLiveCoverageIT.class")
 }
 
 tasks.register<Test>("liveSmokeTest") {
@@ -43,5 +44,21 @@ tasks.register<Test>("liveSmokeTest") {
     classpath = sourceSets.test.get().runtimeClasspath
     filter {
         includeTestsMatching("ai.pipestream.confluence.ConfluenceLiveSmokeIT")
+    }
+}
+
+tasks.register<Test>("liveCoverageTest") {
+    description = "Calls every ConfluenceService rpc against the real Confluence workspace and writes build/live-coverage.md; needs CONFLUENCE_EMAIL + CONFLUENCE_API_TOKEN (or the CONFLUENCE_USER / CONFLUENCE_TOKEN aliases), optional CONFLUENCE_SPACES, skips otherwise"
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    filter {
+        includeTestsMatching("ai.pipestream.confluence.ConfluenceLiveCoverageIT")
+    }
+    systemProperty("liveCoverage.report", layout.buildDirectory.file("live-coverage.md").get().asFile.path)
+    // A live run is never up to date, and the report goes to stdout too.
+    outputs.upToDateWhen { false }
+    testLogging {
+        showStandardStreams = true
     }
 }
