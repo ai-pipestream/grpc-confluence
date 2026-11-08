@@ -1390,6 +1390,138 @@ class ConfluenceGrpcServiceTest {
     }
 
     // ======================================================================
+    // PERMISSIONS, ROLES, CONTENT TYPES
+    // ======================================================================
+
+    @Test
+    void getRestrictionStateServesThePermissionTargets() {
+        fake.stub("/wiki/api/v2/folders/f1/restriction-state",
+                "{\"state\":\"VIEW_RESTRICTED\",\"createdAt\":\"2024-02-01T10:00:00.000Z\","
+                        + "\"createdByAaid\":\"acc-1\"}");
+
+        RestrictionState state = stub.getRestrictionState(GetRestrictionStateRequest.newBuilder()
+                .setContent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_FOLDER).setId("f1"))
+                .build()).getRestrictionState();
+
+        assertThat(state.getState()).isEqualTo(ContentRestrictionState.CONTENT_RESTRICTION_STATE_VIEW_RESTRICTED);
+        assertThat(state.getCreatedBy()).isEqualTo("acc-1");
+        assertInvalid(() -> stub.getRestrictionState(GetRestrictionStateRequest.newBuilder()
+                .setContent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_ATTACHMENT)
+                        .setId("a1")).build()));
+    }
+
+    @Test
+    void listContentPermissionsForwardsOperationAndPrincipal() {
+        fake.stub("/wiki/api/v2/blogposts/300/permissions", ConfluenceFixtures.listJson(null, "",
+                "{\"operation\":\"read\",\"principal\":{\"principalType\":\"group\","
+                        + "\"principalId\":\"g1\"},\"createdAt\":\"2024-02-01T10:00:00.000Z\","
+                        + "\"createdBy\":\"acc-1\"}"));
+
+        List<ContentPermission> permissions = new ArrayList<>();
+        stub.listContentPermissions(ListContentPermissionsRequest.newBuilder()
+                .setContent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_BLOG_POST)
+                        .setId("300"))
+                .setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_READ)
+                .setPrincipalType(ContentPermissionPrincipalType.CONTENT_PERMISSION_PRINCIPAL_TYPE_GROUP)
+                .setPrincipalId("g1").build()).forEachRemaining(r -> permissions.add(r.getPermission()));
+
+        assertThat(permissions).singleElement().satisfies(p -> {
+            assertThat(p.getOperation()).isEqualTo(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_READ);
+            assertThat(p.getPrincipal().getPrincipalType())
+                    .isEqualTo(ContentPermissionPrincipalType.CONTENT_PERMISSION_PRINCIPAL_TYPE_GROUP);
+            assertThat(p.getPrincipal().getPrincipalId()).isEqualTo("g1");
+        });
+        assertThat(fake.lastTo("/wiki/api/v2/blogposts/300/permissions").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("limit", "100",
+                        "operation", "read", "principal-type", "group", "principal-id", "g1"));
+        assertInvalid(() -> stub.listContentPermissions(ListContentPermissionsRequest.newBuilder()
+                .setContent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_PAGE).setId("200"))
+                .setPrincipalId("g1").build()).hasNext());
+    }
+
+    @Test
+    void spacePermissionAssignmentsRolesAndRoleAssignments() {
+        fake.stub("/wiki/api/v2/spaces/100/permissions", ConfluenceFixtures.listJson(null, "",
+                "{\"id\":\"sp-1\",\"principal\":{\"type\":\"role\",\"id\":\"r1\"},"
+                        + "\"operation\":{\"key\":\"administer\",\"targetType\":\"space\"}}"));
+        fake.stub("/wiki/api/v2/space-roles", ConfluenceFixtures.listJson(null, "",
+                "{\"id\":\"r1\",\"type\":\"SYSTEM\",\"name\":\"Admin\",\"description\":\"d\","
+                        + "\"spacePermissions\":[\"sp-1\"]}"));
+        fake.stub("/wiki/api/v2/spaces/100/role-assignments", ConfluenceFixtures.listJson(null, "",
+                "{\"principal\":{\"principalType\":\"ACCESS_CLASS\",\"principalId\":"
+                        + "\"authenticated-users\"},\"roleId\":\"r1\"}"));
+        fake.stub("/wiki/api/v2/space-role-mode", "{\"mode\":\"ROLES_TRANSITION\"}");
+        Principal user = Principal.newBuilder().setPrincipalType(PrincipalType.PRINCIPAL_TYPE_USER)
+                .setPrincipalId("acc-1").build();
+
+        List<SpacePermissionAssignment> assignments = new ArrayList<>();
+        stub.listSpacePermissionAssignments(ListSpacePermissionAssignmentsRequest.newBuilder()
+                .setSpaceId("100").build()).forEachRemaining(r -> assignments.add(r.getAssignment()));
+        assertThat(assignments).singleElement().satisfies(a -> {
+            assertThat(a.getPrincipal().getType())
+                    .isEqualTo(SpacePermissionPrincipalType.SPACE_PERMISSION_PRINCIPAL_TYPE_ROLE);
+            assertThat(a.getOperation().getKey())
+                    .isEqualTo(SpacePermissionOperationKey.SPACE_PERMISSION_OPERATION_KEY_ADMINISTER);
+        });
+
+        List<SpaceRole> roles = new ArrayList<>();
+        stub.listSpaceRoles(ListSpaceRolesRequest.newBuilder().setSpaceId("100")
+                .setRoleType(RoleType.ROLE_TYPE_SYSTEM).setPrincipal(user).build())
+                .forEachRemaining(r -> roles.add(r.getRole()));
+        assertThat(roles).singleElement().satisfies(r -> {
+            assertThat(r.getType()).isEqualTo(RoleType.ROLE_TYPE_SYSTEM);
+            assertThat(r.getSpacePermissionsList()).containsExactly("sp-1");
+        });
+        assertThat(fake.lastTo("/wiki/api/v2/space-roles").params()).containsExactlyInAnyOrderEntriesOf(
+                java.util.Map.of("limit", "100", "space-id", "100", "role-type", "SYSTEM",
+                        "principal-type", "USER", "principal-id", "acc-1"));
+
+        List<SpaceRoleAssignment> roleAssignments = new ArrayList<>();
+        stub.listSpaceRoleAssignments(ListSpaceRoleAssignmentsRequest.newBuilder().setSpaceId("100")
+                .setRoleId("r1").setRoleType(RoleType.ROLE_TYPE_CUSTOM).build())
+                .forEachRemaining(r -> roleAssignments.add(r.getAssignment()));
+        assertThat(roleAssignments).singleElement().satisfies(a -> {
+            assertThat(a.getRoleId()).isEqualTo("r1");
+            assertThat(a.getPrincipal().getPrincipalType()).isEqualTo(PrincipalType.PRINCIPAL_TYPE_ACCESS_CLASS);
+        });
+        assertThat(fake.lastTo("/wiki/api/v2/spaces/100/role-assignments").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("limit", "100", "role-id", "r1",
+                        "role-type", "CUSTOM"));
+        assertInvalid(() -> stub.listSpaceRoleAssignments(ListSpaceRoleAssignmentsRequest.newBuilder()
+                .setSpaceId("100").setPrincipal(Principal.newBuilder().setPrincipalId("x")).build())
+                .hasNext());
+
+        assertThat(stub.getSpaceRoleMode(GetSpaceRoleModeRequest.getDefaultInstance()).getMode())
+                .isEqualTo(SpaceRoleMode.SPACE_ROLE_MODE_ROLES_TRANSITION);
+    }
+
+    @Test
+    void resolveContentTypesChunksAndTypesTheResults() throws Exception {
+        fake.stub("/wiki/api/v2/content/convert-ids-to-types", "{\"results\":{\"1\":\"page\","
+                + "\"2\":\"inline-comment\",\"3\":\"ac:my-app:thing\"}}");
+        ResolveContentTypesRequest.Builder request = ResolveContentTypesRequest.newBuilder();
+        for (int i = 1; i <= 150; i++) {
+            request.addIds(String.valueOf(i));
+        }
+
+        ResolveContentTypesResponse response = stub.resolveContentTypes(request.build());
+
+        List<FakeConfluenceServer.RecordedRequest> calls =
+                fake.requestsTo("/wiki/api/v2/content/convert-ids-to-types");
+        assertThat(calls).hasSize(2);
+        com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
+        assertThat(json.readTree(calls.get(0).body()).path("contentIds")).hasSize(100);
+        assertThat(json.readTree(calls.get(1).body()).path("contentIds")).hasSize(50);
+        assertThat(response.getResultsList().subList(0, 3)).extracting(
+                ResolvedContentType::getId, ResolvedContentType::getType, ResolvedContentType::getCustomType)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("1", ContentType.CONTENT_TYPE_PAGE, ""),
+                        org.assertj.core.groups.Tuple.tuple("2", ContentType.CONTENT_TYPE_INLINE_COMMENT, ""),
+                        org.assertj.core.groups.Tuple.tuple("3", ContentType.CONTENT_TYPE_UNSPECIFIED,
+                                "ac:my-app:thing"));
+    }
+
+    // ======================================================================
     // SYNC
     // ======================================================================
 

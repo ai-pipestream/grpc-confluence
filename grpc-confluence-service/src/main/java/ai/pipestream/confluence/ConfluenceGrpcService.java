@@ -1416,6 +1416,167 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     }
 
     // ======================================================================
+    // PERMISSIONS (READ SIDE)
+    // ======================================================================
+
+    @Override
+    public void getRestrictionState(GetRestrictionStateRequest request,
+            StreamObserver<GetRestrictionStateResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            JsonNode node = session.client.get(ConfluenceRoutes.contentPath(request.getContent(),
+                    ConfluenceRoutes.PERMISSION_TARGETS, "GetRestrictionState") + "/restriction-state");
+            reply(observer, GetRestrictionStateResponse.newBuilder()
+                    .setRestrictionState(session.mapper.toRestrictionState(node)).build());
+        });
+    }
+
+    @Override
+    public void listContentPermissions(ListContentPermissionsRequest request,
+            StreamObserver<ListContentPermissionsResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            String path = ConfluenceRoutes.contentPath(request.getContent(),
+                    ConfluenceRoutes.PERMISSION_TARGETS, "ListContentPermissions") + "/permissions";
+            Query query = limit(session);
+            if (request.getOperation() != ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_UNSPECIFIED) {
+                query.put("operation", apiValue(request.getOperation(), "CONTENT_PERMISSION_OPERATION_"));
+            }
+            if (request.getPrincipalType()
+                    != ContentPermissionPrincipalType.CONTENT_PERMISSION_PRINCIPAL_TYPE_UNSPECIFIED) {
+                query.put("principal-type", apiValue(request.getPrincipalType(),
+                        "CONTENT_PERMISSION_PRINCIPAL_TYPE_"));
+            } else if (!request.getPrincipalId().isEmpty()) {
+                throw invalid("principal_id requires principal_type");
+            }
+            query.put("principal-id", request.getPrincipalId());
+            stream(session, path, query, observer, node -> ListContentPermissionsResponse.newBuilder()
+                    .setPermission(session.mapper.toContentPermission(node)).build());
+        });
+    }
+
+    @Override
+    public void listSpacePermissionAssignments(ListSpacePermissionAssignmentsRequest request,
+            StreamObserver<ListSpacePermissionAssignmentsResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            stream(session, "/api/v2/spaces/" + requireId(request.getSpaceId(), "space_id")
+                    + "/permissions", limit(session), observer, node ->
+                    ListSpacePermissionAssignmentsResponse.newBuilder()
+                            .setAssignment(session.mapper.toSpacePermissionAssignment(node)).build());
+        });
+    }
+
+    @Override
+    public void listSpaceRoles(ListSpaceRolesRequest request,
+            StreamObserver<ListSpaceRolesResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            Query query = limit(session).put("space-id", request.getSpaceId());
+            roleFilters(query, request.getRoleType(), request.hasPrincipal(), request.getPrincipal());
+            stream(session, "/api/v2/space-roles", query, observer, node ->
+                    ListSpaceRolesResponse.newBuilder()
+                            .setRole(session.mapper.toSpaceRole(node)).build());
+        });
+    }
+
+    @Override
+    public void listSpaceRoleAssignments(ListSpaceRoleAssignmentsRequest request,
+            StreamObserver<ListSpaceRoleAssignmentsResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            Query query = limit(session).put("role-id", request.getRoleId());
+            roleFilters(query, request.getRoleType(), request.hasPrincipal(), request.getPrincipal());
+            stream(session, "/api/v2/spaces/" + requireId(request.getSpaceId(), "space_id")
+                    + "/role-assignments", query, observer, node ->
+                    ListSpaceRoleAssignmentsResponse.newBuilder()
+                            .setAssignment(session.mapper.toSpaceRoleAssignment(node)).build());
+        });
+    }
+
+    /** {@code role-type} and the paired {@code principal-type}/{@code principal-id} (upper-case wire). */
+    private static void roleFilters(Query query, RoleType roleType, boolean hasPrincipal,
+            Principal principal) {
+        if (roleType != RoleType.ROLE_TYPE_UNSPECIFIED) {
+            query.put("role-type", apiValue(roleType, "ROLE_TYPE_").toUpperCase(Locale.ROOT));
+        }
+        if (hasPrincipal) {
+            if (principal.getPrincipalType() == PrincipalType.PRINCIPAL_TYPE_UNSPECIFIED
+                    || principal.getPrincipalId().isEmpty()) {
+                throw invalid("principal needs both principal_type and principal_id");
+            }
+            query.put("principal-type", apiValue(principal.getPrincipalType(), "PRINCIPAL_TYPE_")
+                    .toUpperCase(Locale.ROOT));
+            query.put("principal-id", principal.getPrincipalId());
+        }
+    }
+
+    @Override
+    public void getSpaceRoleMode(GetSpaceRoleModeRequest request,
+            StreamObserver<GetSpaceRoleModeResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            JsonNode node = session.client.get("/api/v2/space-role-mode");
+            reply(observer, GetSpaceRoleModeResponse.newBuilder()
+                    .setMode(ConfluenceMapper.toSpaceRoleMode(node)).build());
+        });
+    }
+
+    // ======================================================================
+    // CONTENT
+    // ======================================================================
+
+    @Override
+    public void resolveContentTypes(ResolveContentTypesRequest request,
+            StreamObserver<ResolveContentTypesResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            List<String> ids = distinctNonBlank(request.getIdsList());
+            ResolveContentTypesResponse.Builder response = ResolveContentTypesResponse.newBuilder();
+            for (int from = 0; from < ids.size(); from += CONVERT_IDS_MAX_IDS) {
+                com.fasterxml.jackson.databind.node.ObjectNode body = JSON.createObjectNode();
+                com.fasterxml.jackson.databind.node.ArrayNode contentIds = body.putArray("contentIds");
+                ids.subList(from, Math.min(ids.size(), from + CONVERT_IDS_MAX_IDS))
+                        .forEach(contentIds::add);
+                JsonNode results = session.client.post("/api/v2/content/convert-ids-to-types", body)
+                        .path("results");
+                for (Map.Entry<String, JsonNode> entry : results.properties()) {
+                    String wire = entry.getValue().asText("");
+                    if (wire.isEmpty()) {
+                        continue;
+                    }
+                    ResolvedContentType.Builder resolved = ResolvedContentType.newBuilder()
+                            .setId(entry.getKey());
+                    ContentType type = contentType(wire);
+                    if (type == ContentType.CONTENT_TYPE_UNSPECIFIED) {
+                        resolved.setCustomType(wire);
+                    } else {
+                        resolved.setType(type);
+                    }
+                    response.addResults(resolved);
+                }
+            }
+            reply(observer, response.build());
+        });
+    }
+
+    /** A v2 content type string to the built-in kind; UNSPECIFIED for custom content types. */
+    static ContentType contentType(String wire) {
+        return switch (wire) {
+            case "page" -> ContentType.CONTENT_TYPE_PAGE;
+            case "blogpost" -> ContentType.CONTENT_TYPE_BLOG_POST;
+            case "attachment" -> ContentType.CONTENT_TYPE_ATTACHMENT;
+            case "footer-comment" -> ContentType.CONTENT_TYPE_FOOTER_COMMENT;
+            case "inline-comment" -> ContentType.CONTENT_TYPE_INLINE_COMMENT;
+            case "whiteboard" -> ContentType.CONTENT_TYPE_WHITEBOARD;
+            case "database" -> ContentType.CONTENT_TYPE_DATABASE;
+            case "folder" -> ContentType.CONTENT_TYPE_FOLDER;
+            case "embed" -> ContentType.CONTENT_TYPE_SMART_LINK;
+            default -> ContentType.CONTENT_TYPE_UNSPECIFIED;
+        };
+    }
+
+    // ======================================================================
     // SYNC AND PROBE
     // ======================================================================
 
