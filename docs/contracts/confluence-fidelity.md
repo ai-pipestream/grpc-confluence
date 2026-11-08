@@ -60,7 +60,7 @@ variants are merged: the domain model keeps one message per entity kind.
 | 3 | Content and space property values that are a top-level JSON array went to `toStruct()`, which reads object fields only. The array came out as an **empty** Struct, so its contents were lost. | New oneof arm `PropertyValue.json_list_value` (`google.protobuf.ListValue`, field 6). Objects still use `json_value`. This is an interim fix; see open question 1. |
 | 4 | `RestrictionState.created_by` and `ContentPermission.created_by` preferred `createdByAaid`, which the spec marks as a deprecated alias of `createdBy`. | `createdBy` now wins, and the alias is the fallback. Both spec keys still map to the one field. |
 | 5 | Nothing mapped `POST /content/convert-ids-to-types` into the typed `ResolvedContentType`. `wireEnum` cannot do it, because `blogpost` and `footer-comment` do not match the `ContentType` member names. | New `ConfluenceMapper.toResolvedContentTypes()` and `contentType()`. Built-in values become `ContentType`, anything else goes to `custom_type` verbatim. |
-| 6 | `DatabaseView` had a proto message but no mapper. | New `ConfluenceMapper.toDatabaseView()`. There is still no rpc; see open question 5. |
+| 6 | `DatabaseView` had a proto message but no mapper. | New `ConfluenceMapper.toDatabaseView()`. The `ListDatabaseViews` rpc now serves it; see open question 5 and "Route coverage". |
 | 7 | `ConfluenceValidator` validated the deprecated `Space.properties` but not `Space.space_properties`. | It now visits `space_properties` and rejects `INCLUDE_EXPANSION_UNSPECIFIED` in `truncated_includes`. |
 
 ### Proto fields added per entity
@@ -185,9 +185,9 @@ contract models them anyway, and the mapper fills them through the shared
    folder and embed, and `ResolvedContentType.custom_type` are all strings in
    the spec. The same two choices apply: add an enum next to the string, or
    keep the string.
-5. **`GET /databases/{id}/views`.** The `DatabaseView` message and its mapper
-   exist now, but no rpc serves them. The task excludes the gRPC service, so
-   none was added here. Should `ListDatabaseViews` be added?
+5. **`GET /databases/{id}/views`.** Settled: `ListDatabaseViews` (server
+   streaming, `ListDatabaseViewsRequest { database_id, connection_id }`) now
+   serves the route through `toDatabaseView`. See "Route coverage".
 6. **Unknown body representations.** A `representation` string that is not
    one of the ten documented values maps to `BODY_FORMAT_UNSPECIFIED`, and the
    raw string is not kept. The value itself is kept. Should we add a
@@ -1139,3 +1139,252 @@ Routes: POST /content/convert-ids-to-types
 | `results{id} (custom value)` | `ResolvedContentType.custom_type` | added (mapper) - toResolvedContentTypes |
 
 Totals across all tables: added (mapper): 55, added (proto + mapper): 26, dropped: 78, yes: 563; gaps: 0.
+
+## Route coverage
+
+Status: sweep of 2026-11-08 on `claude/project-thread-h5j2my`. It supersedes
+the "left out" rows of [confluence-gap-analysis.md](confluence-gap-analysis.md)
+section 5 for the thumbnail download and database views, which are now served.
+
+### Method
+
+A throwaway script (run with `python3 -I`, outside the repository) lists every
+`GET` operation of the vendored spec, plus the three `POST` operations that
+are reads in all but verb (`/users-bulk`, `/content/convert-ids-to-types`,
+`/user/access/check-access-by-email`). The other 38 `POST` operations create,
+mutate, redact, reset or start tasks; they are writes and out of scope for
+this read proxy. Each route was matched by hand against the route the
+`ConfluenceGrpcService` implementation actually calls, not only against the
+rpc comments.
+
+Result: **151 routes. 107 are served by a dedicated rpc, 11 only through an
+include expansion, 1 is superseded (deprecated upstream), and 32 are not
+covered.** Every uncovered route is listed under "Route coverage open
+questions" below; nothing is skipped silently.
+
+### Gaps closed in this change
+
+| # | Gap | What it became |
+|---|---|---|
+| 1 | `GET /spaces/{id}/custom-content` was unreachable: `ListCustomContentRequest.container` is a `ContentRef`, and `ContentType` has no space kind (`CONTENT_TYPE_SPACE` was removed). | New `string space_id = 8` on `ListCustomContentRequest`, mutually exclusive with `container` (both set is `INVALID_ARGUMENT`). It selects the space route. That route takes no `sort`, `id` or `space-id`, so `sort`, `ids` and `space_ids` with `space_id` are `INVALID_ARGUMENT` rather than dropped. A plain field rather than a new oneof: moving `container` into a oneof is wire-compatible but changes the generated Java API (`hasContainer` stays, `getScopeCase` appears), and the server enforces the exclusivity anyway. |
+| 2 | `GET /attachments/{id}/footer-comments` accepts `version`, `ListCommentsRequest` had none. | New `optional int64 version = 9` (int64 as the spec types this parameter), forwarded only for an attachment container. Any other scope (other containers, replies, workspace) answers `INVALID_ARGUMENT`. |
+| 3 | `ListLabelsRequest.prefixes` is repeated, but the scoped label routes (`/spaces/{id}/labels`, `/spaces/{id}/content/labels`, `/{content-type}/{id}/labels`) take one `prefix`. Several prefixes used to be rejected. | Kept repeated (wire-compatible) and **fanned out**: one walk per distinct prefix, in request order, concatenated. A label has exactly one prefix, so the runs are disjoint and the union has no duplicates. `GET /labels` still takes the whole list in one call. The field comment documents that `sort` orders within each prefix's run, not across the stream. |
+| 4 | No rpc for `GET /attachments/{id}/thumbnail/download` (`version`, `width`, `height`). | New server-streaming `DownloadAttachmentThumbnail`. Its framing mirrors `DownloadAttachment`. The first message is `AttachmentThumbnail { attachment_id, media_type, size_bytes }`, taken from the final response's `Content-Type` and `Content-Length` because the route is a 302 with no JSON body. Then come `bytes data` chunks. `chunk_bytes` 0 means the server default, and `max_bytes` 0 means no cap. A declared `Content-Length` above `max_bytes` fails with `FAILED_PRECONDITION` before any message, and the running total is checked as well. The 302 to the media host is followed server-side by the new `ConfluenceClient.openBinaryStream`, which shares the redirect loop with `openAttachmentStream`: credentials go only to the tenant origin. Bytes are streamed with the same outbound flow control. There is no hardcoded cap. |
+| 5 | `users-bulk` `_links.next`. | Checked against the spec: `POST /users-bulk` declares no `cursor` or `limit` parameter. The request body caps `accountIds` at 250 (`maxItems`), and the server already chunks to that. The response's `_links` is the shared `MultiEntityLinks` schema, whose `next` ("relative URL ... using a cursor query parameter") describes a GET continuation that this POST does not define. So it is **not followed**. Should the API ever send one, `BatchGetUsers` fails with `INTERNAL` instead of returning a silently partial user set. A `_links.base` alone (the documented shape) is accepted. The rpc comment says so. |
+| 6 | `ListDatabaseViews` (fidelity open question 5). | The spec has `GET /databases/{id}/views`, so the rpc was added (server streaming, walks the cursor or `Link` pagination like `ListDatabaseFields`) and serves `toDatabaseView`. The route's optional `If-None-Match` request header (conditional GET) is not exposed. It is a cache-transport concern, not data. |
+
+Wire compatibility: all additions use new field numbers, messages and rpcs.
+`buf lint` (STANDARD+COMMENTS) is clean, and so is `buf breaking` (WIRE_JSON)
+against `origin/main`.
+
+### Route table
+
+"via include expansion" means there is no dedicated rpc: the data arrives as
+the `include.operations` preview of the matching Get rpc. That preview is
+capped upstream at 50 entries and flagged in `truncated_includes` when
+partial.
+
+| # | Method | Route | operationId | rpc | Status |
+|---|---|---|---|---|---|
+| 1 | GET | `/pages/{id}/restriction-state` | `getPageRestrictionState` | GetRestrictionState | covered |
+| 2 | GET | `/blogposts/{id}/restriction-state` | `getBlogPostRestrictionState` | GetRestrictionState | covered |
+| 3 | GET | `/databases/{id}/restriction-state` | `getDatabaseRestrictionState` | GetRestrictionState | covered |
+| 4 | GET | `/whiteboards/{id}/restriction-state` | `getWhiteboardRestrictionState` | GetRestrictionState | covered |
+| 5 | GET | `/folders/{id}/restriction-state` | `getFolderRestrictionState` | GetRestrictionState | covered |
+| 6 | GET | `/pages/{id}/permissions` | `getPagePermissions` | ListContentPermissions | covered |
+| 7 | GET | `/blogposts/{id}/permissions` | `getBlogPostPermissions` | ListContentPermissions | covered |
+| 8 | GET | `/databases/{id}/permissions` | `getDatabasePermissions` | ListContentPermissions | covered |
+| 9 | GET | `/whiteboards/{id}/permissions` | `getWhiteboardPermissions` | ListContentPermissions | covered |
+| 10 | GET | `/folders/{id}/permissions` | `getFolderPermissions` | ListContentPermissions | covered |
+| 11 | GET | `/admin-key` | `getAdminKey` | - | not covered: R6 |
+| 12 | GET | `/attachments` | `getAttachments` | ListAttachments (no container) | covered |
+| 13 | GET | `/attachments/{id}` | `getAttachmentById` | GetAttachment | covered |
+| 14 | GET | `/attachments/{id}/labels` | `getAttachmentLabels` | ListLabels (content ATTACHMENT) | covered |
+| 15 | GET | `/attachments/{id}/operations` | `getAttachmentOperations` | GetAttachment (include.operations, 50-entry preview) | via include expansion |
+| 16 | GET | `/attachments/{attachment-id}/properties` | `getAttachmentContentProperties` | ListContentProperties (ATTACHMENT) | covered |
+| 17 | GET | `/attachments/{attachment-id}/properties/{property-id}` | `getAttachmentContentPropertiesById` | - | not covered: R3 |
+| 18 | GET | `/attachments/{id}/versions` | `getAttachmentVersions` | ListVersions (ATTACHMENT) | covered |
+| 19 | GET | `/attachments/{attachment-id}/versions/{version-number}` | `getAttachmentVersionDetails` | - | not covered: R2 |
+| 20 | GET | `/attachments/{id}/footer-comments` | `getAttachmentComments` | ListComments (container attachment; version - new) | covered |
+| 21 | GET | `/blogposts` | `getBlogPosts` | ListBlogPosts | covered |
+| 22 | GET | `/blogposts/{id}` | `getBlogPostById` | GetBlogPost | covered |
+| 23 | GET | `/blogposts/{id}/attachments` | `getBlogpostAttachments` | ListAttachments (blog_post container) | covered |
+| 24 | GET | `/blogposts/{id}/custom-content` | `getCustomContentByTypeInBlogPost` | ListCustomContent (container BLOG_POST) | covered |
+| 25 | GET | `/blogposts/{id}/labels` | `getBlogPostLabels` | ListLabels (content BLOG_POST) | covered |
+| 26 | GET | `/blogposts/{id}/likes/count` | `getBlogPostLikeCount` | - | not covered: R1 |
+| 27 | GET | `/blogposts/{id}/likes/users` | `getBlogPostLikeUsers` | - | not covered: R1 |
+| 28 | GET | `/blogposts/{blogpost-id}/properties` | `getBlogpostContentProperties` | ListContentProperties (BLOG_POST) | covered |
+| 29 | GET | `/blogposts/{blogpost-id}/properties/{property-id}` | `getBlogpostContentPropertiesById` | - | not covered: R3 |
+| 30 | GET | `/blogposts/{id}/operations` | `getBlogPostOperations` | GetBlogPost (include.operations, 50-entry preview) | via include expansion |
+| 31 | GET | `/blogposts/{id}/versions` | `getBlogPostVersions` | ListVersions (BLOG_POST) | covered |
+| 32 | GET | `/blogposts/{blogpost-id}/versions/{version-number}` | `getBlogPostVersionDetails` | - | not covered: R2 |
+| 33 | POST | `/content/convert-ids-to-types` | `convertContentIdsToContentTypes` | ResolveContentTypes | covered |
+| 34 | GET | `/custom-content` | `getCustomContentByType` | ListCustomContent (no container) | covered |
+| 35 | GET | `/custom-content/{id}` | `getCustomContentById` | GetCustomContent | covered |
+| 36 | GET | `/custom-content/{id}/attachments` | `getCustomContentAttachments` | ListAttachments (custom_content container) | covered |
+| 37 | GET | `/custom-content/{id}/footer-comments` | `getCustomContentComments` | ListComments (container CUSTOM_CONTENT, footer) | covered |
+| 38 | GET | `/custom-content/{id}/labels` | `getCustomContentLabels` | ListLabels (content CUSTOM_CONTENT) | covered |
+| 39 | GET | `/custom-content/{id}/operations` | `getCustomContentOperations` | GetCustomContent (include.operations, 50-entry preview) | via include expansion |
+| 40 | GET | `/custom-content/{custom-content-id}/properties` | `getCustomContentContentProperties` | ListContentProperties (CUSTOM_CONTENT) | covered |
+| 41 | GET | `/custom-content/{custom-content-id}/properties/{property-id}` | `getCustomContentContentPropertiesById` | - | not covered: R3 |
+| 42 | GET | `/labels` | `getLabels` | ListLabels (workspace) | covered |
+| 43 | GET | `/labels/{id}/attachments` | `getLabelAttachments` | ListAttachments (label_id) | covered |
+| 44 | GET | `/labels/{id}/blogposts` | `getLabelBlogPosts` | ListBlogPosts (label_id) | covered |
+| 45 | GET | `/labels/{id}/pages` | `getLabelPages` | ListPages (label_id) | covered |
+| 46 | GET | `/pages` | `getPages` | ListPages | covered |
+| 47 | GET | `/pages/{id}` | `getPageById` | GetPage | covered |
+| 48 | GET | `/pages/{id}/attachments` | `getPageAttachments` | ListAttachments (page container) | covered |
+| 49 | GET | `/pages/{id}/custom-content` | `getCustomContentByTypeInPage` | ListCustomContent (container PAGE) | covered |
+| 50 | GET | `/pages/{id}/labels` | `getPageLabels` | ListLabels (content PAGE) | covered |
+| 51 | GET | `/pages/{id}/likes/count` | `getPageLikeCount` | - | not covered: R1 |
+| 52 | GET | `/pages/{id}/likes/users` | `getPageLikeUsers` | - | not covered: R1 |
+| 53 | GET | `/pages/{id}/operations` | `getPageOperations` | GetPage (include.operations, 50-entry preview) | via include expansion |
+| 54 | GET | `/pages/{page-id}/properties` | `getPageContentProperties` | ListContentProperties (PAGE) | covered |
+| 55 | GET | `/pages/{page-id}/properties/{property-id}` | `getPageContentPropertiesById` | - | not covered: R3 |
+| 56 | GET | `/pages/{id}/versions` | `getPageVersions` | ListVersions (PAGE) | covered |
+| 57 | GET | `/whiteboards/{id}` | `getWhiteboardById` | GetWhiteboard | covered |
+| 58 | GET | `/whiteboards/{id}/properties` | `getWhiteboardContentProperties` | ListContentProperties (WHITEBOARD) | covered |
+| 59 | GET | `/whiteboards/{whiteboard-id}/properties/{property-id}` | `getWhiteboardContentPropertiesById` | - | not covered: R3 |
+| 60 | GET | `/whiteboards/{id}/operations` | `getWhiteboardOperations` | GetWhiteboard (include.operations, 50-entry preview) | via include expansion |
+| 61 | GET | `/whiteboards/{id}/direct-children` | `getWhiteboardDirectChildren` | ListChildren (WHITEBOARD) | covered |
+| 62 | GET | `/whiteboards/{id}/descendants` | `getWhiteboardDescendants` | ListDescendants (WHITEBOARD) | covered |
+| 63 | GET | `/whiteboards/{id}/ancestors` | `getWhiteboardAncestors` | ListAncestors (WHITEBOARD) | covered |
+| 64 | GET | `/databases/{id}` | `getDatabaseById` | GetDatabase | covered |
+| 65 | GET | `/databases/{id}/properties` | `getDatabaseContentProperties` | ListContentProperties (DATABASE) | covered |
+| 66 | GET | `/databases/{database-id}/properties/{property-id}` | `getDatabaseContentPropertiesById` | - | not covered: R3 |
+| 67 | GET | `/databases/{id}/operations` | `getDatabaseOperations` | GetDatabase (include.operations, 50-entry preview) | via include expansion |
+| 68 | GET | `/databases/{id}/direct-children` | `getDatabaseDirectChildren` | ListChildren (DATABASE) | covered |
+| 69 | GET | `/databases/{id}/descendants` | `getDatabaseDescendants` | ListDescendants (DATABASE) | covered |
+| 70 | GET | `/databases/{id}/ancestors` | `getDatabaseAncestors` | ListAncestors (DATABASE) | covered |
+| 71 | GET | `/databases/{id}/fields` | `getDatabaseFields` | ListDatabaseFields | covered |
+| 72 | GET | `/databases/{id}/views` | `getDatabaseViews` | ListDatabaseViews - new | covered |
+| 73 | GET | `/databases/{id}/entries` | `getDatabaseEntries` | ListDatabaseEntries | covered |
+| 74 | GET | `/databases/{id}/entries/{entryId}` | `getDatabaseEntryById` | GetDatabaseEntry | covered |
+| 75 | GET | `/embeds/{id}` | `getSmartLinkById` | GetSmartLink | covered |
+| 76 | GET | `/embeds/{id}/properties` | `getSmartLinkContentProperties` | ListContentProperties (SMART_LINK) | covered |
+| 77 | GET | `/embeds/{embed-id}/properties/{property-id}` | `getSmartLinkContentPropertiesById` | - | not covered: R3 |
+| 78 | GET | `/embeds/{id}/operations` | `getSmartLinkOperations` | GetSmartLink (include.operations, 50-entry preview) | via include expansion |
+| 79 | GET | `/embeds/{id}/direct-children` | `getSmartLinkDirectChildren` | ListChildren (SMART_LINK) | covered |
+| 80 | GET | `/embeds/{id}/descendants` | `getSmartLinkDescendants` | ListDescendants (SMART_LINK) | covered |
+| 81 | GET | `/embeds/{id}/ancestors` | `getSmartLinkAncestors` | ListAncestors (SMART_LINK) | covered |
+| 82 | GET | `/folders/{id}` | `getFolderById` | GetFolder | covered |
+| 83 | GET | `/folders/{id}/properties` | `getFolderContentProperties` | ListContentProperties (FOLDER) | covered |
+| 84 | GET | `/folders/{folder-id}/properties/{property-id}` | `getFolderContentPropertiesById` | - | not covered: R3 |
+| 85 | GET | `/folders/{id}/operations` | `getFolderOperations` | GetFolder (include.operations, 50-entry preview) | via include expansion |
+| 86 | GET | `/folders/{id}/direct-children` | `getFolderDirectChildren` | ListChildren (FOLDER) | covered |
+| 87 | GET | `/folders/{id}/descendants` | `getFolderDescendants` | ListDescendants (FOLDER) | covered |
+| 88 | GET | `/folders/{id}/ancestors` | `getFolderAncestors` | ListAncestors (FOLDER) | covered |
+| 89 | GET | `/pages/{page-id}/versions/{version-number}` | `getPageVersionDetails` | - | not covered: R2 |
+| 90 | GET | `/custom-content/{custom-content-id}/versions` | `getCustomContentVersions` | ListVersions (CUSTOM_CONTENT) | covered |
+| 91 | GET | `/custom-content/{custom-content-id}/versions/{version-number}` | `getCustomContentVersionDetails` | - | not covered: R2 |
+| 92 | GET | `/spaces` | `getSpaces` | StreamSpaces (deprecated unary ListSpaces) | covered |
+| 93 | GET | `/spaces/{id}` | `getSpaceById` | GetSpace | covered |
+| 94 | GET | `/spaces/{id}/blogposts` | `getBlogPostsInSpace` | ListBlogPosts (space_id) | covered |
+| 95 | GET | `/spaces/{id}/labels` | `getSpaceLabels` | ListLabels (space_id) | covered |
+| 96 | GET | `/spaces/{id}/content/labels` | `getSpaceContentLabels` | ListLabels (content_space_id) | covered |
+| 97 | GET | `/spaces/{id}/custom-content` | `getCustomContentByTypeInSpace` | ListCustomContent (space_id) - new | covered |
+| 98 | GET | `/spaces/{id}/operations` | `getSpaceOperations` | GetSpace (include.operations, 50-entry preview) | via include expansion |
+| 99 | GET | `/spaces/{id}/pages` | `getPagesInSpace` | ListPages (space_id) | covered |
+| 100 | GET | `/spaces/{space-id}/properties` | `getSpaceProperties` | ListSpaceProperties | covered |
+| 101 | GET | `/spaces/{space-id}/properties/{property-id}` | `getSpacePropertyById` | - | not covered: R3 |
+| 102 | GET | `/spaces/{id}/permissions` | `getSpacePermissionsAssignments` | ListSpacePermissionAssignments | covered |
+| 103 | GET | `/space-permissions` | `getAvailableSpacePermissions` | - | not covered: R4 |
+| 104 | GET | `/space-permissions/transition/combinations` | `listSpacePermissionCombinations` | - | not covered: R5 |
+| 105 | GET | `/space-permissions/transition/tasks/{taskId}` | `getSpacePermissionTransitionTaskStatus` | - | not covered: R5 |
+| 106 | GET | `/space-roles` | `getAvailableSpaceRoles` | ListSpaceRoles | covered |
+| 107 | GET | `/space-roles/{id}` | `getSpaceRolesById` | - | not covered: R4 |
+| 108 | GET | `/space-role-mode` | `getSpaceRoleMode` | GetSpaceRoleMode | covered |
+| 109 | GET | `/spaces/{id}/role-assignments` | `getSpaceRoleAssignments` | ListSpaceRoleAssignments | covered |
+| 110 | GET | `/pages/{id}/footer-comments` | `getPageFooterComments` | ListComments (container PAGE, footer) | covered |
+| 111 | GET | `/pages/{id}/inline-comments` | `getPageInlineComments` | ListComments (container PAGE, inline) | covered |
+| 112 | GET | `/blogposts/{id}/footer-comments` | `getBlogPostFooterComments` | ListComments (container BLOG_POST, footer) | covered |
+| 113 | GET | `/blogposts/{id}/inline-comments` | `getBlogPostInlineComments` | ListComments (container BLOG_POST, inline) | covered |
+| 114 | GET | `/footer-comments` | `getFooterComments` | ListComments (workspace, kind footer) | covered |
+| 115 | GET | `/footer-comments/{comment-id}` | `getFooterCommentById` | GetComment (kind footer) | covered |
+| 116 | GET | `/footer-comments/{id}/children` | `getFooterCommentChildren` | ListComments (parent_comment_id, FOOTER_COMMENT) | covered |
+| 117 | GET | `/footer-comments/{id}/likes/count` | `getFooterLikeCount` | - | not covered: R1 |
+| 118 | GET | `/footer-comments/{id}/likes/users` | `getFooterLikeUsers` | - | not covered: R1 |
+| 119 | GET | `/footer-comments/{id}/operations` | `getFooterCommentOperations` | GetComment (include.operations, 50-entry preview) | via include expansion |
+| 120 | GET | `/footer-comments/{id}/versions` | `getFooterCommentVersions` | ListVersions (FOOTER_COMMENT) | covered |
+| 121 | GET | `/footer-comments/{id}/versions/{version-number}` | `getFooterCommentVersionDetails` | - | not covered: R2 |
+| 122 | GET | `/inline-comments` | `getInlineComments` | ListComments (workspace, kind inline) | covered |
+| 123 | GET | `/inline-comments/{comment-id}` | `getInlineCommentById` | GetComment (kind inline) | covered |
+| 124 | GET | `/inline-comments/{id}/children` | `getInlineCommentChildren` | ListComments (parent_comment_id, INLINE_COMMENT) | covered |
+| 125 | GET | `/inline-comments/{id}/likes/count` | `getInlineLikeCount` | - | not covered: R1 |
+| 126 | GET | `/inline-comments/{id}/likes/users` | `getInlineLikeUsers` | - | not covered: R1 |
+| 127 | GET | `/inline-comments/{id}/operations` | `getInlineCommentOperations` | GetComment (include.operations, 50-entry preview) | via include expansion |
+| 128 | GET | `/inline-comments/{id}/versions` | `getInlineCommentVersions` | ListVersions (INLINE_COMMENT) | covered |
+| 129 | GET | `/inline-comments/{id}/versions/{version-number}` | `getInlineCommentVersionDetails` | - | not covered: R2 |
+| 130 | GET | `/comments/{comment-id}/properties` | `getCommentContentProperties` | ListContentProperties (footer or inline comment) | covered |
+| 131 | GET | `/comments/{comment-id}/properties/{property-id}` | `getCommentContentPropertiesById` | - | not covered: R3 |
+| 132 | GET | `/tasks` | `getTasks` | ListTasks | covered |
+| 133 | GET | `/tasks/{id}` | `getTaskById` | GetTask | covered |
+| 134 | GET | `/pages/{id}/children` | `getChildPages` (deprecated) | ListChildren (served by direct-children; deprecated route not called) | superseded (deprecated upstream) |
+| 135 | GET | `/custom-content/{id}/children` | `getChildCustomContent` | ListChildren (custom content) | covered |
+| 136 | GET | `/pages/{id}/direct-children` | `getPageDirectChildren` | ListChildren (PAGE) | covered |
+| 137 | GET | `/pages/{id}/ancestors` | `getPageAncestors` | ListAncestors (PAGE) | covered |
+| 138 | GET | `/pages/{id}/descendants` | `getPageDescendants` | ListDescendants (PAGE) | covered |
+| 139 | POST | `/users-bulk` | `createBulkUserLookup` | BatchGetUsers | covered |
+| 140 | POST | `/user/access/check-access-by-email` | `checkAccessByEmail` | - | not covered: R7 |
+| 141 | GET | `/data-policies/metadata` | `getDataPolicyMetadata` | GetDataPolicyMetadata (app credentials only upstream) | covered |
+| 142 | GET | `/data-policies/spaces` | `getDataPolicySpaces` | ListDataPolicySpaces (app credentials only upstream) | covered |
+| 143 | GET | `/classification-levels` | `getClassificationLevels` | ListClassificationLevels | covered |
+| 144 | GET | `/spaces/{id}/classification-level/default` | `getSpaceDefaultClassificationLevel` | GetClassificationLevel (space default) | covered |
+| 145 | GET | `/pages/{id}/classification-level` | `getPageClassificationLevel` | GetClassificationLevel (PAGE) | covered |
+| 146 | GET | `/blogposts/{id}/classification-level` | `getBlogPostClassificationLevel` | GetClassificationLevel (BLOG_POST) | covered |
+| 147 | GET | `/whiteboards/{id}/classification-level` | `getWhiteboardClassificationLevel` | GetClassificationLevel (WHITEBOARD) | covered |
+| 148 | GET | `/databases/{id}/classification-level` | `getDatabaseClassificationLevel` | GetClassificationLevel (DATABASE) | covered |
+| 149 | GET | `/attachments/{id}/thumbnail/download` | `getAttachmentThumbnailById` | DownloadAttachmentThumbnail - new | covered |
+| 150 | GET | `/app/properties` | `getForgeAppProperties` | - | not covered: R6 |
+| 151 | GET | `/app/properties/{propertyKey}` | `getForgeAppProperty` | - | not covered: R6 |
+
+### Route coverage open questions
+
+These 32 routes have no rpc. Most were cut on purpose in the gap analysis
+(section 9, "Cut 9 rpcs", and section 5). They are restated here so that the
+coverage gap is explicit. Each one needs an owner decision before it is
+served.
+
+- **R1. Likes (8 routes):** `GET /{pages,blogposts,footer-comments,inline-comments}/{id}/likes/count`
+  and `.../likes/users`. Cut as a social signal, not content. A capped
+  preview arrives through `include.likes` on GetPage, GetBlogPost and
+  GetComment. Should `ListLikes` and a `GetLikeCount` be added for ranking?
+- **R2. Version details (6 routes):** `GET /{attachments,blogposts,pages,custom-content,footer-comments,inline-comments}/{id}/versions/{version-number}`.
+  Cut, because `DetailedVersion` (change-set prev/next, collaborators) is not
+  indexer input, and `ListVersions` plus a `version` on the Get rpcs already
+  gives history and historical bodies. `DetailedVersion` stays an unserved
+  parity message. Should `GetVersion` be added?
+- **R3. Property by id (10 routes):** `GET /{content-type}/{id}/properties/{property-id}`,
+  `GET /comments/{id}/properties/{property-id}` and
+  `GET /spaces/{id}/properties/{property-id}`. Cut as redundant: the list
+  rpcs filter by `key`, which is how properties are addressed in practice. A
+  property *id* (as opposed to its key) cannot be looked up today. Should
+  `ListContentProperties` and `ListSpaceProperties` gain a `property_id`
+  selector?
+- **R4. Space permission catalogue and one role (2 routes):** `GET /space-permissions`
+  and `GET /space-roles/{id}`. Cut. Trimming does not need permission
+  *definitions*, because `SpacePermissionAssignment` carries the typed
+  operation, and `ListSpaceRoles` returns the small role catalogue.
+- **R5. Space permission transition reads (2 routes):** `GET /space-permissions/transition/combinations`
+  and `GET /space-permissions/transition/tasks/{taskId}`. Left out as admin
+  migration tooling. The `BulkTransition*` and `ListSpacePermissionCombinationsResponse`
+  messages exist. Adding an rpc named `ListSpacePermissionCombinations`
+  would collide with the existing domain message `ListSpacePermissionCombinationsResponse`
+  (gap analysis, "Still flag" item 4).
+- **R6. Caller-session and Forge state (3 routes):** `GET /admin-key` (the
+  caller's own admin-key session), `GET /app/properties` and
+  `GET /app/properties/{propertyKey}`. The app-properties routes are Forge
+  `asApp()` only and unreachable with the proxy's API-token credentials.
+  `AdminKeyResponse` and `AppProperty` stay as parity messages.
+- **R7. `POST /user/access/check-access-by-email` (1 route):** a read in all
+  but verb, but user management rather than content. Left out.
+- **R8. Standalone operations (11 routes, served only as expansions):**
+  `GET /{pages,blogposts,attachments,custom-content,footer-comments,inline-comments,whiteboards,databases,embeds,folders,spaces}/{id}/operations`.
+  The data is reachable through `include.operations`, but only as the
+  upstream-capped preview (at most 50 entries, flagged in
+  `truncated_includes`). The full list of operations is not reachable when
+  the preview is truncated. Should a `ListOperations` rpc keyed by `ContentRef` (plus
+  space) be added for completeness?
+- **Superseded:** `GET /pages/{id}/children` is the spec's one deprecated
+  operation. `ListChildren` serves page children through
+  `GET /pages/{id}/direct-children` and never calls the deprecated route.
