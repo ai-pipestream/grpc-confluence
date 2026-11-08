@@ -846,6 +846,272 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     }
 
     // ======================================================================
+    // WHITEBOARDS, DATABASES, FOLDERS, SMART LINKS, CONTENT TREE
+    // ======================================================================
+
+    @Override
+    public void getWhiteboard(GetWhiteboardRequest request,
+            StreamObserver<GetWhiteboardResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            JsonNode node = getTreeNode(session, "whiteboards", request.getId(), request.getInclude());
+            reply(observer, GetWhiteboardResponse.newBuilder()
+                    .setWhiteboard(requireValid(session.mapper.toWhiteboard(node))).build());
+        });
+    }
+
+    @Override
+    public void getDatabase(GetDatabaseRequest request, StreamObserver<GetDatabaseResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            JsonNode node = getTreeNode(session, "databases", request.getId(), request.getInclude());
+            reply(observer, GetDatabaseResponse.newBuilder()
+                    .setDatabase(requireValid(session.mapper.toDatabase(node))).build());
+        });
+    }
+
+    @Override
+    public void getFolder(GetFolderRequest request, StreamObserver<GetFolderResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            JsonNode node = getTreeNode(session, "folders", request.getId(), request.getInclude());
+            reply(observer, GetFolderResponse.newBuilder()
+                    .setFolder(requireValid(session.mapper.toFolder(node))).build());
+        });
+    }
+
+    @Override
+    public void getSmartLink(GetSmartLinkRequest request,
+            StreamObserver<GetSmartLinkResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            JsonNode node = getTreeNode(session, "embeds", request.getId(), request.getInclude());
+            reply(observer, GetSmartLinkResponse.newBuilder()
+                    .setSmartLink(requireValid(session.mapper.toSmartLink(node))).build());
+        });
+    }
+
+    /** {@code GET /{whiteboards|databases|folders|embeds}/{id}} with the tree include-* flags. */
+    private static JsonNode getTreeNode(Session session, String segment, String id,
+            ContentIncludes include) throws IOException, InterruptedException {
+        Query query = new Query();
+        includes(query, include, TREE_INCLUDES);
+        return session.client.get("/api/v2/" + segment + "/" + requireId(id, "id"), query.map());
+    }
+
+    @Override
+    public void listChildren(ListChildrenRequest request,
+            StreamObserver<ListChildrenResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            ContentRef parent = request.getParent();
+            String path;
+            String route;
+            Set<SortField> sortable;
+            if (parent.getType() == ContentType.CONTENT_TYPE_CUSTOM_CONTENT) {
+                path = "/api/v2/custom-content/" + requireId(parent.getId(), "parent id") + "/children";
+                route = "GET /custom-content/{id}/children";
+                sortable = ConfluenceRoutes.CHILD_CUSTOM_CONTENT_SORT;
+            } else {
+                path = ConfluenceRoutes.contentPath(parent, ConfluenceRoutes.TREE_NODES,
+                        "ListChildren") + "/direct-children";
+                route = "GET /" + ConfluenceRoutes.segment(parent.getType()) + "/{id}/direct-children";
+                sortable = ConfluenceRoutes.TREE_SORT;
+            }
+            Query query = limit(session).put("sort",
+                    ConfluenceRoutes.sort(request.getSort(), sortable, route));
+            stream(session, path, query, observer, node -> ListChildrenResponse.newBuilder()
+                    .setEntry(requireValid(session.mapper.toTreeEntry(node))).build());
+        });
+    }
+
+    @Override
+    public void listDescendants(ListDescendantsRequest request,
+            StreamObserver<ListDescendantsResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            String path = ConfluenceRoutes.contentPath(request.getRoot(), ConfluenceRoutes.TREE_NODES,
+                    "ListDescendants") + "/descendants";
+            if (request.getDepth() < 0) {
+                throw invalid("depth must not be negative");
+            }
+            Query query = limit(session);
+            if (request.getDepth() > 0) {
+                query.put("depth", String.valueOf(request.getDepth()));
+            }
+            stream(session, path, query, observer, node -> ListDescendantsResponse.newBuilder()
+                    .setEntry(requireValid(session.mapper.toTreeEntry(node))).build());
+        });
+    }
+
+    /**
+     * The API answers ancestors top-down, at most {@code limit} at a time,
+     * and continues "by calling this endpoint with the ID of the first
+     * ancestor": when a call comes back full, the walk repeats from the
+     * highest ancestor (on its own kind's route) and prepends the result.
+     */
+    @Override
+    public void listAncestors(ListAncestorsRequest request,
+            StreamObserver<ListAncestorsResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            List<JsonNode> chain = new ArrayList<>();
+            java.util.Set<String> seen = new java.util.HashSet<>();
+            String path = ConfluenceRoutes.contentPath(request.getContent(), ConfluenceRoutes.TREE_NODES,
+                    "ListAncestors");
+            while (path != null) {
+                JsonNode body = session.client.get(path + "/ancestors",
+                        Map.of("limit", String.valueOf(MAX_LIMIT)));
+                List<JsonNode> batch = new ArrayList<>();
+                body.path("results").forEach(batch::add);
+                chain.addAll(0, batch);
+                path = null;
+                if (batch.size() >= MAX_LIMIT) {
+                    JsonNode top = batch.getFirst();
+                    String segment = ancestorSegment(top.path("type").asText(""));
+                    String id = top.path("id").asText("");
+                    if (segment != null && !id.isEmpty() && seen.add(segment + "/" + id)) {
+                        path = "/api/v2/" + segment + "/" + id;
+                    }
+                }
+            }
+            for (JsonNode node : chain) {
+                observer.onNext(ListAncestorsResponse.newBuilder()
+                        .setAncestor(session.mapper.toAncestor(node)).build());
+            }
+            observer.onCompleted();
+        });
+    }
+
+    /** The route segment of an ancestor's {@code type}; null when unknown. */
+    private static String ancestorSegment(String type) {
+        return switch (type) {
+            case "page" -> "pages";
+            case "whiteboard" -> "whiteboards";
+            case "database" -> "databases";
+            case "embed" -> "embeds";
+            case "folder" -> "folders";
+            default -> null;
+        };
+    }
+
+    // ======================================================================
+    // DATABASE DATA
+    // ======================================================================
+
+    @Override
+    public void listDatabaseFields(ListDatabaseFieldsRequest request,
+            StreamObserver<ListDatabaseFieldsResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            stream(session, "/api/v2/databases/" + requireId(request.getDatabaseId(), "database_id")
+                    + "/fields", limit(session), observer, node -> ListDatabaseFieldsResponse.newBuilder()
+                    .setField(session.mapper.toDatabaseField(node)).build());
+        });
+    }
+
+    @Override
+    public void listDatabaseEntries(ListDatabaseEntriesRequest request,
+            StreamObserver<ListDatabaseEntriesResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            Query query = limit(session);
+            for (DatabaseEntryFilter filter : request.getFiltersList()) {
+                putEntryFilter(query, filter);
+            }
+            if (request.hasSort()) {
+                String field = requireId(request.getSort().getFieldId(), "sort.field_id");
+                query.put("sort", (request.getSort().getDescending() ? "-" : "") + field);
+            }
+            stream(session, "/api/v2/databases/" + requireId(request.getDatabaseId(), "database_id")
+                    + "/entries", query, observer, node -> ListDatabaseEntriesResponse.newBuilder()
+                    .setEntry(session.mapper.toDatabaseEntry(node)).build());
+        });
+    }
+
+    /**
+     * One filter in the spec's bracket grammar: {@code filter[f]=eq:v},
+     * {@code filter[f]=in:a,b}, {@code filter[f]=$empty} and
+     * {@code filter[f][gt|gte|lt|lte]=v}. Explicit {@code eq:} is always
+     * used so a literal that looks like an operator stays a literal.
+     */
+    static void putEntryFilter(Query query, DatabaseEntryFilter filter) {
+        String field = requireId(filter.getFieldId(), "filter.field_id");
+        String scoped = "filter[" + field + "]";
+        List<String> values = filter.getValuesList();
+        String name;
+        String value;
+        switch (filter.getOperator()) {
+            case DATABASE_ENTRY_FILTER_OPERATOR_UNSPECIFIED, DATABASE_ENTRY_FILTER_OPERATOR_EQUALS -> {
+                name = scoped;
+                value = "eq:" + single(filter);
+            }
+            case DATABASE_ENTRY_FILTER_OPERATOR_IN -> {
+                if (values.isEmpty()) {
+                    throw invalid("filter on " + field + ": IN needs at least one value");
+                }
+                for (String member : values) {
+                    if (member.indexOf(',') >= 0) {
+                        throw invalid("filter on " + field + ": an IN member cannot contain a comma"
+                                + " (the API has no escape); use EQUALS for that literal");
+                    }
+                }
+                name = scoped;
+                value = "in:" + String.join(",", values);
+            }
+            case DATABASE_ENTRY_FILTER_OPERATOR_EMPTY -> {
+                if (!values.isEmpty()) {
+                    throw invalid("filter on " + field + ": EMPTY takes no values");
+                }
+                name = scoped;
+                value = "$empty";
+            }
+            case DATABASE_ENTRY_FILTER_OPERATOR_GREATER_THAN -> {
+                name = scoped + "[gt]";
+                value = single(filter);
+            }
+            case DATABASE_ENTRY_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL -> {
+                name = scoped + "[gte]";
+                value = single(filter);
+            }
+            case DATABASE_ENTRY_FILTER_OPERATOR_LESS_THAN -> {
+                name = scoped + "[lt]";
+                value = single(filter);
+            }
+            case DATABASE_ENTRY_FILTER_OPERATOR_LESS_THAN_OR_EQUAL -> {
+                name = scoped + "[lte]";
+                value = single(filter);
+            }
+            default -> throw invalid("unknown filter operator on " + field);
+        }
+        if (query.has(name)) {
+            throw invalid("two filters on " + name + "; the API takes one per field and operator");
+        }
+        query.put(name, value);
+    }
+
+    private static String single(DatabaseEntryFilter filter) {
+        if (filter.getValuesCount() != 1) {
+            throw invalid("filter on " + filter.getFieldId() + ": " + filter.getOperator()
+                    + " takes exactly one value");
+        }
+        return filter.getValues(0);
+    }
+
+    @Override
+    public void getDatabaseEntry(GetDatabaseEntryRequest request,
+            StreamObserver<GetDatabaseEntryResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            JsonNode node = session.client.get("/api/v2/databases/"
+                    + requireId(request.getDatabaseId(), "database_id") + "/entries/"
+                    + requireId(request.getEntryId(), "entry_id"));
+            reply(observer, GetDatabaseEntryResponse.newBuilder()
+                    .setEntry(session.mapper.toDatabaseEntry(node)).build());
+        });
+    }
+
+    // ======================================================================
     // SYNC AND PROBE
     // ======================================================================
 

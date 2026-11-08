@@ -927,6 +927,215 @@ class ConfluenceGrpcServiceTest {
     }
 
     // ======================================================================
+    // WHITEBOARDS, DATABASES, FOLDERS, SMART LINKS, CONTENT TREE, DATABASE DATA
+    // ======================================================================
+
+    private static String treeNodeJson(String id, String type, String title) {
+        return """
+                {"id":"%s","type":"%s","status":"current","title":"%s","parentId":"200",
+                 "parentType":"page","position":3,"authorId":"acc-1","ownerId":"acc-2",
+                 "createdAt":"2024-02-01T10:00:00.000Z","spaceId":"100",
+                 "embedUrl":"https://example.com/x",
+                 "version":{"number":2,"createdAt":"2024-02-02T10:00:00.000Z"},
+                 "collaborators":[{"accountId":"acc-5"}],
+                 "_links":{"webui":"/spaces/ENG/%ss/%s"}}
+                """.formatted(id, type, title, type, id);
+    }
+
+    @Test
+    void getWhiteboardDatabaseFolderAndSmartLinkSendTheTreeIncludes() {
+        fake.stub("/wiki/api/v2/whiteboards/w1", treeNodeJson("w1", "whiteboard", "Board"));
+        fake.stub("/wiki/api/v2/databases/d1", treeNodeJson("d1", "database", "Tracker"));
+        fake.stub("/wiki/api/v2/folders/f1", treeNodeJson("f1", "folder", "Folder"));
+        fake.stub("/wiki/api/v2/embeds/e1", treeNodeJson("e1", "embed", "Link"));
+        ContentIncludes all = ContentIncludes.newBuilder().setLabels(true).setProperties(true)
+                .setOperations(true).setLikes(true).setVersions(true).setDirectChildren(true)
+                .setCollaborators(true).build();
+        java.util.Map<String, String> expected = java.util.Map.of("include-collaborators", "true",
+                "include-direct-children", "true", "include-operations", "true",
+                "include-properties", "true");
+
+        Whiteboard whiteboard = stub.getWhiteboard(GetWhiteboardRequest.newBuilder().setId("w1")
+                .setInclude(all).build()).getWhiteboard();
+        Database database = stub.getDatabase(GetDatabaseRequest.newBuilder().setId("d1")
+                .setInclude(all).build()).getDatabase();
+        Folder folder = stub.getFolder(GetFolderRequest.newBuilder().setId("f1")
+                .setInclude(all).build()).getFolder();
+        SmartLink link = stub.getSmartLink(GetSmartLinkRequest.newBuilder().setId("e1")
+                .setInclude(all).build()).getSmartLink();
+
+        assertThat(whiteboard.getTitle()).isEqualTo("Board");
+        assertThat(whiteboard.getCollaboratorAccountIdsList()).containsExactly("acc-5");
+        assertThat(database.getOwnerId()).isEqualTo("acc-2");
+        assertThat(folder.getParentType()).isEqualTo(ParentContentType.PARENT_CONTENT_TYPE_PAGE);
+        assertThat(link.getEmbedUrl()).isEqualTo("https://example.com/x");
+        for (String path : List.of("whiteboards/w1", "databases/d1", "folders/f1", "embeds/e1")) {
+            assertThat(fake.lastTo("/wiki/api/v2/" + path).params())
+                    .as(path).containsExactlyInAnyOrderEntriesOf(expected);
+        }
+    }
+
+    @Test
+    void listChildrenRoutesByParentKind() {
+        fake.stub("/wiki/api/v2/folders/f1/direct-children", ConfluenceFixtures.listJson(null, "",
+                "{\"id\":\"200\",\"status\":\"current\",\"title\":\"Child\",\"type\":\"page\","
+                        + "\"spaceId\":\"100\",\"childPosition\":7}"));
+        fake.stub("/wiki/api/v2/custom-content/cc1/children", ConfluenceFixtures.listJson(null, "",
+                "{\"id\":\"cc2\",\"status\":\"current\",\"title\":\"Sub\",\"type\":\"ac:x\","
+                        + "\"spaceId\":\"100\"}"));
+
+        List<ContentTreeEntry> children = new ArrayList<>();
+        stub.listChildren(ListChildrenRequest.newBuilder()
+                .setParent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_FOLDER).setId("f1"))
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_CHILD_POSITION)
+                        .setDescending(true))
+                .build()).forEachRemaining(r -> children.add(r.getEntry()));
+        assertThat(children).singleElement().satisfies(e -> {
+            assertThat(e.getType()).isEqualTo("page");
+            assertThat(e.getChildPosition()).isEqualTo(7);
+        });
+        assertThat(fake.lastTo("/wiki/api/v2/folders/f1/direct-children").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("limit", "100",
+                        "sort", "-child-position"));
+
+        List<ContentTreeEntry> custom = new ArrayList<>();
+        stub.listChildren(ListChildrenRequest.newBuilder()
+                .setParent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_CUSTOM_CONTENT)
+                        .setId("cc1")).build()).forEachRemaining(r -> custom.add(r.getEntry()));
+        assertThat(custom).extracting(ContentTreeEntry::getId).containsExactly("cc2");
+        // Custom content children cannot be sorted by child position; blog posts have no tree.
+        assertInvalid(() -> stub.listChildren(ListChildrenRequest.newBuilder()
+                .setParent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_CUSTOM_CONTENT)
+                        .setId("cc1"))
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_CHILD_POSITION))
+                .build()).hasNext());
+        assertInvalid(() -> stub.listChildren(ListChildrenRequest.newBuilder()
+                .setParent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_BLOG_POST)
+                        .setId("300")).build()).hasNext());
+    }
+
+    @Test
+    void listDescendantsForwardsDepth() {
+        fake.stub("/wiki/api/v2/pages/200/descendants", ConfluenceFixtures.listJson(null, "",
+                "{\"id\":\"w1\",\"status\":\"current\",\"title\":\"Board\",\"type\":\"whiteboard\","
+                        + "\"parentId\":\"200\",\"depth\":1,\"childPosition\":0}"));
+
+        List<ContentTreeEntry> entries = new ArrayList<>();
+        stub.listDescendants(ListDescendantsRequest.newBuilder()
+                .setRoot(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_PAGE).setId("200"))
+                .setDepth(5).build()).forEachRemaining(r -> entries.add(r.getEntry()));
+
+        assertThat(entries).singleElement().satisfies(e -> {
+            assertThat(e.getParentId()).isEqualTo("200");
+            assertThat(e.getDepth()).isEqualTo(1);
+        });
+        assertThat(fake.lastTo("/wiki/api/v2/pages/200/descendants").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("limit", "100", "depth", "5"));
+    }
+
+    @Test
+    void listAncestorsWalksUpFromTheHighestAncestorWhenABatchIsFull() {
+        // A full batch of 250 (top-down) means more ancestors above the first one.
+        String[] full = new String[250];
+        full[0] = "{\"id\":\"f9\",\"type\":\"folder\"}";
+        for (int i = 1; i < full.length; i++) {
+            full[i] = "{\"id\":\"p" + i + "\",\"type\":\"page\"}";
+        }
+        fake.stub("/wiki/api/v2/pages/200/ancestors", ConfluenceFixtures.listJson(null, "", full));
+        fake.stub("/wiki/api/v2/folders/f9/ancestors", ConfluenceFixtures.listJson(null, "",
+                "{\"id\":\"p0\",\"type\":\"page\"}"));
+
+        List<Ancestor> ancestors = new ArrayList<>();
+        stub.listAncestors(ListAncestorsRequest.newBuilder()
+                .setContent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_PAGE).setId("200"))
+                .build()).forEachRemaining(r -> ancestors.add(r.getAncestor()));
+
+        assertThat(ancestors).hasSize(251);
+        assertThat(ancestors.get(0).getId()).isEqualTo("p0");
+        assertThat(ancestors.get(1).getId()).isEqualTo("f9");
+        assertThat(ancestors.get(1).getType()).isEqualTo(AncestorType.ANCESTOR_TYPE_FOLDER);
+        assertThat(ancestors.getLast().getId()).isEqualTo("p249");
+        assertThat(fake.lastTo("/wiki/api/v2/pages/200/ancestors").params())
+                .containsExactlyEntriesOf(java.util.Map.of("limit", "250"));
+    }
+
+    @Test
+    void listDatabaseFieldsMapsTypedSettings() {
+        fake.stub("/wiki/api/v2/databases/d1/fields", ConfluenceFixtures.listJson(null, "",
+                "{\"id\":\"f1\",\"name\":\"Due\",\"type\":\"date\",\"settings\":{\"includesTime\":true}}",
+                "{\"id\":\"f2\",\"name\":\"Status\",\"type\":\"select\",\"settings\":{\"options\":"
+                        + "[{\"id\":\"o1\",\"name\":\"Open\"}]}}"));
+
+        List<DatabaseField> fields = new ArrayList<>();
+        stub.listDatabaseFields(ListDatabaseFieldsRequest.newBuilder().setDatabaseId("d1").build())
+                .forEachRemaining(r -> fields.add(r.getField()));
+
+        assertThat(fields).extracting(DatabaseField::getType).containsExactly(
+                DatabaseFieldType.DATABASE_FIELD_TYPE_DATE, DatabaseFieldType.DATABASE_FIELD_TYPE_SELECT);
+        assertThat(fields.get(0).getDate().getIncludesTime()).isTrue();
+        assertThat(fields.get(1).getSelect().getOptionsCount()).isEqualTo(1);
+    }
+
+    @Test
+    void listDatabaseEntriesSendsTheBracketFilterGrammarAndSort() {
+        fake.stub("/wiki/api/v2/databases/d1/entries", ConfluenceFixtures.listJson(null, "",
+                "{\"id\":\"e1\",\"databaseId\":\"d1\",\"values\":{\"f3\":{\"type\":\"number\","
+                        + "\"value\":\"42\"},\"f4\":{\"type\":\"checkbox\",\"value\":true}}}"));
+
+        List<DatabaseEntry> entries = new ArrayList<>();
+        stub.listDatabaseEntries(ListDatabaseEntriesRequest.newBuilder().setDatabaseId("d1")
+                .addFilters(DatabaseEntryFilter.newBuilder().setFieldId("f1")
+                        .setOperator(DatabaseEntryFilterOperator.DATABASE_ENTRY_FILTER_OPERATOR_EQUALS)
+                        .addValues("in:literal"))
+                .addFilters(DatabaseEntryFilter.newBuilder().setFieldId("f2")
+                        .setOperator(DatabaseEntryFilterOperator.DATABASE_ENTRY_FILTER_OPERATOR_IN)
+                        .addValues("o1").addValues("o2"))
+                .addFilters(DatabaseEntryFilter.newBuilder().setFieldId("f3")
+                        .setOperator(DatabaseEntryFilterOperator.DATABASE_ENTRY_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL)
+                        .addValues("10"))
+                .addFilters(DatabaseEntryFilter.newBuilder().setFieldId("f3")
+                        .setOperator(DatabaseEntryFilterOperator.DATABASE_ENTRY_FILTER_OPERATOR_LESS_THAN)
+                        .addValues("100"))
+                .addFilters(DatabaseEntryFilter.newBuilder().setFieldId("f5")
+                        .setOperator(DatabaseEntryFilterOperator.DATABASE_ENTRY_FILTER_OPERATOR_EMPTY))
+                .setSort(DatabaseEntrySort.newBuilder().setFieldId("f3").setDescending(true))
+                .build()).forEachRemaining(r -> entries.add(r.getEntry()));
+
+        assertThat(entries).singleElement().satisfies(e -> {
+            assertThat(e.getValuesMap().get("f3").getNumber()).isEqualTo("42");
+            assertThat(e.getValuesMap().get("f4").getCheckbox()).isTrue();
+        });
+        java.util.Map<String, String> expected = new java.util.HashMap<>(java.util.Map.of(
+                "limit", "100", "filter[f1]", "eq:in:literal", "filter[f2]", "in:o1,o2",
+                "filter[f3][gte]", "10", "filter[f3][lt]", "100", "filter[f5]", "$empty",
+                "sort", "-f3"));
+        assertThat(fake.lastTo("/wiki/api/v2/databases/d1/entries").params())
+                .containsExactlyInAnyOrderEntriesOf(expected);
+
+        assertInvalid(() -> stub.listDatabaseEntries(ListDatabaseEntriesRequest.newBuilder()
+                .setDatabaseId("d1").addFilters(DatabaseEntryFilter.newBuilder().setFieldId("f2")
+                        .setOperator(DatabaseEntryFilterOperator.DATABASE_ENTRY_FILTER_OPERATOR_IN)
+                        .addValues("a,b")).build()).hasNext());
+        assertInvalid(() -> stub.listDatabaseEntries(ListDatabaseEntriesRequest.newBuilder()
+                .setDatabaseId("d1").addFilters(DatabaseEntryFilter.newBuilder().setFieldId("f2")
+                        .addValues("a").addValues("b")).build()).hasNext());
+    }
+
+    @Test
+    void getDatabaseEntryReadsOneRow() {
+        fake.stub("/wiki/api/v2/databases/d1/entries/e1",
+                "{\"id\":\"e1\",\"databaseId\":\"d1\",\"values\":{\"f3\":{\"type\":\"number\","
+                        + "\"value\":\"7\"}}}");
+
+        DatabaseEntry entry = stub.getDatabaseEntry(GetDatabaseEntryRequest.newBuilder()
+                .setDatabaseId("d1").setEntryId("e1").build()).getEntry();
+
+        assertThat(entry.getId()).isEqualTo("e1");
+        assertThat(entry.getDatabaseId()).isEqualTo("d1");
+        assertThat(entry.getValuesMap().get("f3").getNumber()).isEqualTo("7");
+    }
+
+    // ======================================================================
     // SYNC
     // ======================================================================
 
