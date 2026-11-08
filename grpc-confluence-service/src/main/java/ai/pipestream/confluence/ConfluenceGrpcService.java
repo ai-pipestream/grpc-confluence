@@ -66,6 +66,8 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     static final int USERS_BULK_MAX_IDS = 250;
     /** {@code POST /content/convert-ids-to-types} accepts at most this many ids per call. */
     static final int CONVERT_IDS_MAX_IDS = 100;
+    /** {@code POST /user/access/check-access-by-email} accepts at most this many emails per call. */
+    static final int CHECK_ACCESS_MAX_EMAILS = 100;
     /** The largest {@code limit} any v2 list route accepts. */
     static final int MAX_LIMIT = 250;
 
@@ -1693,6 +1695,258 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
             case "embed" -> ContentType.CONTENT_TYPE_SMART_LINK;
             default -> ContentType.CONTENT_TYPE_UNSPECIFIED;
         };
+    }
+
+    // ======================================================================
+    // FULL READ SURFACE: version details, likes, operations, properties by
+    // id, app properties, space permission catalogue and transitions, admin
+    // key, email access check
+    // ======================================================================
+
+    /** Content kinds with a {@code /versions/{version-number}} route. */
+    private static final Set<ContentType> VERSIONED = java.util.EnumSet.of(
+            ContentType.CONTENT_TYPE_PAGE, ContentType.CONTENT_TYPE_BLOG_POST,
+            ContentType.CONTENT_TYPE_ATTACHMENT, ContentType.CONTENT_TYPE_FOOTER_COMMENT,
+            ContentType.CONTENT_TYPE_INLINE_COMMENT, ContentType.CONTENT_TYPE_CUSTOM_CONTENT);
+    /** Content kinds with {@code /likes/users} and {@code /likes/count} routes. */
+    private static final Set<ContentType> LIKEABLE = java.util.EnumSet.of(
+            ContentType.CONTENT_TYPE_PAGE, ContentType.CONTENT_TYPE_BLOG_POST,
+            ContentType.CONTENT_TYPE_FOOTER_COMMENT, ContentType.CONTENT_TYPE_INLINE_COMMENT);
+    /** Content kinds with an {@code /operations} route (every built-in kind). */
+    private static final Set<ContentType> OPERABLE = java.util.EnumSet.of(
+            ContentType.CONTENT_TYPE_PAGE, ContentType.CONTENT_TYPE_BLOG_POST,
+            ContentType.CONTENT_TYPE_ATTACHMENT, ContentType.CONTENT_TYPE_CUSTOM_CONTENT,
+            ContentType.CONTENT_TYPE_FOOTER_COMMENT, ContentType.CONTENT_TYPE_INLINE_COMMENT,
+            ContentType.CONTENT_TYPE_WHITEBOARD, ContentType.CONTENT_TYPE_DATABASE,
+            ContentType.CONTENT_TYPE_FOLDER, ContentType.CONTENT_TYPE_SMART_LINK);
+    /** Content kinds with a {@code /properties} route (comments share {@code /comments}). */
+    private static final Set<ContentType> PROPERTY_HOLDERS = java.util.EnumSet.of(
+            ContentType.CONTENT_TYPE_PAGE, ContentType.CONTENT_TYPE_BLOG_POST,
+            ContentType.CONTENT_TYPE_ATTACHMENT, ContentType.CONTENT_TYPE_CUSTOM_CONTENT,
+            ContentType.CONTENT_TYPE_WHITEBOARD, ContentType.CONTENT_TYPE_DATABASE,
+            ContentType.CONTENT_TYPE_FOLDER, ContentType.CONTENT_TYPE_SMART_LINK);
+
+    @Override
+    public void getVersion(GetVersionRequest request, StreamObserver<GetVersionResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            if (request.getNumber() <= 0) {
+                throw invalid("number must be a positive version number");
+            }
+            String path = ConfluenceRoutes.contentPath(request.getContent(), VERSIONED, "GetVersion")
+                    + "/versions/" + request.getNumber();
+            reply(observer, GetVersionResponse.newBuilder().setVersion(requireValid(
+                    session.mapper.toDetailedVersion(session.client.get(path)))).build());
+        });
+    }
+
+    @Override
+    public void listLikes(ListLikesRequest request, StreamObserver<ListLikesResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            String path = ConfluenceRoutes.contentPath(request.getContent(), LIKEABLE, "ListLikes")
+                    + "/likes/users";
+            stream(session, path, limit(session), observer, node -> ListLikesResponse.newBuilder()
+                    .setLike(requireValid(session.mapper.toLike(node))).build());
+        });
+    }
+
+    @Override
+    public void getLikeCount(GetLikeCountRequest request,
+            StreamObserver<GetLikeCountResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            String path = ConfluenceRoutes.contentPath(request.getContent(), LIKEABLE, "GetLikeCount")
+                    + "/likes/count";
+            JsonNode count = session.client.get(path).path("count");
+            if (!count.isIntegralNumber()) {
+                throw Status.INTERNAL.withDescription("GET " + path + " answered without an integer count")
+                        .asRuntimeException();
+            }
+            reply(observer, GetLikeCountResponse.newBuilder().setCount(count.longValue()).build());
+        });
+    }
+
+    @Override
+    public void listOperations(ListOperationsRequest request,
+            StreamObserver<ListOperationsResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            String path = switch (request.getTargetCase()) {
+                case CONTENT -> ConfluenceRoutes.contentPath(request.getContent(), OPERABLE,
+                        "ListOperations");
+                case SPACE_ID -> "/api/v2/spaces/" + requireId(request.getSpaceId(), "space_id");
+                case TARGET_NOT_SET -> throw invalid("content or space_id is required");
+            };
+            reply(observer, ListOperationsResponse.newBuilder().addAllOperations(
+                    session.mapper.toOperations(session.client.get(path + "/operations"))).build());
+        });
+    }
+
+    @Override
+    public void getContentProperty(GetContentPropertyRequest request,
+            StreamObserver<GetContentPropertyResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            ContentRef content = request.getContent();
+            String path;
+            if (content.getType() == ContentType.CONTENT_TYPE_FOOTER_COMMENT
+                    || content.getType() == ContentType.CONTENT_TYPE_INLINE_COMMENT) {
+                // Both comment kinds share one properties route.
+                path = "/api/v2/comments/" + requireId(content.getId(), "content id");
+            } else {
+                path = ConfluenceRoutes.contentPath(content, PROPERTY_HOLDERS, "GetContentProperty");
+            }
+            JsonNode node = session.client.get(path + "/properties/"
+                    + requireId(request.getPropertyId(), "property_id"));
+            reply(observer, GetContentPropertyResponse.newBuilder()
+                    .setProperty(requireValid(session.mapper.toContentProperty(node))).build());
+        });
+    }
+
+    @Override
+    public void getSpaceProperty(GetSpacePropertyRequest request,
+            StreamObserver<GetSpacePropertyResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            JsonNode node = session.client.get("/api/v2/spaces/" + requireId(request.getSpaceId(), "space_id")
+                    + "/properties/" + requireId(request.getPropertyId(), "property_id"));
+            reply(observer, GetSpacePropertyResponse.newBuilder()
+                    .setProperty(requireValid(session.mapper.toSpaceProperty(node))).build());
+        });
+    }
+
+    @Override
+    public void listAppProperties(ListAppPropertiesRequest request,
+            StreamObserver<ListAppPropertiesResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            stream(session, "/api/v2/app/properties", limit(session), observer, node ->
+                    ListAppPropertiesResponse.newBuilder()
+                            .setProperty(requireValid(session.mapper.toAppProperty(node))).build());
+        });
+    }
+
+    @Override
+    public void getAppProperty(GetAppPropertyRequest request,
+            StreamObserver<GetAppPropertyResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            String key = java.net.URLEncoder.encode(requireId(request.getKey(), "key"),
+                    java.nio.charset.StandardCharsets.UTF_8).replace("+", "%20");
+            JsonNode node = session.client.get("/api/v2/app/properties/" + key);
+            reply(observer, GetAppPropertyResponse.newBuilder()
+                    .setProperty(requireValid(session.mapper.toAppProperty(node))).build());
+        });
+    }
+
+    @Override
+    public void getSpaceRole(GetSpaceRoleRequest request, StreamObserver<GetSpaceRoleResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            JsonNode node = session.client.get("/api/v2/space-roles/" + requireId(request.getId(), "id"));
+            reply(observer, GetSpaceRoleResponse.newBuilder()
+                    .setRole(session.mapper.toSpaceRole(node)).build());
+        });
+    }
+
+    @Override
+    public void listSpacePermissions(ListSpacePermissionsRequest request,
+            StreamObserver<ListSpacePermissionsResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            stream(session, "/api/v2/space-permissions", limit(session), observer, node ->
+                    ListSpacePermissionsResponse.newBuilder()
+                            .setPermission(session.mapper.toSpacePermission(node)).build());
+        });
+    }
+
+    /**
+     * The combinations route pages through a body-level {@code cursor}
+     * (not {@code _links.next}): each page's cursor is sent back as the
+     * {@code cursor} query parameter until the API answers none.
+     */
+    @Override
+    public void listSpacePermissionTransitionCombinations(
+            ListSpacePermissionTransitionCombinationsRequest request,
+            StreamObserver<ListSpacePermissionTransitionCombinationsResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            String path = "/api/v2/space-permissions/transition/combinations";
+            Set<String> seen = new java.util.HashSet<>();
+            String cursor = null;
+            do {
+                Query query = limit(session).put("cursor", cursor);
+                JsonNode page = session.client.get(path, query.map());
+                com.google.protobuf.Timestamp generatedAt =
+                        ConfluenceMapper.timestamp(page.path("generatedAt").asText(""));
+                for (JsonNode node : page.path("results")) {
+                    ListSpacePermissionTransitionCombinationsResponse.Builder out =
+                            ListSpacePermissionTransitionCombinationsResponse.newBuilder()
+                                    .setCombination(session.mapper.toBulkTransitionCombination(node));
+                    if (generatedAt != null) {
+                        out.setGeneratedAt(generatedAt);
+                    }
+                    observer.onNext(out.build());
+                }
+                JsonNode next = page.path("cursor");
+                cursor = next.isTextual() && !next.asText().isBlank() ? next.asText() : null;
+                if (cursor != null && !seen.add(cursor)) {
+                    throw Status.INTERNAL.withDescription("GET " + path
+                            + " repeated the cursor " + cursor + "; refusing to loop").asRuntimeException();
+                }
+            } while (cursor != null);
+            observer.onCompleted();
+        });
+    }
+
+    @Override
+    public void getSpacePermissionTransitionTask(GetSpacePermissionTransitionTaskRequest request,
+            StreamObserver<GetSpacePermissionTransitionTaskResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            JsonNode node = session.client.get("/api/v2/space-permissions/transition/tasks/"
+                    + requireId(request.getTaskId(), "task_id"));
+            reply(observer, GetSpacePermissionTransitionTaskResponse.newBuilder()
+                    .setTask(requireValid(session.mapper.toBulkTransitionTaskStatus(node))).build());
+        });
+    }
+
+    @Override
+    public void getAdminKey(GetAdminKeyRequest request, StreamObserver<GetAdminKeyResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            reply(observer, GetAdminKeyResponse.newBuilder().setAdminKey(requireValid(
+                    session.mapper.toAdminKey(session.client.get("/api/v2/admin-key")))).build());
+        });
+    }
+
+    @Override
+    public void checkAccessByEmail(CheckAccessByEmailRequest request,
+            StreamObserver<CheckAccessByEmailResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            List<String> emails = distinctNonBlank(request.getEmailsList());
+            CheckAccessByEmailResponse.Builder response = CheckAccessByEmailResponse.newBuilder();
+            for (int from = 0; from < emails.size(); from += CHECK_ACCESS_MAX_EMAILS) {
+                com.fasterxml.jackson.databind.node.ObjectNode body = JSON.createObjectNode();
+                com.fasterxml.jackson.databind.node.ArrayNode chunk = body.putArray("emails");
+                emails.subList(from, Math.min(emails.size(), from + CHECK_ACCESS_MAX_EMAILS))
+                        .forEach(chunk::add);
+                JsonNode result = session.client.post("/api/v2/user/access/check-access-by-email", body);
+                result.path("emailsWithoutAccess").forEach(email -> {
+                    if (email.isTextual()) {
+                        response.addEmailsWithoutAccess(email.asText());
+                    }
+                });
+                result.path("invalidEmails").forEach(email -> {
+                    if (email.isTextual()) {
+                        response.addInvalidEmails(email.asText());
+                    }
+                });
+            }
+            reply(observer, response.build());
+        });
     }
 
     // ======================================================================

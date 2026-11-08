@@ -1,6 +1,15 @@
 package ai.pipestream.confluence;
 
 import ai.pipestream.confluence.v1.AccountStatus;
+import ai.pipestream.confluence.v1.DetailedVersion;
+import ai.pipestream.confluence.v1.SpacePermission;
+import ai.pipestream.confluence.v1.AppProperty;
+import ai.pipestream.confluence.v1.AdminKeyResponse;
+import ai.pipestream.confluence.v1.BulkTransitionCombinationEntry;
+import ai.pipestream.confluence.v1.BulkTransitionDecodedPermission;
+import ai.pipestream.confluence.v1.BulkTransitionPrincipalType;
+import ai.pipestream.confluence.v1.BulkTransitionTaskStatusResponse;
+import ai.pipestream.confluence.v1.BulkTransitionTaskStatus;
 import ai.pipestream.confluence.v1.AccountType;
 import ai.pipestream.confluence.v1.Ancestor;
 import ai.pipestream.confluence.v1.AncestorType;
@@ -1380,7 +1389,148 @@ public final class ConfluenceMapper {
         }
     }
 
-    private static Operation toOperation(JsonNode node) {
+    /**
+     * Maps one {@code Like} ({@code /{content-type}/{id}/likes/users} item).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public Like toLike(JsonNode node) {
+        return Like.newBuilder().setAccountId(text(node, "accountId")).build();
+    }
+
+    /**
+     * Maps a {@code DetailedVersion} ({@code /{content-type}/{id}/versions/{n}}).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public DetailedVersion toDetailedVersion(JsonNode node) {
+        DetailedVersion.Builder b = DetailedVersion.newBuilder()
+                .setNumber(node.path("number").isIntegralNumber() ? node.path("number").intValue() : 0)
+                .setAuthorId(text(node, "authorId"))
+                .setMessage(text(node, "message"))
+                .setMinorEdit(node.path("minorEdit").asBoolean(false))
+                .setContentTypeModified(node.path("contentTypeModified").asBoolean(false));
+        setTimestamp(node, "createdAt", b::setCreatedAt);
+        node.path("collaborators").forEach(collaborator -> {
+            if (collaborator.isTextual()) {
+                b.addCollaborators(collaborator.asText());
+            }
+        });
+        if (node.path("prevVersion").isIntegralNumber()) {
+            b.setPrevVersion(node.path("prevVersion").intValue());
+        }
+        if (node.path("nextVersion").isIntegralNumber()) {
+            b.setNextVersion(node.path("nextVersion").intValue());
+        }
+        return b.build();
+    }
+
+    /**
+     * Maps the operations of a {@code PermittedOperationsResponse}
+     * ({@code /{content-type}/{id}/operations}).
+     *
+     * @param node the API object
+     * @return the operations, in API order
+     */
+    public List<Operation> toOperations(JsonNode node) {
+        List<Operation> operations = new java.util.ArrayList<>();
+        node.path("operations").forEach(operation -> operations.add(toOperation(operation)));
+        return operations;
+    }
+
+    /**
+     * Maps one space permission definition ({@code /space-permissions} item).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public SpacePermission toSpacePermission(JsonNode node) {
+        SpacePermission.Builder b = SpacePermission.newBuilder()
+                .setId(text(node, "id"))
+                .setDisplayName(text(node, "displayName"))
+                .setDescription(text(node, "description"));
+        node.path("requiredPermissionIds").forEach(id -> {
+            if (id.isTextual()) {
+                b.addRequiredPermissionIds(id.asText());
+            }
+        });
+        return b.build();
+    }
+
+    /**
+     * Maps one Forge app property ({@code /app/properties} item or single read).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public AppProperty toAppProperty(JsonNode node) {
+        AppProperty.Builder b = AppProperty.newBuilder();
+        applyPropertyKey(node, b::setKey, b::setCustomKey);
+        setPropertyValue(node, b::setValue);
+        return b.build();
+    }
+
+    /**
+     * Maps the caller's admin key ({@code GET /admin-key}).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public AdminKeyResponse toAdminKey(JsonNode node) {
+        AdminKeyResponse.Builder b = AdminKeyResponse.newBuilder()
+                .setAccountId(text(node, "accountId"));
+        setTimestamp(node, "expirationTime", b::setExpirationTime);
+        return b.build();
+    }
+
+    /**
+     * Maps one unassigned permission combination
+     * ({@code /space-permissions/transition/combinations} item).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public BulkTransitionCombinationEntry toBulkTransitionCombination(JsonNode node) {
+        BulkTransitionCombinationEntry.Builder b = BulkTransitionCombinationEntry.newBuilder()
+                .setCombinationId(text(node, "combinationId"))
+                .setSpaceCount(node.path("spaceCount").asLong(0))
+                .setPrincipalCount(node.path("principalCount").asLong(0));
+        node.path("permissions").forEach(permission -> b.addPermissions(
+                BulkTransitionDecodedPermission.newBuilder()
+                        .setId(text(permission, "id"))
+                        .setDisplayName(text(permission, "displayName"))));
+        node.path("principalTypes").forEach(type -> {
+            if (type.isTextual()) {
+                b.addPrincipalTypes(type.asText());
+                b.addTypedPrincipalTypes(wireEnum(BulkTransitionPrincipalType.class,
+                        "BULK_TRANSITION_PRINCIPAL_TYPE_", type.asText(),
+                        BulkTransitionPrincipalType.BULK_TRANSITION_PRINCIPAL_TYPE_UNSPECIFIED));
+            }
+        });
+        return b.build();
+    }
+
+    /**
+     * Maps a transition task status
+     * ({@code /space-permissions/transition/tasks/{taskId}}).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public BulkTransitionTaskStatusResponse toBulkTransitionTaskStatus(JsonNode node) {
+        BulkTransitionTaskStatusResponse.Builder b = BulkTransitionTaskStatusResponse.newBuilder()
+                .setTaskId(text(node, "taskId"))
+                .setStatus(wireEnum(BulkTransitionTaskStatus.class, "BULK_TRANSITION_TASK_STATUS_",
+                        text(node, "status"), BulkTransitionTaskStatus.BULK_TRANSITION_TASK_STATUS_UNSPECIFIED));
+        if (node.path("errorMessage").isTextual()) {
+            b.setErrorMessage(node.path("errorMessage").asText());
+        }
+        return b.build();
+    }
+
+    static Operation toOperation(JsonNode node) {
         return Operation.newBuilder()
                 .setOperation(text(node, "operation"))
                 .setTargetType(text(node, "targetType"))

@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package ai.pipestream.confluence.v1;
 
+import "ai/pipestream/confluence/v1/admin_key.proto";
 import "ai/pipestream/confluence/v1/attachment.proto";
 import "ai/pipestream/confluence/v1/blogpost.proto";
 import "ai/pipestream/confluence/v1/classification.proto";
@@ -10,6 +11,7 @@ import "ai/pipestream/confluence/v1/common.proto";
 import "ai/pipestream/confluence/v1/content.proto";
 import "ai/pipestream/confluence/v1/database.proto";
 import "ai/pipestream/confluence/v1/events.proto";
+import "ai/pipestream/confluence/v1/operation.proto";
 import "ai/pipestream/confluence/v1/label.proto";
 import "ai/pipestream/confluence/v1/page.proto";
 import "ai/pipestream/confluence/v1/permission.proto";
@@ -37,7 +39,10 @@ option java_package = "ai.pipestream.confluence.v1";
 // update / delete, redactions, admin keys, permission mutation, space
 // permission transition tasks) are deliberately absent: this is an indexer's
 // proxy. Permission *reads* are in scope because search security trimming
-// needs them.
+// needs them, and so is every other v2 read route (likes, version details,
+// operations, the space permission catalogue and transition reads, the
+// caller's admin key, Forge app properties, the email access check): the
+// contract covers the whole v2 read surface.
 //
 // Streaming responses carry one entity per message in a per-rpc wrapper
 // (ListPagesResponse, SyncResponse, ...) rather than the bare domain message:
@@ -231,6 +236,30 @@ service ConfluenceService {
   // v2: GET /{content-type}/{id}/versions.
   rpc ListVersions(ListVersionsRequest) returns (stream ListVersionsResponse);
 
+  // The change-set detail of one version of a page, blog post, attachment,
+  // comment or custom content (collaborators, previous and next version
+  // numbers, whether the content type changed).
+  // v2: GET /{content-type}/{id}/versions/{version-number}.
+  rpc GetVersion(GetVersionRequest) returns (GetVersionResponse);
+
+  // --------------------------------------------------------------- likes --
+
+  // The accounts that liked a page, blog post or comment, as a stream.
+  // v2: GET /{pages|blogposts|footer-comments|inline-comments}/{id}/likes/users.
+  rpc ListLikes(ListLikesRequest) returns (stream ListLikesResponse);
+
+  // The number of likes of a page, blog post or comment.
+  // v2: GET /{pages|blogposts|footer-comments|inline-comments}/{id}/likes/count.
+  rpc GetLikeCount(GetLikeCountRequest) returns (GetLikeCountResponse);
+
+  // ---------------------------------------------------------- operations --
+
+  // Every operation the calling user may perform on one content item or
+  // space. Unlike the include.operations preview on the Get rpcs (capped
+  // upstream at 50 entries) this is the full, unpaginated list.
+  // v2: GET /{content-type}/{id}/operations, GET /spaces/{id}/operations.
+  rpc ListOperations(ListOperationsRequest) returns (ListOperationsResponse);
+
   // --------------------------------------------------------------- tasks --
 
   // Inline tasks of the workspace, filtered by status, container, people and
@@ -252,6 +281,13 @@ service ConfluenceService {
   // fails with INTERNAL rather than return a silently partial result.
   // v2: POST /users-bulk (a read; the body is just the id list).
   rpc BatchGetUsers(BatchGetUsersRequest) returns (BatchGetUsersResponse);
+
+  // Which of the given email addresses have no access to the site, and
+  // which are not valid addresses. The server chunks the request to the
+  // API's per-call maximum (100 emails).
+  // v2: POST /user/access/check-access-by-email (a read; the body is just
+  // the email list).
+  rpc CheckAccessByEmail(CheckAccessByEmailRequest) returns (CheckAccessByEmailResponse);
 
   // ------------------------------------------------------ classification --
 
@@ -290,6 +326,28 @@ service ConfluenceService {
   // v2: GET /spaces/{id}/properties.
   rpc ListSpaceProperties(ListSpacePropertiesRequest) returns (stream ListSpacePropertiesResponse);
 
+  // One content property by its id (not its key; filter
+  // ListContentProperties by `key` for that).
+  // v2: GET /{content-type}/{id}/properties/{property-id} (comments of
+  // either kind: GET /comments/{id}/properties/{property-id}).
+  rpc GetContentProperty(GetContentPropertyRequest) returns (GetContentPropertyResponse);
+
+  // One space property by its id.
+  // v2: GET /spaces/{id}/properties/{property-id}.
+  rpc GetSpaceProperty(GetSpacePropertyRequest) returns (GetSpacePropertyResponse);
+
+  // The Forge app properties of the calling app, as a stream. Upstream
+  // serves the app-properties routes to Forge app (asApp) credentials
+  // only; with API-token auth they fail (PERMISSION_DENIED or NOT_FOUND).
+  // Kept so the contract tracks the upstream API.
+  // v2: GET /app/properties.
+  rpc ListAppProperties(ListAppPropertiesRequest) returns (stream ListAppPropertiesResponse);
+
+  // One Forge app property by key. Forge app credentials only, like
+  // ListAppProperties.
+  // v2: GET /app/properties/{propertyKey}.
+  rpc GetAppProperty(GetAppPropertyRequest) returns (GetAppPropertyResponse);
+
   // ----------------------------------------- permissions (read side only) --
 
   // The direct restriction state of a page, blog post, database, whiteboard
@@ -311,6 +369,25 @@ service ConfluenceService {
   // v2: GET /space-roles.
   rpc ListSpaceRoles(ListSpaceRolesRequest) returns (stream ListSpaceRolesResponse);
 
+  // One space role by id. Role-based-access tenants only.
+  // v2: GET /space-roles/{id}.
+  rpc GetSpaceRole(GetSpaceRoleRequest) returns (GetSpaceRoleResponse);
+
+  // The tenant's catalogue of space permission definitions (id, display
+  // name, description, prerequisites), as a stream.
+  // v2: GET /space-permissions.
+  rpc ListSpacePermissions(ListSpacePermissionsRequest) returns (stream ListSpacePermissionsResponse);
+
+  // The unassigned space permission combinations found by the last
+  // transition audit, as a stream (admin tooling for the move to space
+  // roles; Confluence administrators only).
+  // v2: GET /space-permissions/transition/combinations.
+  rpc ListSpacePermissionTransitionCombinations(ListSpacePermissionTransitionCombinationsRequest) returns (stream ListSpacePermissionTransitionCombinationsResponse);
+
+  // The status of one submitted space permission transition task.
+  // v2: GET /space-permissions/transition/tasks/{taskId}.
+  rpc GetSpacePermissionTransitionTask(GetSpacePermissionTransitionTaskRequest) returns (GetSpacePermissionTransitionTaskResponse);
+
   // The role assignments of one space, as a stream. Role-based-access
   // tenants only.
   // v2: GET /spaces/{id}/role-assignments.
@@ -319,6 +396,13 @@ service ConfluenceService {
   // Whether the tenant uses classic space permissions, roles, or is in
   // transition. v2: GET /space-role-mode.
   rpc GetSpaceRoleMode(GetSpaceRoleModeRequest) returns (GetSpaceRoleModeResponse);
+
+  // ----------------------------------------------------------- admin key --
+
+  // The calling user's active admin key, if any (NOT_FOUND when none is
+  // enabled). Reading it never enables, extends or disables one.
+  // v2: GET /admin-key.
+  rpc GetAdminKey(GetAdminKeyRequest) returns (GetAdminKeyResponse);
 
   // -------------------------------------------------------------- content --
 
@@ -1761,4 +1845,270 @@ message SyncResponse {
     // the pass observed nothing).
     string resume_cursor = 3;
   }
+}
+
+// ============================================================================
+// FULL READ SURFACE: version details, likes, operations, properties by id,
+// app properties, space permission catalogue and transitions, admin key,
+// email access check
+// ============================================================================
+
+// Request to read one version's change-set detail.
+message GetVersionRequest {
+  // The content: a page, blog post, attachment, footer comment, inline
+  // comment or custom content.
+  ContentRef content = 1;
+  // The version number (int64 per the spec's path parameter); must be
+  // positive.
+  int64 number = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested version's change-set detail.
+message GetVersionResponse {
+  // The version.
+  DetailedVersion version = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to stream the accounts that liked one content item.
+message ListLikesRequest {
+  // The content: a page, blog post, footer comment or inline comment.
+  ContentRef content = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed like.
+message ListLikesResponse {
+  // The streamed like (the liking account).
+  Like like = 1;
+}
+
+// Request to count the likes of one content item.
+message GetLikeCountRequest {
+  // The content: a page, blog post, footer comment or inline comment.
+  ContentRef content = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The like count.
+message GetLikeCountResponse {
+  // The number of likes (int64 per the spec).
+  int64 count = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to list the operations permitted on one content item or space.
+message ListOperationsRequest {
+  // The target; exactly one is required.
+  oneof target {
+    // A page, blog post, attachment, custom content, footer comment, inline
+    // comment, whiteboard, database, folder or Smart Link.
+    ContentRef content = 1;
+    // A space (GET /spaces/{id}/operations).
+    string space_id = 2;
+  }
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The operations permitted on the target (the route is unpaginated, so this
+// is the complete list).
+message ListOperationsResponse {
+  // The permitted operations, in API order.
+  repeated Operation operations = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to read one content property by id.
+message GetContentPropertyRequest {
+  // The content: a page, blog post, attachment, custom content, footer or
+  // inline comment, whiteboard, database, folder or Smart Link.
+  ContentRef content = 1;
+  // ID of the property.
+  string property_id = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested content property.
+message GetContentPropertyResponse {
+  // The property.
+  ContentProperty property = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to read one space property by id.
+message GetSpacePropertyRequest {
+  // ID of the space.
+  string space_id = 1;
+  // ID of the property.
+  string property_id = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested space property.
+message GetSpacePropertyResponse {
+  // The property.
+  SpaceProperty property = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to stream the calling Forge app's properties.
+message ListAppPropertiesRequest {
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed app property.
+message ListAppPropertiesResponse {
+  // The streamed property.
+  AppProperty property = 1;
+}
+
+// Request to read one Forge app property by key.
+message GetAppPropertyRequest {
+  // The property key.
+  string key = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested app property.
+message GetAppPropertyResponse {
+  // The property.
+  AppProperty property = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to read one space role by id.
+message GetSpaceRoleRequest {
+  // ID of the space role.
+  string id = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested space role.
+message GetSpaceRoleResponse {
+  // The role.
+  SpaceRole role = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to stream the tenant's space permission definitions.
+message ListSpacePermissionsRequest {
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed space permission definition.
+message ListSpacePermissionsResponse {
+  // The streamed permission definition.
+  SpacePermission permission = 1;
+}
+
+// Request to stream the unassigned space permission combinations.
+message ListSpacePermissionTransitionCombinationsRequest {
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed permission combination. (Named after the rpc; the domain
+// message ListSpacePermissionCombinationsResponse models one raw API page.)
+message ListSpacePermissionTransitionCombinationsResponse {
+  // The streamed combination.
+  BulkTransitionCombinationEntry combination = 1;
+  // When the last audit run populated the combinations table, as reported
+  // on the API page this entry came from. Absent if the audit task has
+  // never run on this tenant.
+  optional google.protobuf.Timestamp generated_at = 2;
+}
+
+// Request to read one space permission transition task's status.
+message GetSpacePermissionTransitionTaskRequest {
+  // ID of the task.
+  string task_id = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested task status.
+message GetSpacePermissionTransitionTaskResponse {
+  // The task status.
+  BulkTransitionTaskStatusResponse task = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to read the calling user's admin key.
+message GetAdminKeyRequest {
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The calling user's active admin key.
+message GetAdminKeyResponse {
+  // The admin key (account and expiry).
+  AdminKeyResponse admin_key = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to check site access for email addresses.
+message CheckAccessByEmailRequest {
+  // The email addresses to check. Any number; the server chunks to the
+  // API's per-call maximum (100). Blanks and duplicates are dropped.
+  repeated string emails = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The result of the email access check, merged across chunks.
+message CheckAccessByEmailResponse {
+  // The valid addresses that have no access to the site.
+  repeated string emails_without_access = 1;
+  // The addresses the API rejected as invalid.
+  repeated string invalid_emails = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
 }

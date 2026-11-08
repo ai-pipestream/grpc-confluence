@@ -1699,6 +1699,261 @@ class ConfluenceGrpcServiceTest {
     }
 
     // ======================================================================
+    // FULL READ SURFACE: version details, likes, operations, properties by
+    // id, app properties, space permission catalogue and transitions, admin
+    // key, email access check
+    // ======================================================================
+
+    private static ContentRef ref(ContentType type, String id) {
+        return ContentRef.newBuilder().setType(type).setId(id).build();
+    }
+
+    @Test
+    void getVersionReadsTheDetailedVersionPerContentKind() {
+        String detail = "{\"number\":3,\"authorId\":\"acc-1\",\"message\":\"m\","
+                + "\"createdAt\":\"2024-03-01T00:00:00.000Z\",\"minorEdit\":true,"
+                + "\"contentTypeModified\":false,\"collaborators\":[\"acc-1\",\"acc-2\"],"
+                + "\"prevVersion\":2,\"nextVersion\":4}";
+        fake.stub("/wiki/api/v2/pages/200/versions/3", detail);
+        fake.stub("/wiki/api/v2/inline-comments/c2/versions/3", detail);
+
+        DetailedVersion version = stub.getVersion(GetVersionRequest.newBuilder()
+                .setContent(ref(ContentType.CONTENT_TYPE_PAGE, "200")).setNumber(3).build()).getVersion();
+        assertThat(version.getNumber()).isEqualTo(3);
+        assertThat(version.getAuthorId()).isEqualTo("acc-1");
+        assertThat(version.getMinorEdit()).isTrue();
+        assertThat(version.getCollaboratorsList()).containsExactly("acc-1", "acc-2");
+        assertThat(version.getPrevVersion()).isEqualTo(2);
+        assertThat(version.getNextVersion()).isEqualTo(4);
+        assertThat(version.getCreatedAt().getSeconds()).isEqualTo(T1.getEpochSecond());
+
+        assertThat(stub.getVersion(GetVersionRequest.newBuilder()
+                .setContent(ref(ContentType.CONTENT_TYPE_INLINE_COMMENT, "c2")).setNumber(3).build())
+                .getVersion().getNumber()).isEqualTo(3);
+        assertInvalid(() -> stub.getVersion(GetVersionRequest.newBuilder()
+                .setContent(ref(ContentType.CONTENT_TYPE_WHITEBOARD, "w1")).setNumber(3).build()));
+        assertInvalid(() -> stub.getVersion(GetVersionRequest.newBuilder()
+                .setContent(ref(ContentType.CONTENT_TYPE_PAGE, "200")).build()));
+    }
+
+    @Test
+    void listLikesStreamsAcrossPagesAndGetLikeCountReadsTheCount() {
+        fake.stub("/wiki/api/v2/footer-comments/c1/likes/users", ConfluenceFixtures.listJson("n2",
+                "/wiki/api/v2/footer-comments/c1/likes/users", "{\"accountId\":\"acc-1\"}"));
+        fake.stub("/wiki/api/v2/footer-comments/c1/likes/users?cursor=n2",
+                ConfluenceFixtures.listJson(null, "", "{\"accountId\":\"acc-2\"}"));
+        fake.stub("/wiki/api/v2/blogposts/300/likes/count", "{\"count\":42}");
+
+        List<Like> likes = new ArrayList<>();
+        stub.listLikes(ListLikesRequest.newBuilder()
+                .setContent(ref(ContentType.CONTENT_TYPE_FOOTER_COMMENT, "c1")).build())
+                .forEachRemaining(r -> likes.add(r.getLike()));
+        assertThat(likes).extracting(Like::getAccountId).containsExactly("acc-1", "acc-2");
+        assertThat(fake.requestsTo("/wiki/api/v2/footer-comments/c1/likes/users").getFirst().params())
+                .containsExactlyEntriesOf(java.util.Map.of("limit", "100"));
+
+        assertThat(stub.getLikeCount(GetLikeCountRequest.newBuilder()
+                .setContent(ref(ContentType.CONTENT_TYPE_BLOG_POST, "300")).build()).getCount())
+                .isEqualTo(42);
+        assertInvalid(() -> stub.getLikeCount(GetLikeCountRequest.newBuilder()
+                .setContent(ref(ContentType.CONTENT_TYPE_ATTACHMENT, "a1")).build()));
+        assertInvalid(() -> stub.listLikes(ListLikesRequest.newBuilder()
+                .setContent(ref(ContentType.CONTENT_TYPE_FOLDER, "f1")).build()).hasNext());
+    }
+
+    @Test
+    void listOperationsReadsTheFullListForContentAndSpaces() {
+        String ops = "{\"operations\":[{\"operation\":\"read\",\"targetType\":\"page\"},"
+                + "{\"operation\":\"update\",\"targetType\":\"page\"}]}";
+        fake.stub("/wiki/api/v2/embeds/e1/operations", ops);
+        fake.stub("/wiki/api/v2/spaces/100/operations",
+                "{\"operations\":[{\"operation\":\"administer\",\"targetType\":\"space\"}]}");
+
+        assertThat(stub.listOperations(ListOperationsRequest.newBuilder()
+                .setContent(ref(ContentType.CONTENT_TYPE_SMART_LINK, "e1")).build()).getOperationsList())
+                .extracting(Operation::getOperation, Operation::getTargetType).containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("read", "page"),
+                        org.assertj.core.groups.Tuple.tuple("update", "page"));
+        assertThat(stub.listOperations(ListOperationsRequest.newBuilder().setSpaceId("100").build())
+                .getOperationsList()).extracting(Operation::getOperation).containsExactly("administer");
+        assertInvalid(() -> stub.listOperations(ListOperationsRequest.getDefaultInstance()));
+    }
+
+    @Test
+    void getContentAndSpacePropertyById() {
+        fake.stub("/wiki/api/v2/comments/c1/properties/p1",
+                ConfluenceFixtures.propertyJson("p1", "editor", "\"v2\""));
+        fake.stub("/wiki/api/v2/databases/d1/properties/p2",
+                ConfluenceFixtures.propertyJson("p2", "my-key", "7"));
+        fake.stub("/wiki/api/v2/spaces/100/properties/sp1",
+                ConfluenceFixtures.spacePropertyJson("sp1", "theme", "{\"a\":1}"));
+
+        ContentProperty comment = stub.getContentProperty(GetContentPropertyRequest.newBuilder()
+                .setContent(ref(ContentType.CONTENT_TYPE_INLINE_COMMENT, "c1")).setPropertyId("p1")
+                .build()).getProperty();
+        assertThat(comment.getId()).isEqualTo("p1");
+        assertThat(comment.getKey()).isEqualTo(PropertyKey.PROPERTY_KEY_EDITOR);
+        ContentProperty database = stub.getContentProperty(GetContentPropertyRequest.newBuilder()
+                .setContent(ref(ContentType.CONTENT_TYPE_DATABASE, "d1")).setPropertyId("p2")
+                .build()).getProperty();
+        assertThat(database.getCustomKey()).isEqualTo("my-key");
+        assertThat(database.getValue().getIntegerValue()).isEqualTo(7);
+
+        SpaceProperty space = stub.getSpaceProperty(GetSpacePropertyRequest.newBuilder()
+                .setSpaceId("100").setPropertyId("sp1").build()).getProperty();
+        assertThat(space.getId()).isEqualTo("sp1");
+        assertThat(space.getCustomKey()).isEqualTo("theme");
+
+        assertInvalid(() -> stub.getContentProperty(GetContentPropertyRequest.newBuilder()
+                .setContent(ref(ContentType.CONTENT_TYPE_PAGE, "200")).build()));
+        assertInvalid(() -> stub.getSpaceProperty(GetSpacePropertyRequest.newBuilder()
+                .setSpaceId("100").build()));
+    }
+
+    @Test
+    void appPropertiesListAndGetByKey() {
+        fake.stub("/wiki/api/v2/app/properties", ConfluenceFixtures.listJson(null, "",
+                "{\"key\":\"config\",\"value\":{\"enabled\":true}}",
+                "{\"key\":\"count\",\"value\":3}"));
+        fake.stub("/wiki/api/v2/app/properties/my key", "{\"key\":\"my key\",\"value\":\"x\"}");
+
+        List<AppProperty> properties = new ArrayList<>();
+        stub.listAppProperties(ListAppPropertiesRequest.getDefaultInstance())
+                .forEachRemaining(r -> properties.add(r.getProperty()));
+        assertThat(properties).extracting(AppProperty::getCustomKey).containsExactly("config", "count");
+        assertThat(properties.get(1).getValue().getIntegerValue()).isEqualTo(3);
+
+        AppProperty one = stub.getAppProperty(GetAppPropertyRequest.newBuilder().setKey("my key").build())
+                .getProperty();
+        assertThat(one.getCustomKey()).isEqualTo("my key");
+        assertThat(one.getValue().getStringValue()).isEqualTo("x");
+        assertInvalid(() -> stub.getAppProperty(GetAppPropertyRequest.getDefaultInstance()));
+    }
+
+    @Test
+    void getSpaceRoleAndListSpacePermissions() {
+        fake.stub("/wiki/api/v2/space-roles/r1", "{\"id\":\"r1\",\"type\":\"CUSTOM\",\"name\":\"Editor\","
+                + "\"description\":\"d\",\"spacePermissions\":[\"read/space\"],\"_links\":{\"base\":\"b\"}}");
+        fake.stub("/wiki/api/v2/space-permissions", ConfluenceFixtures.listJson(null, "",
+                "{\"id\":\"read/space\",\"displayName\":\"View space\",\"description\":\"d\","
+                        + "\"requiredPermissionIds\":[]}",
+                "{\"id\":\"create/page\",\"displayName\":\"Add pages\",\"description\":\"d2\","
+                        + "\"requiredPermissionIds\":[\"read/space\"]}"));
+
+        SpaceRole role = stub.getSpaceRole(GetSpaceRoleRequest.newBuilder().setId("r1").build()).getRole();
+        assertThat(role.getType()).isEqualTo(RoleType.ROLE_TYPE_CUSTOM);
+        assertThat(role.getSpacePermissionsList()).containsExactly("read/space");
+
+        List<SpacePermission> permissions = new ArrayList<>();
+        stub.listSpacePermissions(ListSpacePermissionsRequest.getDefaultInstance())
+                .forEachRemaining(r -> permissions.add(r.getPermission()));
+        assertThat(permissions).extracting(SpacePermission::getId, SpacePermission::getDisplayName)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("read/space", "View space"),
+                        org.assertj.core.groups.Tuple.tuple("create/page", "Add pages"));
+        assertThat(permissions.get(1).getRequiredPermissionIdsList()).containsExactly("read/space");
+        assertThat(fake.lastTo("/wiki/api/v2/space-permissions").params())
+                .containsExactlyEntriesOf(java.util.Map.of("limit", "100"));
+    }
+
+    @Test
+    void transitionCombinationsFollowTheBodyCursorAndTypePrincipals() {
+        fake.stub("/wiki/api/v2/space-permissions/transition/combinations?limit=100",
+                "{\"results\":[{\"combinationId\":\"k1\",\"spaceCount\":3,\"principalCount\":9,"
+                        + "\"permissions\":[{\"id\":\"VIEW_CONTENT\",\"displayName\":\"View\"}],"
+                        + "\"principalTypes\":[\"USER\",\"ALL_LICENSED_USERS_USER_CLASS\",\"ROBOT\"]}],"
+                        + "\"generatedAt\":\"2024-03-02T00:00:00Z\",\"cursor\":\"c2\"}");
+        fake.stub("/wiki/api/v2/space-permissions/transition/combinations?cursor=c2&limit=100",
+                "{\"results\":[{\"combinationId\":\"k2\",\"spaceCount\":1,\"principalCount\":1,"
+                        + "\"permissions\":[],\"principalTypes\":[\"GROUP\"]}],"
+                        + "\"generatedAt\":\"2024-03-02T00:00:00Z\",\"cursor\":null}");
+
+        List<ListSpacePermissionTransitionCombinationsResponse> out = new ArrayList<>();
+        stub.listSpacePermissionTransitionCombinations(
+                ListSpacePermissionTransitionCombinationsRequest.getDefaultInstance())
+                .forEachRemaining(out::add);
+
+        assertThat(out).extracting(r -> r.getCombination().getCombinationId()).containsExactly("k1", "k2");
+        BulkTransitionCombinationEntry first = out.get(0).getCombination();
+        assertThat(first.getSpaceCount()).isEqualTo(3);
+        assertThat(first.getPrincipalCount()).isEqualTo(9);
+        assertThat(first.getPermissions(0).getDisplayName()).isEqualTo("View");
+        assertThat(first.getPrincipalTypesList())
+                .containsExactly("USER", "ALL_LICENSED_USERS_USER_CLASS", "ROBOT");
+        assertThat(first.getTypedPrincipalTypesList()).containsExactly(
+                BulkTransitionPrincipalType.BULK_TRANSITION_PRINCIPAL_TYPE_USER,
+                BulkTransitionPrincipalType.BULK_TRANSITION_PRINCIPAL_TYPE_ALL_LICENSED_USERS_USER_CLASS,
+                BulkTransitionPrincipalType.BULK_TRANSITION_PRINCIPAL_TYPE_UNSPECIFIED);
+        assertThat(out).allSatisfy(r -> assertThat(r.getGeneratedAt().getSeconds())
+                .isEqualTo(T2.getEpochSecond()));
+        assertThat(fake.requestsTo("/wiki/api/v2/space-permissions/transition/combinations")).hasSize(2);
+    }
+
+    @Test
+    void transitionCombinationsRefuseARepeatedCursor() {
+        fake.stub("/wiki/api/v2/space-permissions/transition/combinations",
+                "{\"results\":[],\"cursor\":\"same\"}");
+        assertThatThrownBy(() -> stub.listSpacePermissionTransitionCombinations(
+                ListSpacePermissionTransitionCombinationsRequest.getDefaultInstance()).forEachRemaining(r -> { }))
+                .isInstanceOfSatisfying(StatusRuntimeException.class, e -> assertThat(
+                        e.getStatus().getCode()).isEqualTo(Status.Code.INTERNAL));
+    }
+
+    @Test
+    void getSpacePermissionTransitionTaskTypesTheStatus() {
+        fake.stub("/wiki/api/v2/space-permissions/transition/tasks/t1",
+                "{\"taskId\":\"t1\",\"status\":\"FAILED\",\"errorMessage\":\"boom\"}");
+        fake.stub("/wiki/api/v2/space-permissions/transition/tasks/t2",
+                "{\"taskId\":\"t2\",\"status\":\"IN_PROGRESS\",\"errorMessage\":null}");
+
+        BulkTransitionTaskStatusResponse failed = stub.getSpacePermissionTransitionTask(
+                GetSpacePermissionTransitionTaskRequest.newBuilder().setTaskId("t1").build()).getTask();
+        assertThat(failed.getStatus()).isEqualTo(BulkTransitionTaskStatus.BULK_TRANSITION_TASK_STATUS_FAILED);
+        assertThat(failed.getErrorMessage()).isEqualTo("boom");
+        BulkTransitionTaskStatusResponse running = stub.getSpacePermissionTransitionTask(
+                GetSpacePermissionTransitionTaskRequest.newBuilder().setTaskId("t2").build()).getTask();
+        assertThat(running.getStatus())
+                .isEqualTo(BulkTransitionTaskStatus.BULK_TRANSITION_TASK_STATUS_IN_PROGRESS);
+        assertThat(running.hasErrorMessage()).isFalse();
+    }
+
+    @Test
+    void getAdminKeyReadsTheCallersKeyAndMapsAbsenceToNotFound() {
+        fake.stub("/wiki/api/v2/admin-key",
+                "{\"accountId\":\"acc-1\",\"expirationTime\":\"2024-03-03T00:00:00.000Z\"}");
+        AdminKeyResponse key = stub.getAdminKey(GetAdminKeyRequest.getDefaultInstance()).getAdminKey();
+        assertThat(key.getAccountId()).isEqualTo("acc-1");
+        assertThat(key.getExpirationTime().getSeconds()).isEqualTo(T3.getEpochSecond());
+        assertThat(fake.lastTo("/wiki/api/v2/admin-key").method()).isEqualTo("GET");
+
+        fake.stub("/wiki/api/v2/admin-key", new FakeConfluenceServer.Stub(404, "{}", java.util.Map.of()));
+        assertThatThrownBy(() -> stub.getAdminKey(GetAdminKeyRequest.getDefaultInstance()))
+                .isInstanceOfSatisfying(StatusRuntimeException.class, e -> assertThat(
+                        e.getStatus().getCode()).isEqualTo(Status.Code.NOT_FOUND));
+    }
+
+    @Test
+    void checkAccessByEmailChunksAndMergesTheResults() throws Exception {
+        fake.stub("/wiki/api/v2/user/access/check-access-by-email",
+                "{\"emailsWithoutAccess\":[\"u1@x.io\"],\"invalidEmails\":[\"bad\"]}");
+        CheckAccessByEmailRequest.Builder request = CheckAccessByEmailRequest.newBuilder();
+        for (int i = 0; i < 150; i++) {
+            request.addEmails("u" + i + "@x.io");
+        }
+        request.addEmails("u0@x.io").addEmails(" "); // duplicates and blanks drop
+
+        CheckAccessByEmailResponse response = stub.checkAccessByEmail(request.build());
+
+        assertThat(response.getEmailsWithoutAccessList()).containsExactly("u1@x.io", "u1@x.io");
+        assertThat(response.getInvalidEmailsList()).containsExactly("bad", "bad");
+        List<FakeConfluenceServer.RecordedRequest> calls =
+                fake.requestsTo("/wiki/api/v2/user/access/check-access-by-email");
+        assertThat(calls).hasSize(2).allSatisfy(c -> assertThat(c.method()).isEqualTo("POST"));
+        com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
+        assertThat(json.readTree(calls.get(0).body()).path("emails")).hasSize(100);
+        assertThat(json.readTree(calls.get(1).body()).path("emails")).hasSize(50);
+    }
+
+    // ======================================================================
     // SYNC
     // ======================================================================
 
