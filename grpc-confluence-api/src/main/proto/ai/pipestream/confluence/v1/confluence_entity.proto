@@ -98,19 +98,16 @@ message ConfluenceEntity {
     // Set when the wrapped entity is a database entry (row).
     DatabaseEntry database_entry = 37;
     // Set when the wrapped entity is a database field (column definition).
-    DatabaseField database_field = 38;
-    // Set when the wrapped entity is a database view.
-    DatabaseView database_view = 39;
+    // Named `database_field_definition` rather than `database_field`: the
+    // latter collides in generated Java with the `database` arm's
+    // getDatabaseFieldBuilder().
+    DatabaseField database_field_definition = 38;
     // Set when the wrapped entity is a direct content permission entry.
-    ContentPermission content_permission = 40;
+    ContentPermission content_permission = 39;
     // Set when the wrapped entity is the restriction state of a content item.
-    RestrictionState restriction_state = 41;
+    RestrictionState restriction_state = 40;
     // Set when the wrapped entity is a space role assignment.
-    SpaceRoleAssignment space_role_assignment = 42;
-    // Set when the wrapped entity is a space permission definition.
-    SpacePermission space_permission = 43;
-    // Set when the wrapped entity is a detailed version (change-set view).
-    DetailedVersion detailed_version = 44;
+    SpaceRoleAssignment space_role_assignment = 41;
   }
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;

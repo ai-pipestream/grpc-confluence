@@ -192,12 +192,7 @@ service ConfluenceService {
   // v2: GET /databases/{id}/entries/{entryId}.
   rpc GetDatabaseEntry(GetDatabaseEntryRequest) returns (GetDatabaseEntryResponse);
 
-  // The views of a database (id, name, layout only), as a stream. Upstream
-  // marks this experimental.
-  // v2: GET /databases/{id}/views.
-  rpc ListDatabaseViews(ListDatabaseViewsRequest) returns (stream ListDatabaseViewsResponse);
-
-  // ---------------------------------------------------- labels and likes --
+  // -------------------------------------------------------------- labels --
 
   // Labels of the workspace, of a space, of a space's content, or of one
   // piece of content, as a stream.
@@ -205,22 +200,12 @@ service ConfluenceService {
   // GET /{content-type}/{id}/labels.
   rpc ListLabels(ListLabelsRequest) returns (stream ListLabelsResponse);
 
-  // The accounts that liked a page, blog post, footer comment or inline
-  // comment, as a stream.
-  // v2: GET /{content-type}/{id}/likes/users.
-  rpc ListLikes(ListLikesRequest) returns (stream ListLikesResponse);
-
   // ------------------------------------------------------------ versions --
 
   // The version history of a page, blog post, attachment, comment or custom
   // content, each entry carrying its snapshot of the entity, as a stream.
   // v2: GET /{content-type}/{id}/versions.
   rpc ListVersions(ListVersionsRequest) returns (stream ListVersionsResponse);
-
-  // The change-set detail of one version of a page, blog post, attachment,
-  // comment or custom content.
-  // v2: GET /{content-type}/{id}/versions/{version-number}.
-  rpc GetVersion(GetVersionRequest) returns (GetVersionResponse);
 
   // --------------------------------------------------------------- tasks --
 
@@ -239,7 +224,7 @@ service ConfluenceService {
   // v2: POST /users-bulk (a read; the body is just the id list).
   rpc BatchGetUsers(BatchGetUsersRequest) returns (BatchGetUsersResponse);
 
-  // ---------------------------------------- classification and policies --
+  // ------------------------------------------------------ classification --
 
   // The classification levels defined for the site.
   // v2: GET /classification-levels.
@@ -251,34 +236,19 @@ service ConfluenceService {
   // GET /spaces/{id}/classification-level/default.
   rpc GetClassificationLevel(GetClassificationLevelRequest) returns (GetClassificationLevelResponse);
 
-  // The data-policy view of spaces (whether content is blocked for the
-  // calling app), as a stream.
-  // v2: GET /data-policies/spaces.
-  rpc ListDataPolicySpaces(ListDataPolicySpacesRequest) returns (stream ListDataPolicySpacesResponse);
-
-  // Workspace-level data-policy metadata. Upstream serves this to app
-  // (Connect/Forge) credentials only.
-  // v2: GET /data-policies/metadata.
-  rpc GetDataPolicyMetadata(GetDataPolicyMetadataRequest) returns (GetDataPolicyMetadataResponse);
-
   // ---------------------------------------------------------- properties --
 
   // Content properties of a page, blog post, attachment, comment, custom
-  // content, whiteboard, database, folder or Smart Link, as a stream.
-  // v2: GET /{content-type}/{id}/properties.
+  // content, whiteboard, database, folder or Smart Link, as a stream (one
+  // property by key via the request's `key` filter).
+  // v2: GET /{content-type}/{id}/properties (comments of either kind:
+  // GET /comments/{id}/properties).
   rpc ListContentProperties(ListContentPropertiesRequest) returns (stream ListContentPropertiesResponse);
 
-  // One content property by id.
-  // v2: GET /{content-type}/{id}/properties/{property-id}.
-  rpc GetContentProperty(GetContentPropertyRequest) returns (GetContentPropertyResponse);
-
-  // Space properties of a space, as a stream.
+  // Space properties of a space, as a stream (one property by key via the
+  // request's `key` filter).
   // v2: GET /spaces/{id}/properties.
   rpc ListSpaceProperties(ListSpacePropertiesRequest) returns (stream ListSpacePropertiesResponse);
-
-  // One space property by id.
-  // v2: GET /spaces/{id}/properties/{property-id}.
-  rpc GetSpaceProperty(GetSpacePropertyRequest) returns (GetSpacePropertyResponse);
 
   // ----------------------------------------- permissions (read side only) --
 
@@ -292,10 +262,6 @@ service ConfluenceService {
   // v2: GET /{content-type}/{id}/permissions.
   rpc ListContentPermissions(ListContentPermissionsRequest) returns (stream ListContentPermissionsResponse);
 
-  // The space permission definitions available on the tenant, as a stream.
-  // v2: GET /space-permissions.
-  rpc ListSpacePermissions(ListSpacePermissionsRequest) returns (stream ListSpacePermissionsResponse);
-
   // The space permission assignments of one space, as a stream.
   // v2: GET /spaces/{id}/permissions.
   rpc ListSpacePermissionAssignments(ListSpacePermissionAssignmentsRequest) returns (stream ListSpacePermissionAssignmentsResponse);
@@ -304,9 +270,6 @@ service ConfluenceService {
   // as a stream. Role-based-access tenants only.
   // v2: GET /space-roles.
   rpc ListSpaceRoles(ListSpaceRolesRequest) returns (stream ListSpaceRolesResponse);
-
-  // One space role by id. v2: GET /space-roles/{id}.
-  rpc GetSpaceRole(GetSpaceRoleRequest) returns (GetSpaceRoleResponse);
 
   // The role assignments of one space, as a stream. Role-based-access
   // tenants only.
@@ -374,7 +337,10 @@ message SortOrder {
 
 // The expansions a single-entity read may ask for (the API's `include-*`
 // query flags). Flags the API does not offer for the requested content kind
-// are ignored. The current version is always included.
+// are ignored. The current version is always included. Upstream caps every
+// expansion at 50 entries; the inlined lists are therefore a preview, never
+// a complete set. Use the dedicated list rpc (ListLabels,
+// ListContentProperties, ListVersions, ListChildren) for the full set.
 message ContentIncludes {
   // Include the labels attached to the content.
   bool labels = 1;
@@ -393,6 +359,9 @@ message ContentIncludes {
 }
 
 // The expansions a space read may ask for (GET /spaces/{id} `include-*`).
+// Upstream caps every expansion at 50 entries, so the inlined lists are a
+// preview: security trimming must use ListSpacePermissionAssignments and
+// ListSpaceRoleAssignments, which page through the full set.
 message SpaceIncludes {
   // Include the space icon.
   bool icon = 1;
@@ -402,7 +371,8 @@ message SpaceIncludes {
   bool properties = 3;
   // Include the space permission assignments.
   bool permissions = 4;
-  // Include the space role assignments (role-based-access tenants).
+  // Include the space role assignments (role-based-access tenants; upstream
+  // accepts this flag on EAP sites only).
   bool role_assignments = 5;
   // Include the labels attached to the space.
   bool labels = 6;
@@ -1124,24 +1094,8 @@ message GetDatabaseEntryResponse {
   map<string, string> metadata = 99;
 }
 
-// Request to stream the views of a database.
-message ListDatabaseViewsRequest {
-  // Content ID of the database.
-  string database_id = 1;
-  // Catalog connection to use. Empty = the process-default (env) connection.
-  string connection_id = 2;
-  // Extensible key-value metadata (extension-metadata map - see convention).
-  map<string, string> metadata = 99;
-}
-
-// One streamed view.
-message ListDatabaseViewsResponse {
-  // The streamed view.
-  DatabaseView view = 1;
-}
-
 // ============================================================================
-// LABELS AND LIKES
+// LABELS
 // ============================================================================
 
 // Request to stream labels. Scope: exactly one of the scope arms, or none
@@ -1176,22 +1130,6 @@ message ListLabelsResponse {
   Label label = 1;
 }
 
-// Request to stream the likes on a content item.
-message ListLikesRequest {
-  // The content: a page, blog post, footer comment or inline comment.
-  ContentRef content = 1;
-  // Catalog connection to use. Empty = the process-default (env) connection.
-  string connection_id = 2;
-  // Extensible key-value metadata (extension-metadata map - see convention).
-  map<string, string> metadata = 99;
-}
-
-// One streamed like.
-message ListLikesResponse {
-  // The streamed like.
-  Like like = 1;
-}
-
 // ============================================================================
 // VERSIONS
 // ============================================================================
@@ -1216,27 +1154,6 @@ message ListVersionsRequest {
 message ListVersionsResponse {
   // The streamed version, with its entity snapshot.
   Version version = 1;
-}
-
-// Request to read the detail of one version of a content item.
-message GetVersionRequest {
-  // The content: a page, blog post, attachment, footer comment, inline
-  // comment or custom content.
-  ContentRef content = 1;
-  // The version number.
-  int32 number = 2;
-  // Catalog connection to use. Empty = the process-default (env) connection.
-  string connection_id = 3;
-  // Extensible key-value metadata (extension-metadata map - see convention).
-  map<string, string> metadata = 99;
-}
-
-// The requested version detail.
-message GetVersionResponse {
-  // The version with its change-set detail (collaborators, prev/next).
-  DetailedVersion version = 1;
-  // Extensible key-value metadata (extension-metadata map - see convention).
-  map<string, string> metadata = 99;
 }
 
 // ============================================================================
@@ -1334,7 +1251,7 @@ message BatchGetUsersResponse {
 }
 
 // ============================================================================
-// CLASSIFICATION AND DATA POLICIES
+// CLASSIFICATION
 // ============================================================================
 
 // Request to list the site's classification levels.
@@ -1380,42 +1297,6 @@ message GetClassificationLevelResponse {
   map<string, string> metadata = 99;
 }
 
-// Request to stream the data-policy view of spaces.
-message ListDataPolicySpacesRequest {
-  // Only these space ids.
-  repeated string ids = 1;
-  // Only these space keys.
-  repeated string keys = 2;
-  // Sort order; unset = the API default (id ascending).
-  SortOrder sort = 3;
-  // Catalog connection to use. Empty = the process-default (env) connection.
-  string connection_id = 4;
-  // Extensible key-value metadata (extension-metadata map - see convention).
-  map<string, string> metadata = 99;
-}
-
-// One streamed data-policy space view.
-message ListDataPolicySpacesResponse {
-  // The streamed data-policy view of a space.
-  DataPolicy data_policy = 1;
-}
-
-// Request to read workspace data-policy metadata.
-message GetDataPolicyMetadataRequest {
-  // Catalog connection to use. Empty = the process-default (env) connection.
-  string connection_id = 1;
-  // Extensible key-value metadata (extension-metadata map - see convention).
-  map<string, string> metadata = 99;
-}
-
-// The workspace data-policy metadata.
-message GetDataPolicyMetadataResponse {
-  // The data-policy metadata.
-  DataPolicyMetadata data_policy_metadata = 1;
-  // Extensible key-value metadata (extension-metadata map - see convention).
-  map<string, string> metadata = 99;
-}
-
 // ============================================================================
 // PROPERTIES
 // ============================================================================
@@ -1441,26 +1322,6 @@ message ListContentPropertiesResponse {
   ContentProperty property = 1;
 }
 
-// Request to read one content property.
-message GetContentPropertyRequest {
-  // The content the property is attached to.
-  ContentRef content = 1;
-  // ID of the property.
-  string property_id = 2;
-  // Catalog connection to use. Empty = the process-default (env) connection.
-  string connection_id = 3;
-  // Extensible key-value metadata (extension-metadata map - see convention).
-  map<string, string> metadata = 99;
-}
-
-// The requested content property.
-message GetContentPropertyResponse {
-  // The requested property.
-  ContentProperty property = 1;
-  // Extensible key-value metadata (extension-metadata map - see convention).
-  map<string, string> metadata = 99;
-}
-
 // Request to stream the properties of a space.
 message ListSpacePropertiesRequest {
   // ID of the space.
@@ -1477,26 +1338,6 @@ message ListSpacePropertiesRequest {
 message ListSpacePropertiesResponse {
   // The streamed property.
   SpaceProperty property = 1;
-}
-
-// Request to read one space property.
-message GetSpacePropertyRequest {
-  // ID of the space.
-  string space_id = 1;
-  // ID of the property.
-  string property_id = 2;
-  // Catalog connection to use. Empty = the process-default (env) connection.
-  string connection_id = 3;
-  // Extensible key-value metadata (extension-metadata map - see convention).
-  map<string, string> metadata = 99;
-}
-
-// The requested space property.
-message GetSpacePropertyResponse {
-  // The requested property.
-  SpaceProperty property = 1;
-  // Extensible key-value metadata (extension-metadata map - see convention).
-  map<string, string> metadata = 99;
 }
 
 // ============================================================================
@@ -1543,20 +1384,6 @@ message ListContentPermissionsResponse {
   ContentPermission permission = 1;
 }
 
-// Request to stream the space permission definitions of the tenant.
-message ListSpacePermissionsRequest {
-  // Catalog connection to use. Empty = the process-default (env) connection.
-  string connection_id = 1;
-  // Extensible key-value metadata (extension-metadata map - see convention).
-  map<string, string> metadata = 99;
-}
-
-// One streamed space permission definition.
-message ListSpacePermissionsResponse {
-  // The streamed space permission.
-  SpacePermission permission = 1;
-}
-
 // Request to stream the space permission assignments of a space.
 message ListSpacePermissionAssignmentsRequest {
   // ID of the space.
@@ -1591,24 +1418,6 @@ message ListSpaceRolesRequest {
 message ListSpaceRolesResponse {
   // The streamed role.
   SpaceRole role = 1;
-}
-
-// Request to read one space role.
-message GetSpaceRoleRequest {
-  // ID of the space role.
-  string id = 1;
-  // Catalog connection to use. Empty = the process-default (env) connection.
-  string connection_id = 2;
-  // Extensible key-value metadata (extension-metadata map - see convention).
-  map<string, string> metadata = 99;
-}
-
-// The requested space role.
-message GetSpaceRoleResponse {
-  // The requested role.
-  SpaceRole role = 1;
-  // Extensible key-value metadata (extension-metadata map - see convention).
-  map<string, string> metadata = 99;
 }
 
 // Request to stream the role assignments of a space.

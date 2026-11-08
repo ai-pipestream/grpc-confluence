@@ -511,6 +511,11 @@ public final class ConfluenceValidator {
             case SPACE_ROLE -> "space_role";
             case SPACE_PERMISSION_ASSIGNMENT -> "space_permission_assignment";
             case TREE_ENTRY -> "tree_entry";
+            case DATABASE_ENTRY -> "database_entry";
+            case DATABASE_FIELD_DEFINITION -> "database_field_definition";
+            case CONTENT_PERMISSION -> "content_permission";
+            case RESTRICTION_STATE -> "restriction_state";
+            case SPACE_ROLE_ASSIGNMENT -> "space_role_assignment";
             case ENTITY_NOT_SET -> "entity";
         };
     }
@@ -544,6 +549,11 @@ public final class ConfluenceValidator {
             case SPACE_ROLE -> entity.getSpaceRole();
             case SPACE_PERMISSION_ASSIGNMENT -> entity.getSpacePermissionAssignment();
             case TREE_ENTRY -> entity.getTreeEntry();
+            case DATABASE_ENTRY -> entity.getDatabaseEntry();
+            case DATABASE_FIELD_DEFINITION -> entity.getDatabaseFieldDefinition();
+            case CONTENT_PERMISSION -> entity.getContentPermission();
+            case RESTRICTION_STATE -> entity.getRestrictionState();
+            case SPACE_ROLE_ASSIGNMENT -> entity.getSpaceRoleAssignment();
             case ENTITY_NOT_SET -> entity;
         };
     }

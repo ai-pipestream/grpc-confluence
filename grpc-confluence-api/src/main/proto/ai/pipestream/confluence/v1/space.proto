@@ -99,8 +99,8 @@ message Space {
   // Deprecated: the v2 API returns *space* properties here (the
   // `include-properties` expansion of GET /spaces/{id}), which carry
   // created_at/created_by and a different version block than content
-  // properties. Use `space_properties`. Kept for wire compatibility; the
-  // mapper no longer populates it.
+  // properties. Use `space_properties`. Kept for wire compatibility; never
+  // populated.
   repeated ContentProperty properties = 14 [deprecated = true];
   // The operations permitted on the space.
   repeated Operation operations = 15;
@@ -111,7 +111,9 @@ message Space {
   // The space properties of the space (GET /spaces/{id}?include-properties).
   repeated SpaceProperty space_properties = 18;
   // The space role assignments of the space
-  // (GET /spaces/{id}?include-role-assignments; role-based-access tenants).
+  // (GET /spaces/{id}?include-role-assignments; role-based-access tenants,
+  // EAP sites only upstream). At most 50 entries: a preview, not the full
+  // set; use ListSpaceRoleAssignments for that.
   repeated SpaceRoleAssignment role_assignments = 19;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;

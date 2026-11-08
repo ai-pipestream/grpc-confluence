@@ -67,7 +67,7 @@ public final class MicrosoftCatalog {
             case DRIVE -> drive(entity.getDrive(), at);
             case DRIVE_ITEM -> driveItem(entity.getDriveItem(), at);
             case USER -> user(entity.getUser(), at);
-            case ENTITY_NOT_SET -> fallback(entity, at);
+            case LIST, LIST_ITEM, PERMISSION, ENTITY_NOT_SET -> fallback(entity, at);
         };
     }
 

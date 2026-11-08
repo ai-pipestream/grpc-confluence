@@ -159,7 +159,8 @@ enum ContentStatus {
 
 // The addressable content kinds of the v2 API: the `{content-type}` path
 // segment that selects which per-content sub-resource route (properties,
-// versions, likes, permissions, children, ...) a request targets.
+// versions, labels, permissions, children, ...) a request targets. Spaces
+// are not content: space-scoped rpcs take a `space_id` instead.
 enum ContentType {
   // Zero value; the content kind is unknown or was not given.
   CONTENT_TYPE_UNSPECIFIED = 0;
@@ -183,9 +184,6 @@ enum ContentType {
   CONTENT_TYPE_FOLDER = 9;
   // A Smart Link in the content tree (`embeds`).
   CONTENT_TYPE_SMART_LINK = 10;
-  // A space (`spaces`); valid only where a route exists for spaces
-  // (operations, properties, labels, permissions, role assignments).
-  CONTENT_TYPE_SPACE = 11;
 }
 
 // A typed reference to one piece of content: the kind plus its id. Used
