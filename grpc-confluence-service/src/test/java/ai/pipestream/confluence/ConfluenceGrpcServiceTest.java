@@ -1136,6 +1136,260 @@ class ConfluenceGrpcServiceTest {
     }
 
     // ======================================================================
+    // LABELS, VERSIONS, TASKS, USERS, CLASSIFICATION, DATA POLICIES, PROPERTIES
+    // ======================================================================
+
+    @Test
+    void listLabelsRoutesEachScope() {
+        String label = ConfluenceFixtures.labelJson("l1", "design");
+        for (String path : List.of("/wiki/api/v2/labels", "/wiki/api/v2/spaces/100/labels",
+                "/wiki/api/v2/spaces/100/content/labels", "/wiki/api/v2/attachments/a1/labels")) {
+            fake.stub(path, ConfluenceFixtures.listJson(null, "", label));
+        }
+        SortOrder byName = SortOrder.newBuilder().setField(SortField.SORT_FIELD_NAME).build();
+
+        List<Label> all = new ArrayList<>();
+        stub.listLabels(ListLabelsRequest.newBuilder().addLabelIds("l1").addLabelIds("l2")
+                .addPrefixes(LabelPrefix.LABEL_PREFIX_GLOBAL).addPrefixes(LabelPrefix.LABEL_PREFIX_TEAM)
+                .setSort(byName).build()).forEachRemaining(r -> all.add(r.getLabel()));
+        assertThat(all).extracting(Label::getName).containsExactly("design");
+        assertThat(fake.lastTo("/wiki/api/v2/labels").params()).containsExactlyInAnyOrderEntriesOf(
+                java.util.Map.of("limit", "100", "label-id", "l1,l2", "prefix", "global,team",
+                        "sort", "name"));
+
+        stub.listLabels(ListLabelsRequest.newBuilder().setSpaceId("100")
+                .addPrefixes(LabelPrefix.LABEL_PREFIX_MY).build()).forEachRemaining(r -> { });
+        assertThat(fake.lastTo("/wiki/api/v2/spaces/100/labels").params()).containsEntry("prefix", "my");
+        stub.listLabels(ListLabelsRequest.newBuilder().setContentSpaceId("100").build())
+                .forEachRemaining(r -> { });
+        assertThat(fake.requestsTo("/wiki/api/v2/spaces/100/content/labels")).hasSize(1);
+        stub.listLabels(ListLabelsRequest.newBuilder().setContent(ContentRef.newBuilder()
+                .setType(ContentType.CONTENT_TYPE_ATTACHMENT).setId("a1"))
+                .addPrefixes(LabelPrefix.LABEL_PREFIX_SYSTEM).build()).forEachRemaining(r -> { });
+        assertThat(fake.lastTo("/wiki/api/v2/attachments/a1/labels").params())
+                .containsEntry("prefix", "system");
+
+        // Space label routes only know my/team; scoped routes take no label ids.
+        assertInvalid(() -> stub.listLabels(ListLabelsRequest.newBuilder().setSpaceId("100")
+                .addPrefixes(LabelPrefix.LABEL_PREFIX_GLOBAL).build()).hasNext());
+        assertInvalid(() -> stub.listLabels(ListLabelsRequest.newBuilder().setSpaceId("100")
+                .addLabelIds("l1").build()).hasNext());
+    }
+
+    @Test
+    void listVersionsCarriesTheEntitySnapshot() {
+        fake.stub("/wiki/api/v2/pages/200/versions", ConfluenceFixtures.listJson(null, "",
+                "{\"createdAt\":\"2024-02-02T10:00:00.000Z\",\"message\":\"fix\",\"number\":2,"
+                        + "\"minorEdit\":true,\"authorId\":\"acc-1\",\"page\":{\"id\":\"200\","
+                        + "\"title\":\"Design Doc\",\"body\":{\"storage\":{\"representation\":"
+                        + "\"storage\",\"value\":\"<p>v2</p>\"}}}}"));
+        fake.stub("/wiki/api/v2/inline-comments/c2/versions", ConfluenceFixtures.listJson(null, "",
+                "{\"number\":1,\"comment\":{\"id\":\"c2\",\"title\":\"\"}}"));
+
+        List<Version> versions = new ArrayList<>();
+        stub.listVersions(ListVersionsRequest.newBuilder()
+                .setContent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_PAGE).setId("200"))
+                .setBodyFormat(BodyFormat.BODY_FORMAT_STORAGE_XHTML)
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_MODIFIED_DATE)
+                        .setDescending(true))
+                .build()).forEachRemaining(r -> versions.add(r.getVersion()));
+
+        assertThat(versions).singleElement().satisfies(v -> {
+            assertThat(v.getNumber()).isEqualTo(2);
+            assertThat(v.getMinorEdit()).isTrue();
+            assertThat(v.getEntity().getTitle()).isEqualTo("Design Doc");
+            assertThat(v.getEntity().getBody().getStorage().getValue()).isEqualTo("<p>v2</p>");
+        });
+        assertThat(fake.lastTo("/wiki/api/v2/pages/200/versions").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("limit", "100",
+                        "body-format", "storage", "sort", "-modified-date"));
+
+        List<Version> commentVersions = new ArrayList<>();
+        stub.listVersions(ListVersionsRequest.newBuilder().setContent(ContentRef.newBuilder()
+                .setType(ContentType.CONTENT_TYPE_INLINE_COMMENT).setId("c2")).build())
+                .forEachRemaining(r -> commentVersions.add(r.getVersion()));
+        assertThat(commentVersions.get(0).getEntity().getId()).isEqualTo("c2");
+        // Attachment versions take no body format; versions sort by modified date only.
+        assertInvalid(() -> stub.listVersions(ListVersionsRequest.newBuilder()
+                .setContent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_ATTACHMENT)
+                        .setId("a1"))
+                .setBodyFormat(BodyFormat.BODY_FORMAT_STORAGE_XHTML).build()).hasNext());
+        assertInvalid(() -> stub.listVersions(ListVersionsRequest.newBuilder()
+                .setContent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_PAGE).setId("200"))
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_TITLE)).build())
+                .hasNext());
+    }
+
+    @Test
+    void listTasksForwardsEveryFilterWithEpochMillis() {
+        String task = "{\"id\":\"t1\",\"localId\":\"x\",\"spaceId\":\"100\",\"pageId\":\"200\","
+                + "\"status\":\"incomplete\",\"createdBy\":\"acc-1\",\"assignedTo\":\"acc-2\","
+                + "\"dueAt\":\"2024-03-01T00:00:00.000Z\"}";
+        fake.stub("/wiki/api/v2/tasks", ConfluenceFixtures.listJson(null, "", task));
+        com.google.protobuf.Timestamp t1 = com.google.protobuf.Timestamp.newBuilder()
+                .setSeconds(T1.getEpochSecond()).setNanos(5_000_000).build();
+        com.google.protobuf.Timestamp t2 = com.google.protobuf.Timestamp.newBuilder()
+                .setSeconds(T2.getEpochSecond()).build();
+
+        List<Task> tasks = new ArrayList<>();
+        stub.listTasks(ListTasksRequest.newBuilder()
+                .setBodyFormat(BodyFormat.BODY_FORMAT_ATLAS_DOC_FORMAT).setExcludeBlankTasks(true)
+                .setStatus(TaskStatus.TASK_STATUS_INCOMPLETE)
+                .addTaskIds("t1").addSpaceIds("100").addPageIds("200").addBlogPostIds("300")
+                .addCreatedBy("acc-1").addAssignedTo("acc-2").addCompletedBy("acc-3")
+                .setCreatedAtFrom(t1).setCreatedAtTo(t2).setDueAtFrom(t1).setDueAtTo(t2)
+                .setCompletedAtFrom(t1).setCompletedAtTo(t2)
+                .build()).forEachRemaining(r -> tasks.add(r.getTask()));
+
+        assertThat(tasks).singleElement().satisfies(t -> {
+            assertThat(t.getStatus()).isEqualTo(TaskStatus.TASK_STATUS_INCOMPLETE);
+            assertThat(t.getAssignedTo()).isEqualTo("acc-2");
+        });
+        String from = String.valueOf(T1.toEpochMilli() + 5);
+        String to = String.valueOf(T2.toEpochMilli());
+        java.util.Map<String, String> expected = new java.util.HashMap<>(java.util.Map.of(
+                "limit", "100", "body-format", "atlas_doc_format", "include-blank-tasks", "false",
+                "status", "incomplete", "task-id", "t1", "space-id", "100", "page-id", "200",
+                "blogpost-id", "300", "created-by", "acc-1", "assigned-to", "acc-2"));
+        expected.putAll(java.util.Map.of("completed-by", "acc-3", "created-at-from", from,
+                "created-at-to", to, "due-at-from", from, "due-at-to", to,
+                "completed-at-from", from, "completed-at-to", to));
+        assertThat(fake.lastTo("/wiki/api/v2/tasks").params()).containsExactlyInAnyOrderEntriesOf(expected);
+    }
+
+    @Test
+    void getTaskDefaultsToStorage() {
+        fake.stub("/wiki/api/v2/tasks/t1", "{\"id\":\"t1\",\"status\":\"complete\",\"body\":"
+                + "{\"storage\":{\"representation\":\"storage\",\"value\":\"<p>do</p>\"}}}");
+
+        Task task = stub.getTask(GetTaskRequest.newBuilder().setId("t1").build()).getTask();
+
+        assertThat(task.getStatus()).isEqualTo(TaskStatus.TASK_STATUS_COMPLETE);
+        assertThat(task.getBody().getStorage().getValue()).isEqualTo("<p>do</p>");
+        assertThat(fake.lastTo("/wiki/api/v2/tasks/t1").params())
+                .containsExactlyEntriesOf(java.util.Map.of("body-format", "storage"));
+    }
+
+    @Test
+    void batchGetUsersChunksToTheApiMaximum() throws Exception {
+        fake.stub("/wiki/api/v2/users-bulk", "{\"results\":[{\"accountId\":\"acc-1\","
+                + "\"accountType\":\"atlassian\",\"accountStatus\":\"active\","
+                + "\"displayName\":\"Ada\",\"publicName\":\"ada\"}]}");
+        BatchGetUsersRequest.Builder request = BatchGetUsersRequest.newBuilder();
+        for (int i = 0; i < 300; i++) {
+            request.addAccountIds("acc-" + i);
+        }
+        request.addAccountIds("acc-0"); // duplicates collapse
+
+        BatchGetUsersResponse response = stub.batchGetUsers(request.build());
+
+        assertThat(response.getUsersList()).hasSize(2);
+        assertThat(response.getUsers(0).getAccountType()).isEqualTo(AccountType.ACCOUNT_TYPE_ATLASSIAN);
+        List<FakeConfluenceServer.RecordedRequest> calls = fake.requestsTo("/wiki/api/v2/users-bulk");
+        assertThat(calls).hasSize(2).allSatisfy(c -> assertThat(c.method()).isEqualTo("POST"));
+        com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
+        assertThat(json.readTree(calls.get(0).body()).path("accountIds")).hasSize(250);
+        assertThat(json.readTree(calls.get(1).body()).path("accountIds")).hasSize(50);
+        assertThat(json.readTree(calls.get(1).body()).path("accountIds").get(0).asText())
+                .isEqualTo("acc-250");
+    }
+
+    @Test
+    void classificationLevelsListAndResolvePerTarget() {
+        String level = "{\"id\":\"cl1\",\"status\":\"PUBLISHED\",\"order\":1,\"name\":\"Internal\","
+                + "\"description\":\"d\",\"guideline\":\"g\",\"color\":\"RED_BOLD\"}";
+        fake.stub("/wiki/api/v2/classification-levels", "[" + level + "]");
+        fake.stub("/wiki/api/v2/pages/200/classification-level", level);
+        fake.stub("/wiki/api/v2/whiteboards/w1/classification-level", level);
+        fake.stub("/wiki/api/v2/spaces/100/classification-level/default", level);
+
+        ListClassificationLevelsResponse levels = stub.listClassificationLevels(
+                ListClassificationLevelsRequest.getDefaultInstance());
+        assertThat(levels.getLevelsList()).singleElement().satisfies(l -> {
+            assertThat(l.getStatus()).isEqualTo(ClassificationLevelStatus.CLASSIFICATION_LEVEL_STATUS_PUBLISHED);
+            assertThat(l.getColor()).isEqualTo(ClassificationLevelColor.CLASSIFICATION_LEVEL_COLOR_RED_BOLD);
+        });
+
+        stub.getClassificationLevel(GetClassificationLevelRequest.newBuilder()
+                .setContent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_PAGE).setId("200"))
+                .setStatus(ContentStatus.CONTENT_STATUS_DRAFT).build());
+        assertThat(fake.lastTo("/wiki/api/v2/pages/200/classification-level").params())
+                .containsExactlyEntriesOf(java.util.Map.of("status", "draft"));
+        assertThat(stub.getClassificationLevel(GetClassificationLevelRequest.newBuilder()
+                .setSpaceId("100").build()).getLevel().getName()).isEqualTo("Internal");
+        stub.getClassificationLevel(GetClassificationLevelRequest.newBuilder()
+                .setContent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_WHITEBOARD)
+                        .setId("w1")).build());
+        // Whiteboard classification has no status parameter; folders have no classification.
+        assertInvalid(() -> stub.getClassificationLevel(GetClassificationLevelRequest.newBuilder()
+                .setContent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_WHITEBOARD)
+                        .setId("w1"))
+                .setStatus(ContentStatus.CONTENT_STATUS_ARCHIVED).build()));
+        assertInvalid(() -> stub.getClassificationLevel(GetClassificationLevelRequest.newBuilder()
+                .setContent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_FOLDER)
+                        .setId("f1")).build()));
+    }
+
+    @Test
+    void dataPolicyRpcsMapTheirRoutes() {
+        fake.stub("/wiki/api/v2/data-policies/spaces", ConfluenceFixtures.listJson(null, "",
+                "{\"id\":\"100\",\"key\":\"ENG\",\"name\":\"Engineering\","
+                        + "\"dataPolicy\":{\"anyContentBlocked\":true}}"));
+        fake.stub("/wiki/api/v2/data-policies/metadata", "{\"anyContentBlocked\":true}");
+
+        List<DataPolicy> policies = new ArrayList<>();
+        stub.listDataPolicySpaces(ListDataPolicySpacesRequest.newBuilder().addIds("100")
+                .addKeys("ENG").setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_KEY)
+                        .setDescending(true)).build())
+                .forEachRemaining(r -> policies.add(r.getDataPolicy()));
+
+        assertThat(policies).singleElement().satisfies(p -> {
+            assertThat(p.getKey()).isEqualTo("ENG");
+            assertThat(p.getAnyContentBlocked()).isTrue();
+        });
+        assertThat(fake.lastTo("/wiki/api/v2/data-policies/spaces").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("limit", "100", "ids", "100",
+                        "keys", "ENG", "sort", "-key"));
+        assertThat(stub.getDataPolicyMetadata(GetDataPolicyMetadataRequest.getDefaultInstance())
+                .getDataPolicyMetadata().getAnyContentBlocked()).isTrue();
+    }
+
+    @Test
+    void contentAndSpacePropertiesForwardKeyAndSort() {
+        String property = ConfluenceFixtures.propertyJson("p1", "editor", "\"v2\"");
+        fake.stub("/wiki/api/v2/comments/c1/properties", ConfluenceFixtures.listJson(null, "", property));
+        fake.stub("/wiki/api/v2/embeds/e1/properties", ConfluenceFixtures.listJson(null, "", property));
+        fake.stub("/wiki/api/v2/spaces/100/properties", ConfluenceFixtures.listJson(null, "",
+                ConfluenceFixtures.spacePropertyJson("sp1", "theme", "{\"a\":1}")));
+
+        List<ContentProperty> properties = new ArrayList<>();
+        stub.listContentProperties(ListContentPropertiesRequest.newBuilder()
+                .setContent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_FOOTER_COMMENT)
+                        .setId("c1"))
+                .setKey("editor").setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_KEY)
+                        .setDescending(true)).build())
+                .forEachRemaining(r -> properties.add(r.getProperty()));
+        assertThat(properties).singleElement().satisfies(p -> {
+            assertThat(p.getKey()).isEqualTo(PropertyKey.PROPERTY_KEY_EDITOR);
+            assertThat(p.getValue().getStringValue()).isEqualTo("v2");
+        });
+        assertThat(fake.lastTo("/wiki/api/v2/comments/c1/properties").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("limit", "100", "key", "editor",
+                        "sort", "-key"));
+        stub.listContentProperties(ListContentPropertiesRequest.newBuilder()
+                .setContent(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_SMART_LINK)
+                        .setId("e1")).build()).forEachRemaining(r -> { });
+        assertThat(fake.requestsTo("/wiki/api/v2/embeds/e1/properties")).hasSize(1);
+
+        List<SpaceProperty> spaceProperties = new ArrayList<>();
+        stub.listSpaceProperties(ListSpacePropertiesRequest.newBuilder().setSpaceId("100")
+                .setKey("theme").build()).forEachRemaining(r -> spaceProperties.add(r.getProperty()));
+        assertThat(spaceProperties.get(0).getCustomKey()).isEqualTo("theme");
+        assertThat(fake.lastTo("/wiki/api/v2/spaces/100/properties").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("limit", "100", "key", "theme"));
+    }
+
+    // ======================================================================
     // SYNC
     // ======================================================================
 

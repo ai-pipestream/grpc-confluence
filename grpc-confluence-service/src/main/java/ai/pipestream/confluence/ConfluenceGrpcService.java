@@ -1112,6 +1112,310 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     }
 
     // ======================================================================
+    // LABELS AND VERSIONS
+    // ======================================================================
+
+    @Override
+    public void listLabels(ListLabelsRequest request, StreamObserver<ListLabelsResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            Query query = limit(session);
+            String path;
+            String route;
+            Set<String> prefixes;
+            switch (request.getScopeCase()) {
+                case SPACE_ID -> {
+                    path = "/api/v2/spaces/" + requireId(request.getSpaceId(), "space_id") + "/labels";
+                    route = "GET /spaces/{id}/labels";
+                    prefixes = values("my", "team");
+                }
+                case CONTENT_SPACE_ID -> {
+                    path = "/api/v2/spaces/" + requireId(request.getContentSpaceId(), "content_space_id")
+                            + "/content/labels";
+                    route = "GET /spaces/{id}/content/labels";
+                    prefixes = values("my", "team");
+                }
+                case CONTENT -> {
+                    path = ConfluenceRoutes.contentPath(request.getContent(), java.util.EnumSet.of(
+                            ContentType.CONTENT_TYPE_PAGE, ContentType.CONTENT_TYPE_BLOG_POST,
+                            ContentType.CONTENT_TYPE_ATTACHMENT, ContentType.CONTENT_TYPE_CUSTOM_CONTENT),
+                            "ListLabels") + "/labels";
+                    route = "GET /" + ConfluenceRoutes.segment(request.getContent().getType())
+                            + "/{id}/labels";
+                    prefixes = values("my", "team", "global", "system");
+                }
+                default -> {
+                    path = "/api/v2/labels";
+                    route = "GET /labels";
+                    prefixes = values("my", "team", "global", "system");
+                }
+            }
+            List<String> wirePrefixes = new ArrayList<>();
+            for (LabelPrefix prefix : request.getPrefixesList()) {
+                wirePrefixes.add(ConfluenceRoutes.status(prefix.getValueDescriptor().getName(),
+                        "LABEL_PREFIX_", prefixes, route));
+            }
+            if (path.equals("/api/v2/labels")) {
+                query.list("label-id", request.getLabelIdsList()).list("prefix", wirePrefixes);
+            } else {
+                reject(!request.getLabelIdsList().isEmpty(), "label_ids", route);
+                // The scoped routes take a single prefix, not a list.
+                reject(wirePrefixes.size() > 1, "more than one prefix", route);
+                query.list("prefix", wirePrefixes);
+            }
+            query.put("sort", ConfluenceRoutes.sort(request.getSort(), ConfluenceRoutes.LABEL_SORT, route));
+            stream(session, path, query, observer, node -> ListLabelsResponse.newBuilder()
+                    .setLabel(requireValid(session.mapper.toLabel(node))).build());
+        });
+    }
+
+    @Override
+    public void listVersions(ListVersionsRequest request,
+            StreamObserver<ListVersionsResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            ContentRef content = request.getContent();
+            String path = ConfluenceRoutes.contentPath(content, java.util.EnumSet.of(
+                    ContentType.CONTENT_TYPE_PAGE, ContentType.CONTENT_TYPE_BLOG_POST,
+                    ContentType.CONTENT_TYPE_ATTACHMENT, ContentType.CONTENT_TYPE_FOOTER_COMMENT,
+                    ContentType.CONTENT_TYPE_INLINE_COMMENT, ContentType.CONTENT_TYPE_CUSTOM_CONTENT),
+                    "ListVersions") + "/versions";
+            String route = "GET /" + ConfluenceRoutes.segment(content.getType()) + "/{id}/versions";
+            Query query = limit(session).put("sort",
+                    ConfluenceRoutes.sort(request.getSort(), ConfluenceRoutes.VERSION_SORT, route));
+            if (content.getType() == ContentType.CONTENT_TYPE_ATTACHMENT) {
+                reject(request.getBodyFormat() != BodyFormat.BODY_FORMAT_UNSPECIFIED, "body_format", route);
+            } else {
+                listBodyFormat(query, request.getBodyFormat(),
+                        content.getType() == ContentType.CONTENT_TYPE_CUSTOM_CONTENT
+                                ? ConfluenceRoutes.CUSTOM_BODY : ConfluenceRoutes.PRIMARY_BODY, route);
+            }
+            stream(session, path, query, observer, node -> ListVersionsResponse.newBuilder()
+                    .setVersion(requireValid(session.mapper.toVersionEntry(node))).build());
+        });
+    }
+
+    // ======================================================================
+    // TASKS AND USERS
+    // ======================================================================
+
+    @Override
+    public void listTasks(ListTasksRequest request, StreamObserver<ListTasksResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            Query query = limit(session)
+                    .list("task-id", request.getTaskIdsList())
+                    .list("space-id", request.getSpaceIdsList())
+                    .list("page-id", request.getPageIdsList())
+                    .list("blogpost-id", request.getBlogPostIdsList())
+                    .list("created-by", request.getCreatedByList())
+                    .list("assigned-to", request.getAssignedToList())
+                    .list("completed-by", request.getCompletedByList());
+            listBodyFormat(query, request.getBodyFormat(), ConfluenceRoutes.PRIMARY_BODY, "GET /tasks");
+            if (request.getExcludeBlankTasks()) {
+                query.put("include-blank-tasks", "false");
+            }
+            if (request.getStatus() != TaskStatus.TASK_STATUS_UNSPECIFIED) {
+                query.put("status", apiValue(request.getStatus(), "TASK_STATUS_"));
+            }
+            epochMillis(query, "created-at-from", request.hasCreatedAtFrom(), request.getCreatedAtFrom());
+            epochMillis(query, "created-at-to", request.hasCreatedAtTo(), request.getCreatedAtTo());
+            epochMillis(query, "due-at-from", request.hasDueAtFrom(), request.getDueAtFrom());
+            epochMillis(query, "due-at-to", request.hasDueAtTo(), request.getDueAtTo());
+            epochMillis(query, "completed-at-from", request.hasCompletedAtFrom(),
+                    request.getCompletedAtFrom());
+            epochMillis(query, "completed-at-to", request.hasCompletedAtTo(), request.getCompletedAtTo());
+            stream(session, "/api/v2/tasks", query, observer, node -> ListTasksResponse.newBuilder()
+                    .setTask(requireValid(session.mapper.toTask(node))).build());
+        });
+    }
+
+    /** The task date filters are epoch milliseconds on the wire. */
+    private static void epochMillis(Query query, String name, boolean set,
+            com.google.protobuf.Timestamp at) {
+        if (set) {
+            query.put(name, String.valueOf(Math.addExact(Math.multiplyExact(at.getSeconds(), 1000L),
+                    at.getNanos() / 1_000_000L)));
+        }
+    }
+
+    @Override
+    public void getTask(GetTaskRequest request, StreamObserver<GetTaskResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            Query query = singleBodyQuery(request.getBodyFormat(), ConfluenceRoutes.PRIMARY_BODY,
+                    "GET /tasks/{id}");
+            JsonNode node = session.client.get("/api/v2/tasks/" + requireId(request.getId(), "id"),
+                    query.map());
+            reply(observer, GetTaskResponse.newBuilder()
+                    .setTask(requireValid(session.mapper.toTask(node))).build());
+        });
+    }
+
+    @Override
+    public void batchGetUsers(BatchGetUsersRequest request,
+            StreamObserver<BatchGetUsersResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            List<String> ids = distinctNonBlank(request.getAccountIdsList());
+            BatchGetUsersResponse.Builder response = BatchGetUsersResponse.newBuilder();
+            for (int from = 0; from < ids.size(); from += USERS_BULK_MAX_IDS) {
+                com.fasterxml.jackson.databind.node.ObjectNode body = JSON.createObjectNode();
+                com.fasterxml.jackson.databind.node.ArrayNode accountIds = body.putArray("accountIds");
+                ids.subList(from, Math.min(ids.size(), from + USERS_BULK_MAX_IDS))
+                        .forEach(accountIds::add);
+                session.client.post("/api/v2/users-bulk", body).path("results").forEach(node ->
+                        response.addUsers(requireValid(session.mapper.toUser(node))));
+            }
+            reply(observer, response.build());
+        });
+    }
+
+    /** Request order kept, duplicates and blanks dropped. */
+    private static List<String> distinctNonBlank(List<String> values) {
+        java.util.LinkedHashSet<String> distinct = new java.util.LinkedHashSet<>();
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                distinct.add(value);
+            }
+        }
+        return new ArrayList<>(distinct);
+    }
+
+    // ======================================================================
+    // CLASSIFICATION AND DATA POLICIES
+    // ======================================================================
+
+    @Override
+    public void listClassificationLevels(ListClassificationLevelsRequest request,
+            StreamObserver<ListClassificationLevelsResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            JsonNode body = session.client.get("/api/v2/classification-levels");
+            // The route answers a bare array; tolerate a {results:[...]} wrapper too.
+            JsonNode levels = body.isArray() ? body : body.path("results");
+            ListClassificationLevelsResponse.Builder response = ListClassificationLevelsResponse.newBuilder();
+            levels.forEach(node -> response.addLevels(requireValid(
+                    session.mapper.toClassificationLevel(node))));
+            reply(observer, response.build());
+        });
+    }
+
+    @Override
+    public void getClassificationLevel(GetClassificationLevelRequest request,
+            StreamObserver<GetClassificationLevelResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            Query query = new Query();
+            String path;
+            switch (request.getTargetCase()) {
+                case CONTENT -> {
+                    ContentRef content = request.getContent();
+                    path = ConfluenceRoutes.contentPath(content, java.util.EnumSet.of(
+                            ContentType.CONTENT_TYPE_PAGE, ContentType.CONTENT_TYPE_BLOG_POST,
+                            ContentType.CONTENT_TYPE_DATABASE, ContentType.CONTENT_TYPE_WHITEBOARD),
+                            "GetClassificationLevel") + "/classification-level";
+                    String route = "GET /" + ConfluenceRoutes.segment(content.getType())
+                            + "/{id}/classification-level";
+                    boolean statusRoute = content.getType() == ContentType.CONTENT_TYPE_PAGE
+                            || content.getType() == ContentType.CONTENT_TYPE_BLOG_POST;
+                    if (request.getStatus() != ContentStatus.CONTENT_STATUS_UNSPECIFIED) {
+                        reject(!statusRoute, "status", route);
+                        query.put("status", ConfluenceRoutes.status(
+                                request.getStatus().getValueDescriptor().getName(), "CONTENT_STATUS_",
+                                values("current", "draft", "archived"), route));
+                    }
+                }
+                case SPACE_ID -> {
+                    path = "/api/v2/spaces/" + requireId(request.getSpaceId(), "space_id")
+                            + "/classification-level/default";
+                    reject(request.getStatus() != ContentStatus.CONTENT_STATUS_UNSPECIFIED, "status",
+                            "GET /spaces/{id}/classification-level/default");
+                }
+                default -> throw invalid("content or space_id is required");
+            }
+            JsonNode node = session.client.get(path, query.map());
+            if (node.path("id").asText("").isEmpty()) {
+                throw Status.NOT_FOUND.withDescription("no classification level applied")
+                        .asRuntimeException();
+            }
+            reply(observer, GetClassificationLevelResponse.newBuilder()
+                    .setLevel(requireValid(session.mapper.toClassificationLevel(node))).build());
+        });
+    }
+
+    @Override
+    public void listDataPolicySpaces(ListDataPolicySpacesRequest request,
+            StreamObserver<ListDataPolicySpacesResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            Query query = limit(session)
+                    .list("ids", request.getIdsList())
+                    .list("keys", request.getKeysList())
+                    .put("sort", ConfluenceRoutes.sort(request.getSort(), ConfluenceRoutes.SPACE_SORT,
+                            "GET /data-policies/spaces"));
+            stream(session, "/api/v2/data-policies/spaces", query, observer, node ->
+                    ListDataPolicySpacesResponse.newBuilder()
+                            .setDataPolicy(requireValid(session.mapper.toDataPolicy(node))).build());
+        });
+    }
+
+    @Override
+    public void getDataPolicyMetadata(GetDataPolicyMetadataRequest request,
+            StreamObserver<GetDataPolicyMetadataResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            JsonNode node = session.client.get("/api/v2/data-policies/metadata");
+            reply(observer, GetDataPolicyMetadataResponse.newBuilder()
+                    .setDataPolicyMetadata(session.mapper.toDataPolicyMetadata(node)).build());
+        });
+    }
+
+    // ======================================================================
+    // PROPERTIES
+    // ======================================================================
+
+    @Override
+    public void listContentProperties(ListContentPropertiesRequest request,
+            StreamObserver<ListContentPropertiesResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            ContentRef content = request.getContent();
+            String path;
+            if (content.getType() == ContentType.CONTENT_TYPE_FOOTER_COMMENT
+                    || content.getType() == ContentType.CONTENT_TYPE_INLINE_COMMENT) {
+                // Both comment kinds share one properties route.
+                path = "/api/v2/comments/" + requireId(content.getId(), "content id");
+            } else {
+                path = ConfluenceRoutes.contentPath(content, java.util.EnumSet.of(
+                        ContentType.CONTENT_TYPE_PAGE, ContentType.CONTENT_TYPE_BLOG_POST,
+                        ContentType.CONTENT_TYPE_ATTACHMENT, ContentType.CONTENT_TYPE_CUSTOM_CONTENT,
+                        ContentType.CONTENT_TYPE_WHITEBOARD, ContentType.CONTENT_TYPE_DATABASE,
+                        ContentType.CONTENT_TYPE_FOLDER, ContentType.CONTENT_TYPE_SMART_LINK),
+                        "ListContentProperties");
+            }
+            Query query = limit(session).put("key", request.getKey()).put("sort",
+                    ConfluenceRoutes.sort(request.getSort(), ConfluenceRoutes.PROPERTY_SORT,
+                            "GET /{content-type}/{id}/properties"));
+            stream(session, path + "/properties", query, observer, node ->
+                    ListContentPropertiesResponse.newBuilder()
+                            .setProperty(requireValid(session.mapper.toContentProperty(node))).build());
+        });
+    }
+
+    @Override
+    public void listSpaceProperties(ListSpacePropertiesRequest request,
+            StreamObserver<ListSpacePropertiesResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            Query query = limit(session).put("key", request.getKey());
+            stream(session, "/api/v2/spaces/" + requireId(request.getSpaceId(), "space_id")
+                    + "/properties", query, observer, node -> ListSpacePropertiesResponse.newBuilder()
+                    .setProperty(requireValid(session.mapper.toSpaceProperty(node))).build());
+        });
+    }
+
+    // ======================================================================
     // SYNC AND PROBE
     // ======================================================================
 
