@@ -19,6 +19,12 @@ import ai.pipestream.confluence.v1.ListPagesRequest;
 import ai.pipestream.confluence.v1.ListPagesResponse;
 import ai.pipestream.confluence.v1.ListSpacesRequest;
 import ai.pipestream.confluence.v1.ListSpacesResponse;
+import ai.pipestream.confluence.v1.SortField;
+import ai.pipestream.confluence.v1.SortOrder;
+import ai.pipestream.confluence.v1.SpaceStatus;
+import ai.pipestream.confluence.v1.SpaceType;
+import ai.pipestream.confluence.v1.StreamSpacesRequest;
+import ai.pipestream.confluence.v1.StreamSpacesResponse;
 import ai.pipestream.confluence.v1.SyncRequest;
 import ai.pipestream.confluence.v1.SyncResponse;
 import ai.pipestream.confluence.ConfluenceValidator;
@@ -127,6 +133,33 @@ class ConfluenceGrpcServiceTest {
                 .addKeys("ENG").build());
         assertThat(filtered.getSpacesList()).extracting(s -> s.getKey()).containsExactly("ENG");
         assertThat(fake.requestsTo("/wiki/api/v2/spaces").getLast().query()).contains("keys=ENG");
+    }
+
+    @Test
+    void streamSpacesStreamsEachSpaceAndForwardsFilters() {
+        fake.stub("/wiki/api/v2/spaces",
+                ConfluenceFixtures.spaceListJson(null,
+                        ConfluenceFixtures.spaceJson("100", "ENG", "Engineering"),
+                        ConfluenceFixtures.spaceJson("101", "DOCS", "Documentation")));
+
+        List<StreamSpacesResponse> all = new ArrayList<>();
+        stub.streamSpaces(StreamSpacesRequest.getDefaultInstance()).forEachRemaining(all::add);
+        assertThat(all).extracting(r -> r.getSpace().getKey())
+                .containsExactlyInAnyOrder("ENG", "DOCS");
+
+        List<StreamSpacesResponse> capped = new ArrayList<>();
+        stub.streamSpaces(StreamSpacesRequest.newBuilder()
+                .setLimit(1)
+                .addKeys("ENG")
+                .setType(SpaceType.SPACE_TYPE_KNOWLEDGE_BASE)
+                .setStatus(SpaceStatus.SPACE_STATUS_TRASHED)
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_NAME)
+                        .setDescending(true))
+                .build()).forEachRemaining(capped::add);
+        assertThat(capped).hasSize(1);
+        String query = fake.requestsTo("/wiki/api/v2/spaces").getLast().query();
+        assertThat(query).contains("keys=ENG", "type=knowledge_base", "status=trashed",
+                "sort=-name");
     }
 
     @Test

@@ -22,7 +22,13 @@ import ai.pipestream.confluence.v1.ListSpacesRequest;
 import ai.pipestream.confluence.v1.ListSpacesResponse;
 import ai.pipestream.confluence.v1.ProbeConnectionRequest;
 import ai.pipestream.confluence.v1.ProbeConnectionResponse;
+import ai.pipestream.confluence.v1.SortField;
 import ai.pipestream.confluence.v1.Space;
+import ai.pipestream.confluence.v1.SpaceDescriptionFormat;
+import ai.pipestream.confluence.v1.SpaceStatus;
+import ai.pipestream.confluence.v1.SpaceType;
+import ai.pipestream.confluence.v1.StreamSpacesRequest;
+import ai.pipestream.confluence.v1.StreamSpacesResponse;
 import ai.pipestream.confluence.v1.SyncRequest;
 import ai.pipestream.confluence.v1.SyncResponse;
 import ai.pipestream.sync.v1.Connection;
@@ -35,12 +41,14 @@ import ai.pipestream.sync.v1.RecordProbeRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
+import com.google.protobuf.ProtocolMessageEnum;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
@@ -155,6 +163,69 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
         } catch (Throwable t) {
             fail(observer, t);
         }
+    }
+
+    @Override
+    public void streamSpaces(StreamSpacesRequest request,
+            StreamObserver<StreamSpacesResponse> observer) {
+        try {
+            Session session = session(request.getConnectionId());
+            Map<String, String> query = new TreeMap<>();
+            query.put("limit", String.valueOf(session.config.pageSize()));
+            query.put("description-format",
+                    request.getDescriptionFormat() == SpaceDescriptionFormat.SPACE_DESCRIPTION_FORMAT_PLAIN
+                            ? "plain" : "view");
+            putList(query, "keys", request.getKeysList());
+            putList(query, "ids", request.getIdsList());
+            putList(query, "labels", request.getLabelsList());
+            if (request.getType() != SpaceType.SPACE_TYPE_UNSPECIFIED) {
+                query.put("type", apiValue(request.getType(), "SPACE_TYPE_"));
+            }
+            if (request.getStatus() != SpaceStatus.SPACE_STATUS_UNSPECIFIED) {
+                query.put("status", apiValue(request.getStatus(), "SPACE_STATUS_"));
+            }
+            if (!request.getFavoritedBy().isBlank()) {
+                query.put("favorited-by", request.getFavoritedBy());
+            }
+            if (!request.getNotFavoritedBy().isBlank()) {
+                query.put("not-favorited-by", request.getNotFavoritedBy());
+            }
+            if (request.hasSort()
+                    && request.getSort().getField() != SortField.SORT_FIELD_UNSPECIFIED) {
+                String field = apiValue(request.getSort().getField(), "SORT_FIELD_");
+                query.put("sort", (request.getSort().getDescending() ? "-" : "") + field);
+            }
+            if (request.getIncludeIcon()) {
+                query.put("include-icon", "true");
+            }
+            int cap = request.getLimit();
+            int[] sent = {0};
+            walk(session, "/api/v2/spaces", query, node -> {
+                if (cap <= 0 || sent[0] < cap) {
+                    observer.onNext(StreamSpacesResponse.newBuilder()
+                            .setSpace(requireValid(session.mapper.toSpace(node))).build());
+                    sent[0]++;
+                }
+            }, cap > 0 ? () -> sent[0] >= cap : () -> false);
+            observer.onCompleted();
+        } catch (Throwable t) {
+            fail(observer, t);
+        }
+    }
+
+    private static void putList(Map<String, String> query, String name, List<String> values) {
+        if (!values.isEmpty()) {
+            query.put(name, String.join(",", values));
+        }
+    }
+
+    /** The v2 query value of a proto enum: its name without the prefix, lower-cased. */
+    private static String apiValue(ProtocolMessageEnum value, String prefix) {
+        String name = value.getValueDescriptor().getName();
+        if (!name.startsWith(prefix)) {
+            throw new IllegalArgumentException("enum " + name + " lacks prefix " + prefix);
+        }
+        return name.substring(prefix.length()).toLowerCase(Locale.ROOT);
     }
 
     @Override

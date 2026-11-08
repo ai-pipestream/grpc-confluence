@@ -65,7 +65,16 @@ service ConfluenceService {
   // Every space the credentials can see, or only the requested keys/ids,
   // optionally filtered by type, status and labels.
   // v2: GET /spaces.
-  rpc ListSpaces(ListSpacesRequest) returns (ListSpacesResponse);
+  // Deprecated: use StreamSpaces. Kept unary for wire compatibility.
+  rpc ListSpaces(ListSpacesRequest) returns (ListSpacesResponse) {
+    option deprecated = true;
+  }
+
+  // Every space the credentials can see, or only the requested keys/ids,
+  // optionally filtered by type, status and labels, as a stream; the stream
+  // hides the REST cursor pagination. Supersedes the unary ListSpaces.
+  // v2: GET /spaces.
+  rpc StreamSpaces(StreamSpacesRequest) returns (stream StreamSpacesResponse);
 
   // One space by id (or by key, resolved through GET /spaces?keys=), with the
   // requested expansions (icon, operations, space properties, permissions,
@@ -235,6 +244,17 @@ service ConfluenceService {
   // v2: GET /{content-type}/{id}/classification-level,
   // GET /spaces/{id}/classification-level/default.
   rpc GetClassificationLevel(GetClassificationLevelRequest) returns (GetClassificationLevelResponse);
+
+  // The data-policy view of spaces (whether content is blocked for the
+  // calling app), as a stream. Both data-policy rpcs are served upstream to
+  // app (Connect/Forge) credentials only; with API-token auth they fail
+  // with PERMISSION_DENIED. Kept so the contract tracks the upstream API.
+  // v2: GET /data-policies/spaces.
+  rpc ListDataPolicySpaces(ListDataPolicySpacesRequest) returns (stream ListDataPolicySpacesResponse);
+
+  // Workspace-level data-policy metadata.
+  // v2: GET /data-policies/metadata.
+  rpc GetDataPolicyMetadata(GetDataPolicyMetadataRequest) returns (GetDataPolicyMetadataResponse);
 
   // ---------------------------------------------------------- properties --
 
@@ -463,6 +483,42 @@ message ListSpacesResponse {
   repeated Space spaces = 1;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
+}
+
+// Request to stream spaces (same filters as ListSpacesRequest).
+message StreamSpacesRequest {
+  // Space keys to include; empty = every space the credentials can see.
+  repeated string keys = 1;
+  // Maximum number of spaces to return; 0 = no cap.
+  int32 limit = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Space ids to include; combined with `keys` as the API combines them.
+  repeated string ids = 4;
+  // Only spaces of this type; UNSPECIFIED = any type.
+  SpaceType type = 5;
+  // Only spaces in this status; UNSPECIFIED = the API default (current).
+  SpaceStatus status = 6;
+  // Only spaces carrying all of these labels.
+  repeated string labels = 7;
+  // Only spaces favorited by this account id.
+  string favorited_by = 8;
+  // Only spaces NOT favorited by this account id.
+  string not_favorited_by = 9;
+  // Sort order; unset = the API default (id ascending).
+  SortOrder sort = 10;
+  // The description representation to fetch; UNSPECIFIED = none.
+  SpaceDescriptionFormat description_format = 11;
+  // Include each space's icon.
+  bool include_icon = 12;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed space.
+message StreamSpacesResponse {
+  // The streamed space.
+  Space space = 1;
 }
 
 // Request to read one space.
@@ -708,9 +764,12 @@ message DownloadAttachmentRequest {
   // A previously published version number to download instead of the
   // current version.
   optional int32 version = 2;
-  // Preferred size of each streamed chunk in bytes; 0 = server default.
+  // Preferred size in bytes of each streamed chunk (one gRPC message of the
+  // download stream). This is gRPC framing, not a Confluence parameter:
+  // the server reads the file from Confluence and re-chunks it.
+  // 0 = the server implementation default. Unrelated to max_bytes.
   int32 chunk_bytes = 3;
-  // Optional ceiling on the total bytes streamed; 0 = no cap. When set and
+  // Optional ceiling on the total file size, across all chunks; 0 = no cap. When set and
   // the attachment's file_size exceeds it, the rpc fails with
   // FAILED_PRECONDITION before any chunk is sent.
   int64 max_bytes = 4;
@@ -1293,6 +1352,42 @@ message GetClassificationLevelRequest {
 message GetClassificationLevelResponse {
   // The classification level.
   ClassificationLevel level = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to stream the data-policy view of spaces.
+message ListDataPolicySpacesRequest {
+  // Only these space ids.
+  repeated string ids = 1;
+  // Only these space keys.
+  repeated string keys = 2;
+  // Sort order; unset = the API default (id ascending).
+  SortOrder sort = 3;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 4;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed data-policy space view.
+message ListDataPolicySpacesResponse {
+  // The streamed data-policy view of a space.
+  DataPolicy data_policy = 1;
+}
+
+// Request to read workspace data-policy metadata.
+message GetDataPolicyMetadataRequest {
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The workspace data-policy metadata.
+message GetDataPolicyMetadataResponse {
+  // The data-policy metadata.
+  DataPolicyMetadata data_policy_metadata = 1;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
