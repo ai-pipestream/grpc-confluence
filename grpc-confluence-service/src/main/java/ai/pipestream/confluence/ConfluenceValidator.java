@@ -45,7 +45,6 @@ import io.grpc.Status;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
 
 /**
  * Programmatic stand-in for the {@code validate.v1} options the Confluence
@@ -57,9 +56,6 @@ import java.util.regex.Pattern;
 public final class ConfluenceValidator {
 
     private static final ConfluenceValidator INSTANCE = new ConfluenceValidator();
-    private static final Pattern EMAIL = Pattern.compile("^[^ @]+@[^ @]+[.][^ @]+$");
-    private static final Pattern UUID = Pattern.compile(
-            "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
     private ConfluenceValidator() {
     }
@@ -279,7 +275,7 @@ public final class ConfluenceValidator {
 
     private static void visitUser(String prefix, User user, List<Violation> out) {
         required(prefix, "account_id", user.getAccountId(), out);
-        if (!user.getEmail().isEmpty() && !EMAIL.matcher(user.getEmail()).matches()) {
+        if (!user.getEmail().isEmpty() && !Strings.isEmailShaped(user.getEmail())) {
             out.add(new Violation(child(prefix, "email"), "user.email_format",
                     "email must be empty or a valid address"));
         }
@@ -443,7 +439,7 @@ public final class ConfluenceValidator {
             out.add(new Violation(prefix, "redaction.range",
                     "a redaction range must not end before it starts"));
         }
-        if (!redaction.getRedactionId().isEmpty() && !UUID.matcher(redaction.getRedactionId()).matches()) {
+        if (!redaction.getRedactionId().isEmpty() && !Strings.isUuid(redaction.getRedactionId())) {
             out.add(new Violation(child(prefix, "redaction_id"), "redaction.id_uuid",
                     "redaction_id must be empty or a UUID"));
         }

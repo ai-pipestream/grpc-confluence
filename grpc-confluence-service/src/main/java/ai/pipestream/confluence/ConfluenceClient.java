@@ -121,7 +121,7 @@ public final class ConfluenceClient {
      */
     public ConfluenceClient(String baseUrl, String email, String apiToken,
             Duration minRequestInterval) {
-        String normalized = Objects.requireNonNull(baseUrl, "baseUrl").replaceAll("/+$", "");
+        String normalized = Strings.stripTrailingSlashes(Objects.requireNonNull(baseUrl, "baseUrl"));
         this.baseUrl = normalized;
         URI uri = URI.create(normalized);
         this.origin = uri.getScheme() + "://" + uri.getAuthority();
@@ -364,10 +364,10 @@ public final class ConfluenceClient {
      */
     static Optional<String> nextFromLinkHeader(HttpResponse<?> response) {
         return response.headers().firstValue("Link").flatMap(header -> {
-            for (String part : header.split(",")) {
-                String[] segments = part.split(";");
-                if (segments.length == 2 && segments[1].trim().equals("rel=\"next\"")) {
-                    String url = segments[0].trim();
+            for (String part : Strings.split(header, ',')) {
+                java.util.List<String> segments = Strings.split(part, ';');
+                if (segments.size() == 2 && segments.get(1).trim().equals("rel=\"next\"")) {
+                    String url = segments.get(0).trim();
                     if (url.startsWith("<") && url.endsWith(">")) {
                         return Optional.of(url.substring(1, url.length() - 1));
                     }

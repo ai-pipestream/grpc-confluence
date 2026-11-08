@@ -151,7 +151,7 @@ public final class ConfluenceMapper {
      *        absolute {@code web_url} / {@code download_url} values
      */
     public ConfluenceMapper(String baseUrl) {
-        this.baseUrl = Objects.requireNonNull(baseUrl, "baseUrl").replaceAll("/+$", "");
+        this.baseUrl = Strings.stripTrailingSlashes(Objects.requireNonNull(baseUrl, "baseUrl"));
         URI uri = URI.create(this.baseUrl);
         this.basePath = uri.getPath() == null ? "" : uri.getPath();
         this.origin = uri.getScheme() + "://" + uri.getAuthority();
