@@ -453,44 +453,187 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
     // ATTACHMENTS
     // ======================================================================
 
+    /** Statuses the attachment list routes accept. */
+    private static final Set<String> ATTACHMENT_STATUSES = values("current", "archived", "trashed");
+
     @Override
     public void getAttachment(GetAttachmentRequest request,
             StreamObserver<GetAttachmentResponse> observer) {
-        try {
+        handle(observer, () -> {
             Session session = session(request.getConnectionId());
-            JsonNode node = session.client.get("/api/v2/attachments/" + request.getId());
+            if (request.getMaxContentBytes() < 0) {
+                throw invalid("max_content_bytes must not be negative");
+            }
+            Query query = new Query();
+            if (request.hasVersion()) {
+                query.put("version", String.valueOf(request.getVersion()));
+            }
+            includes(query, request.getInclude(), ATTACHMENT_INCLUDES);
+            JsonNode node = session.client.get(
+                    "/api/v2/attachments/" + requireId(request.getId(), "id"), query.map());
             Attachment attachment = requireValid(session.mapper.toAttachment(node));
             if (request.getIncludeContent()) {
-                attachment = requireValid(withContent(session, attachment));
+                // The caller's ceiling when set; otherwise the server's configured inline cap.
+                long cap = request.getMaxContentBytes() > 0
+                        ? request.getMaxContentBytes() : attachmentMaxBytes;
+                attachment = requireValid(withContent(session, attachment, cap));
             }
-            observer.onNext(GetAttachmentResponse.newBuilder().setAttachment(attachment).build());
-            observer.onCompleted();
-        } catch (Throwable t) {
-            fail(observer, t);
-        }
+            reply(observer, GetAttachmentResponse.newBuilder().setAttachment(attachment).build());
+        });
     }
 
     @Override
     public void listAttachments(ListAttachmentsRequest request,
             StreamObserver<ListAttachmentsResponse> observer) {
-        try {
+        handle(observer, () -> {
             Session session = session(request.getConnectionId());
+            Query query = limit(session);
             String path;
+            String route;
             if (!request.getPageId().isBlank()) {
                 path = "/api/v2/pages/" + request.getPageId() + "/attachments";
+                route = "GET /pages/{id}/attachments";
             } else if (!request.getBlogPostId().isBlank()) {
                 path = "/api/v2/blogposts/" + request.getBlogPostId() + "/attachments";
+                route = "GET /blogposts/{id}/attachments";
+            } else if (!request.getCustomContentId().isBlank()) {
+                path = "/api/v2/custom-content/" + request.getCustomContentId() + "/attachments";
+                route = "GET /custom-content/{id}/attachments";
+            } else if (!request.getLabelId().isBlank()) {
+                path = "/api/v2/labels/" + request.getLabelId() + "/attachments";
+                route = "GET /labels/{id}/attachments";
             } else {
-                throw Status.INVALID_ARGUMENT
-                        .withDescription("page_id or blog_post_id is required")
+                path = "/api/v2/attachments";
+                route = "GET /attachments";
+            }
+            if (!route.equals("GET /labels/{id}/attachments")) {
+                query.put("status", ConfluenceRoutes.contentStatuses(request.getStatusesList(),
+                                ATTACHMENT_STATUSES, route))
+                        .put("mediaType", request.getMediaType())
+                        .put("filename", request.getFilename());
+            } else {
+                reject(!request.getStatusesList().isEmpty(), "statuses", route);
+                reject(!request.getMediaType().isEmpty(), "media_type", route);
+                reject(!request.getFilename().isEmpty(), "filename", route);
+            }
+            query.put("sort", ConfluenceRoutes.sort(request.getSort(), ConfluenceRoutes.DATED_SORT, route));
+            stream(session, path, query, observer, node -> ListAttachmentsResponse.newBuilder()
+                    .setAttachment(requireValid(session.mapper.toAttachment(node))).build());
+        });
+    }
+
+    @Override
+    public void downloadAttachment(DownloadAttachmentRequest request,
+            StreamObserver<DownloadAttachmentResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            if (request.getMaxBytes() < 0) {
+                throw invalid("max_bytes must not be negative");
+            }
+            if (request.getChunkBytes() < 0) {
+                throw invalid("chunk_bytes must not be negative");
+            }
+            Query query = new Query();
+            if (request.hasVersion()) {
+                query.put("version", String.valueOf(request.getVersion()));
+            }
+            JsonNode node = session.client.get(
+                    "/api/v2/attachments/" + requireId(request.getId(), "id"), query.map());
+            Attachment attachment = requireValid(session.mapper.toAttachment(node));
+            long max = request.getMaxBytes();
+            if (max > 0 && attachment.getFileSize() > max) {
+                throw Status.FAILED_PRECONDITION
+                        .withDescription("attachment " + attachment.getId() + " is "
+                                + attachment.getFileSize() + " bytes, above the requested max_bytes "
+                                + max)
                         .asRuntimeException();
             }
-            walk(session, path, Map.of("limit", String.valueOf(session.config.pageSize())), node ->
-                    observer.onNext(ListAttachmentsResponse.newBuilder()
-                            .setAttachment(requireValid(session.mapper.toAttachment(node))).build()));
+            if (attachment.getDownloadUrl().isBlank()) {
+                throw Status.FAILED_PRECONDITION
+                        .withDescription("attachment " + attachment.getId() + " has no download link")
+                        .asRuntimeException();
+            }
+            int chunk = request.getChunkBytes() > 0 ? request.getChunkBytes() : downloadChunkBytes;
+            FlowControl flow = FlowControl.of(observer);
+            flow.send(DownloadAttachmentResponse.newBuilder().setAttachment(attachment).build());
+            long total = 0;
+            try (java.io.InputStream in = session.client.openAttachmentStream(
+                    attachment.getDownloadUrl())) {
+                byte[] buffer = new byte[chunk];
+                while (true) {
+                    int read = in.readNBytes(buffer, 0, chunk);
+                    if (read <= 0) {
+                        break;
+                    }
+                    total += read;
+                    if (max > 0 && total > max) {
+                        // file_size understated the binary: the caller's ceiling still holds.
+                        throw Status.FAILED_PRECONDITION
+                                .withDescription("attachment " + attachment.getId()
+                                        + " exceeded the requested max_bytes " + max)
+                                .asRuntimeException();
+                    }
+                    if (!flow.send(DownloadAttachmentResponse.newBuilder()
+                            .setData(ByteString.copyFrom(buffer, 0, read)).build())) {
+                        return; // the client cancelled; nothing left to answer
+                    }
+                    if (read < chunk) {
+                        break;
+                    }
+                }
+            }
             observer.onCompleted();
-        } catch (Throwable t) {
-            fail(observer, t);
+        });
+    }
+
+    /**
+     * Outbound flow control for a server stream: {@link #send} parks the
+     * (virtual) handler thread until the transport is ready, so a slow
+     * client never makes the server buffer a whole binary in memory.
+     */
+    private static final class FlowControl {
+        private final StreamObserver<DownloadAttachmentResponse> observer;
+        private final io.grpc.stub.ServerCallStreamObserver<DownloadAttachmentResponse> call;
+        private final Object ready = new Object();
+        private volatile boolean cancelled;
+
+        private FlowControl(StreamObserver<DownloadAttachmentResponse> observer) {
+            this.observer = observer;
+            this.call = observer instanceof io.grpc.stub.ServerCallStreamObserver<DownloadAttachmentResponse> c
+                    ? c : null;
+            if (call != null) {
+                call.setOnReadyHandler(this::wake);
+                call.setOnCancelHandler(() -> {
+                    cancelled = true;
+                    wake();
+                });
+            }
+        }
+
+        static FlowControl of(StreamObserver<DownloadAttachmentResponse> observer) {
+            return new FlowControl(observer);
+        }
+
+        private void wake() {
+            synchronized (ready) {
+                ready.notifyAll();
+            }
+        }
+
+        /** Sends once the transport is ready; false when the call was cancelled. */
+        boolean send(DownloadAttachmentResponse message) throws InterruptedException {
+            if (call != null) {
+                synchronized (ready) {
+                    while (!cancelled && !call.isReady()) {
+                        ready.wait(1000);
+                    }
+                }
+                if (cancelled || call.isCancelled()) {
+                    return false;
+                }
+            }
+            observer.onNext(message);
+            return true;
         }
     }
 
@@ -660,13 +803,19 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
         }
     }
 
-    private Attachment withContent(Session session, Attachment attachment)
+    /**
+     * Inlines the binary, failing with FAILED_PRECONDITION above {@code cap}
+     * bytes (declared size first, then the bytes actually read, so an
+     * understated {@code file_size} is still caught without buffering past
+     * the cap).
+     */
+    private static Attachment withContent(Session session, Attachment attachment, long cap)
             throws IOException, InterruptedException {
-        if (attachment.getFileSize() > attachmentMaxBytes) {
+        if (attachment.getFileSize() > cap) {
             throw Status.FAILED_PRECONDITION
                     .withDescription("attachment " + attachment.getId() + " is "
-                            + attachment.getFileSize() + " bytes, above the " + attachmentMaxBytes
-                            + " byte inline cap; fetch it from its download_url instead")
+                            + attachment.getFileSize() + " bytes, above the " + cap
+                            + " byte inline cap; use DownloadAttachment instead")
                     .asRuntimeException();
         }
         if (attachment.getDownloadUrl().isBlank()) {
@@ -674,17 +823,18 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
                     .withDescription("attachment " + attachment.getId() + " has no download link")
                     .asRuntimeException();
         }
-        byte[] bytes = session.client.downloadAttachmentBytes(attachment.getDownloadUrl());
-        if (bytes.length > attachmentMaxBytes) {
+        byte[] bytes;
+        try (java.io.InputStream in = session.client.openAttachmentStream(attachment.getDownloadUrl())) {
+            bytes = in.readNBytes((int) Math.min(Integer.MAX_VALUE - 8L, cap + 1));
+        }
+        if (bytes.length > cap) {
             throw Status.FAILED_PRECONDITION
-                    .withDescription("attachment " + attachment.getId() + " downloaded to "
-                            + bytes.length + " bytes, above the " + attachmentMaxBytes
-                            + " byte inline cap; fetch it from its download_url instead")
+                    .withDescription("attachment " + attachment.getId() + " downloaded above the "
+                            + cap + " byte inline cap; use DownloadAttachment instead")
                     .asRuntimeException();
         }
         return attachment.toBuilder().setContent(ByteString.copyFrom(bytes)).build();
     }
-
 
     // ======================================================================
     // REQUEST PLUMBING

@@ -593,12 +593,140 @@ class ConfluenceGrpcServiceTest {
     }
 
     @Test
-    void listAttachmentsRequiresAContainer() {
-        assertThatThrownBy(() -> stub.listAttachments(ListAttachmentsRequest.getDefaultInstance())
-                .hasNext())
-                .isInstanceOfSatisfying(StatusRuntimeException.class,
-                        e -> assertThat(e.getStatus().getCode())
-                                .isEqualTo(Status.Code.INVALID_ARGUMENT));
+    void listAttachmentsWithoutAContainerListsTheWorkspace() {
+        fake.stub("/wiki/api/v2/attachments", ConfluenceFixtures.listJson(null, "",
+                ConfluenceFixtures.attachmentJson("a1", "200")));
+
+        List<ListAttachmentsResponse> items = new ArrayList<>();
+        stub.listAttachments(ListAttachmentsRequest.newBuilder()
+                .addStatuses(ContentStatus.CONTENT_STATUS_CURRENT)
+                .addStatuses(ContentStatus.CONTENT_STATUS_TRASHED)
+                .setMediaType("image/png").setFilename("diagram.png")
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_MODIFIED_DATE)
+                        .setDescending(true))
+                .build()).forEachRemaining(items::add);
+
+        assertThat(items).extracting(r -> r.getAttachment().getId()).containsExactly("a1");
+        assertThat(fake.lastTo("/wiki/api/v2/attachments").params()).containsExactlyInAnyOrderEntriesOf(
+                java.util.Map.of("limit", "100", "status", "current,trashed",
+                        "mediaType", "image/png", "filename", "diagram.png",
+                        "sort", "-modified-date"));
+    }
+
+    @Test
+    void listAttachmentsOfCustomContentAndLabels() {
+        fake.stub("/wiki/api/v2/custom-content/cc1/attachments", ConfluenceFixtures.listJson(null, "",
+                ConfluenceFixtures.attachmentJson("a3", "200")));
+        fake.stub("/wiki/api/v2/labels/l1/attachments", ConfluenceFixtures.listJson(null, "",
+                ConfluenceFixtures.attachmentJson("a4", "200")));
+
+        List<ListAttachmentsResponse> custom = new ArrayList<>();
+        stub.listAttachments(ListAttachmentsRequest.newBuilder().setCustomContentId("cc1")
+                .setFilename("diagram.png").build()).forEachRemaining(custom::add);
+        assertThat(custom).extracting(r -> r.getAttachment().getId()).containsExactly("a3");
+        assertThat(fake.lastTo("/wiki/api/v2/custom-content/cc1/attachments").params())
+                .containsEntry("filename", "diagram.png");
+
+        List<ListAttachmentsResponse> labelled = new ArrayList<>();
+        stub.listAttachments(ListAttachmentsRequest.newBuilder().setLabelId("l1")
+                .setSort(SortOrder.newBuilder().setField(SortField.SORT_FIELD_CREATED_DATE))
+                .build()).forEachRemaining(labelled::add);
+        assertThat(labelled).extracting(r -> r.getAttachment().getId()).containsExactly("a4");
+        assertThat(fake.lastTo("/wiki/api/v2/labels/l1/attachments").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("limit", "100",
+                        "sort", "created-date"));
+        // The label route has no media type filter; attachments have no title sort.
+        assertInvalid(() -> stub.listAttachments(ListAttachmentsRequest.newBuilder()
+                .setLabelId("l1").setMediaType("image/png").build()).hasNext());
+        assertInvalid(() -> stub.listAttachments(ListAttachmentsRequest.newBuilder()
+                .setPageId("200").setSort(SortOrder.newBuilder()
+                        .setField(SortField.SORT_FIELD_TITLE)).build()).hasNext());
+    }
+
+    @Test
+    void getAttachmentForwardsVersionAndIncludesAndHonoursMaxContentBytes() {
+        fake.stub("/wiki/api/v2/attachments/a1", ConfluenceFixtures.attachmentJson("a1", "200"));
+        fake.stub("/wiki/download/attachments/a1/diagram.png", "png-bytes");
+
+        GetAttachmentResponse response = stub.getAttachment(GetAttachmentRequest.newBuilder()
+                .setId("a1").setVersion(2).setIncludeContent(true).setMaxContentBytes(20_000)
+                .setInclude(ContentIncludes.newBuilder().setLabels(true).setVersions(true)
+                        .setLikes(true))
+                .build());
+
+        assertThat(response.getAttachment().getContent().toString(StandardCharsets.UTF_8))
+                .isEqualTo("png-bytes");
+        // include-likes is not offered on attachments: ignored.
+        assertThat(fake.lastTo("/wiki/api/v2/attachments/a1").params())
+                .containsExactlyInAnyOrderEntriesOf(java.util.Map.of("version", "2",
+                        "include-labels", "true", "include-versions", "true"));
+
+        // file_size 12345 is above a 100-byte request ceiling.
+        assertThatThrownBy(() -> stub.getAttachment(GetAttachmentRequest.newBuilder()
+                .setId("a1").setIncludeContent(true).setMaxContentBytes(100).build()))
+                .isInstanceOfSatisfying(StatusRuntimeException.class, e -> assertThat(
+                        e.getStatus().getCode()).isEqualTo(Status.Code.FAILED_PRECONDITION));
+    }
+
+    private List<DownloadAttachmentResponse> download(DownloadAttachmentRequest request) {
+        List<DownloadAttachmentResponse> parts = new ArrayList<>();
+        stub.downloadAttachment(request).forEachRemaining(parts::add);
+        return parts;
+    }
+
+    @Test
+    void downloadAttachmentStreamsMetadataThenChunks() {
+        fake.stub("/wiki/api/v2/attachments/a1", ConfluenceFixtures.attachmentJson("a1", "200"));
+        fake.stub("/wiki/download/attachments/a1/diagram.png", "png-bytes");
+
+        List<DownloadAttachmentResponse> parts = download(DownloadAttachmentRequest.newBuilder()
+                .setId("a1").setVersion(1).setChunkBytes(4).build());
+
+        assertThat(parts.get(0).getPartCase())
+                .isEqualTo(DownloadAttachmentResponse.PartCase.ATTACHMENT);
+        assertThat(parts.get(0).getAttachment().getId()).isEqualTo("a1");
+        assertThat(parts.get(0).getAttachment().hasContent()).isFalse();
+        assertThat(parts.subList(1, parts.size()))
+                .extracting(p -> p.getData().toString(StandardCharsets.UTF_8))
+                .containsExactly("png-", "byte", "s");
+        assertThat(fake.lastTo("/wiki/api/v2/attachments/a1").params())
+                .containsExactlyEntriesOf(java.util.Map.of("version", "1"));
+    }
+
+    @Test
+    void downloadAttachmentUsesTheConfiguredChunkDefault() throws Exception {
+        server.shutdown();
+        channel.shutdownNow();
+        startServer(new ConfluenceGrpcService(config, client,
+                ConfluenceGrpcService.DEFAULT_ATTACHMENT_MAX_BYTES, null, null, null, 5));
+        fake.stub("/wiki/api/v2/attachments/a1", ConfluenceFixtures.attachmentJson("a1", "200"));
+        fake.stub("/wiki/download/attachments/a1/diagram.png", "png-bytes");
+
+        List<DownloadAttachmentResponse> parts = download(
+                DownloadAttachmentRequest.newBuilder().setId("a1").build());
+
+        assertThat(parts.subList(1, parts.size()))
+                .extracting(p -> p.getData().toString(StandardCharsets.UTF_8))
+                .containsExactly("png-b", "ytes");
+        assertThat(ConfluenceGrpcService.DEFAULT_DOWNLOAD_CHUNK_BYTES).isEqualTo(1024 * 1024);
+    }
+
+    @Test
+    void downloadAttachmentAboveMaxBytesFailsBeforeAnyChunk() {
+        fake.stub("/wiki/api/v2/attachments/a1", ConfluenceFixtures.attachmentJson("a1", "200"));
+        fake.stub("/wiki/download/attachments/a1/diagram.png", "png-bytes");
+
+        List<DownloadAttachmentResponse> received = new ArrayList<>();
+        assertThatThrownBy(() -> stub.downloadAttachment(DownloadAttachmentRequest.newBuilder()
+                .setId("a1").setMaxBytes(12344).build()).forEachRemaining(received::add))
+                .isInstanceOfSatisfying(StatusRuntimeException.class, e -> assertThat(
+                        e.getStatus().getCode()).isEqualTo(Status.Code.FAILED_PRECONDITION));
+        assertThat(received).noneMatch(DownloadAttachmentResponse::hasData);
+        assertThat(fake.requestsTo("/wiki/download/attachments/a1/diagram.png")).isEmpty();
+
+        // At the declared size the download goes through (0 would mean no cap).
+        assertThat(download(DownloadAttachmentRequest.newBuilder().setId("a1")
+                .setMaxBytes(12345).build())).hasSize(2);
     }
 
     // ======================================================================
