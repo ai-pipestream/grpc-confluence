@@ -128,6 +128,10 @@ message CustomContent {
   repeated Version versions = 16;
   // Human-facing URL of the content, for search results and UIs.
   string web_url = 17;
+  // Account IDs of the users who collaborated on this content. Present
+  // only when the read asked for collaborators (`include-collaborators`);
+  // upstream returns bare account ids, so resolve names with BatchGetUsers.
+  repeated string collaborator_account_ids = 18;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -172,6 +176,10 @@ message Database {
   // The direct children of the database in the content tree
   // (include-direct-children).
   repeated ContentTreeEntry direct_children = 16;
+  // Account IDs of the users who collaborated on this content. Present
+  // only when the read asked for collaborators (`include-collaborators`);
+  // upstream returns bare account ids, so resolve names with BatchGetUsers.
+  repeated string collaborator_account_ids = 17;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -212,6 +220,10 @@ message Folder {
   // The direct children of the folder in the content tree
   // (include-direct-children).
   repeated ContentTreeEntry direct_children = 16;
+  // Account IDs of the users who collaborated on this content. Present
+  // only when the read asked for collaborators (`include-collaborators`);
+  // upstream returns bare account ids, so resolve names with BatchGetUsers.
+  repeated string collaborator_account_ids = 17;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -255,6 +267,10 @@ message SmartLink {
   // The direct children of the Smart Link in the content tree
   // (include-direct-children).
   repeated ContentTreeEntry direct_children = 17;
+  // Account IDs of the users who collaborated on this content. Present
+  // only when the read asked for collaborators (`include-collaborators`);
+  // upstream returns bare account ids, so resolve names with BatchGetUsers.
+  repeated string collaborator_account_ids = 18;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -295,6 +311,10 @@ message Whiteboard {
   // The direct children of the whiteboard in the content tree
   // (include-direct-children).
   repeated ContentTreeEntry direct_children = 16;
+  // Account IDs of the users who collaborated on this content. Present
+  // only when the read asked for collaborators (`include-collaborators`);
+  // upstream returns bare account ids, so resolve names with BatchGetUsers.
+  repeated string collaborator_account_ids = 17;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }

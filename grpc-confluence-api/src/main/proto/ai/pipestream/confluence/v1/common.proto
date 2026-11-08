@@ -210,3 +210,19 @@ enum ParentContentType {
   // The parent is a folder.
   PARENT_CONTENT_TYPE_FOLDER = 5;
 }
+
+// The web resources the Confluence UI loads to render a body
+// (`webResources` on GET /pages/{id} and /blogposts/{id} with
+// `include-webresources`).
+message WebResources {
+  // HTML tags (script and link elements) for this content's resources.
+  string tags = 1;
+  // The workspace-wide resource batch shared by every page.
+  WebResourceBatch superbatch = 2;
+}
+
+// A batch of web resources as HTML tags.
+message WebResourceBatch {
+  // HTML tags (script and link elements) for the batch.
+  string tags = 1;
+}

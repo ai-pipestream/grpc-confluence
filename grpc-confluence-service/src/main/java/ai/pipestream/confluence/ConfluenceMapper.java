@@ -1,5 +1,9 @@
 package ai.pipestream.confluence;
 
+import java.util.List;
+import java.util.ArrayList;
+import ai.pipestream.confluence.v1.WebResources;
+import ai.pipestream.confluence.v1.WebResourceBatch;
 import ai.pipestream.confluence.v1.AccountStatus;
 import ai.pipestream.confluence.v1.AccountType;
 import ai.pipestream.confluence.v1.Attachment;
@@ -173,6 +177,10 @@ public final class ConfluenceMapper {
         setVersion(node, b::setVersion);
         setBody(node, b::setBody);
         b.setWebUrl(absolute(webui(node)));
+        b.addAllCollaboratorAccountIds(collaboratorIds(node));
+        if (node.path("webResources").isObject()) {
+            b.setWebResources(toWebResources(node.path("webResources")));
+        }
         return b.build();
     }
 
@@ -194,6 +202,10 @@ public final class ConfluenceMapper {
         setVersion(node, b::setVersion);
         setBody(node, b::setBody);
         b.setWebUrl(absolute(webui(node)));
+        b.addAllCollaboratorAccountIds(collaboratorIds(node));
+        if (node.path("webResources").isObject()) {
+            b.setWebResources(toWebResources(node.path("webResources")));
+        }
         return b.build();
     }
 
@@ -288,6 +300,7 @@ public final class ConfluenceMapper {
         String download = hasText(node, "downloadLink") ? text(node, "downloadLink")
                 : text(node.path("_links"), "download");
         b.setDownloadUrl(absolute(download));
+        b.addAllCollaboratorAccountIds(collaboratorIds(node));
         return b.build();
     }
 
@@ -411,6 +424,7 @@ public final class ConfluenceMapper {
         setTimestamp(node, "createdAt", b::setCreatedAt);
         setVersion(node, b::setVersion);
         b.setWebUrl(absolute(webui(node)));
+        b.addAllCollaboratorAccountIds(collaboratorIds(node));
         return b.build();
     }
 
@@ -439,6 +453,7 @@ public final class ConfluenceMapper {
         setTimestamp(node, "createdAt", b::setCreatedAt);
         setVersion(node, b::setVersion);
         b.setWebUrl(absolute(webui(node)));
+        b.addAllCollaboratorAccountIds(collaboratorIds(node));
         return b.build();
     }
 
@@ -467,6 +482,7 @@ public final class ConfluenceMapper {
         setTimestamp(node, "createdAt", b::setCreatedAt);
         setVersion(node, b::setVersion);
         b.setWebUrl(absolute(webui(node)));
+        b.addAllCollaboratorAccountIds(collaboratorIds(node));
         return b.build();
     }
 
@@ -492,6 +508,7 @@ public final class ConfluenceMapper {
         setVersion(node, b::setVersion);
         setBody(node, b::setBody);
         b.setWebUrl(absolute(webui(node)));
+        b.addAllCollaboratorAccountIds(collaboratorIds(node));
         return b.build();
     }
 
@@ -589,6 +606,38 @@ public final class ConfluenceMapper {
     // ======================================================================
     // VERSIONS AND CLASSIFICATION LEVELS
     // ======================================================================
+
+    /**
+     * The account ids of {@code collaborators} ({@code include-collaborators}):
+     * an array of {@code {accountId}} objects; empty when absent.
+     *
+     * @param node the content object
+     * @return the account ids, in API order
+     */
+    static List<String> collaboratorIds(JsonNode node) {
+        List<String> ids = new ArrayList<>();
+        node.path("collaborators").forEach(c -> {
+            if (hasText(c, "accountId")) {
+                ids.add(text(c, "accountId"));
+            }
+        });
+        return ids;
+    }
+
+    /**
+     * Maps the {@code webResources} object ({@code include-webresources}).
+     *
+     * @param node the {@code webResources} object
+     * @return the proto
+     */
+    static WebResources toWebResources(JsonNode node) {
+        WebResources.Builder b = WebResources.newBuilder().setTags(text(node, "tags"));
+        if (node.path("superbatch").isObject()) {
+            b.setSuperbatch(WebResourceBatch.newBuilder()
+                    .setTags(text(node.path("superbatch"), "tags")));
+        }
+        return b.build();
+    }
 
     /**
      * Maps a REST v2 {@code Version} JSON object to the domain proto.

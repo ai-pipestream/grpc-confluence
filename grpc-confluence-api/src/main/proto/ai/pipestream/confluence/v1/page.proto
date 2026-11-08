@@ -66,6 +66,14 @@ message Page {
   // The direct children of the page in the content tree
   // (GET /pages/{id}?include-direct-children).
   repeated ContentTreeEntry direct_children = 22;
+  // Account IDs of the users who collaborated on this content. Present
+  // only when the read asked for collaborators (`include-collaborators`);
+  // upstream returns bare account ids, so resolve names with BatchGetUsers.
+  repeated string collaborator_account_ids = 23;
+  // Web resources (script and stylesheet tags) the Confluence UI needs to
+  // render the body. Present only when the read asked for them
+  // (`include-webresources`; the response field is `webResources`).
+  WebResources web_resources = 24;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }

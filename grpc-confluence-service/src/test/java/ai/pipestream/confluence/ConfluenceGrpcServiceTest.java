@@ -4,6 +4,7 @@ import ai.pipestream.confluence.v1.BodyFormat;
 import ai.pipestream.confluence.v1.ConfluenceChange;
 import ai.pipestream.confluence.v1.ConfluenceEntity;
 import ai.pipestream.confluence.v1.ConfluenceServiceGrpc;
+import ai.pipestream.confluence.v1.ContentIncludes;
 import ai.pipestream.confluence.v1.ConfluenceSnapshot;
 import ai.pipestream.confluence.v1.GetAttachmentRequest;
 import ai.pipestream.confluence.v1.GetAttachmentResponse;
@@ -177,6 +178,29 @@ class ConfluenceGrpcServiceTest {
         assertThat(VALIDATOR.validate(response.getPage()).violations()).isEmpty();
         assertThat(fake.requestsTo("/wiki/api/v2/pages/200").getLast().query())
                 .contains("body-format=storage");
+    }
+
+    @Test
+    void getPageMapsCollaboratorsAndWebResourcesWhenIncluded() {
+        // Shapes as a live tenant returns them (ConfluenceLiveSmokeIT, 2026-11-08).
+        String base = ConfluenceFixtures.pageJson("200", "100", "Design Doc", T2.toString());
+        String page = "{\"collaborators\":[{\"accountId\":\"acc-1\"},"
+                + "{\"accountId\":\"acc-2\"}],\"webResources\":{\"tags\":\"<script/>\","
+                + "\"superbatch\":{\"tags\":\"<link/>\"}}," + base.substring(base.indexOf('{') + 1);
+        fake.stub("/wiki/api/v2/pages/200", page);
+
+        GetPageResponse response = stub.getPage(GetPageRequest.newBuilder().setId("200")
+                .setInclude(ContentIncludes.newBuilder().setCollaborators(true)
+                        .setWebResources(true))
+                .build());
+
+        assertThat(response.getPage().getCollaboratorAccountIdsList())
+                .containsExactly("acc-1", "acc-2");
+        assertThat(response.getPage().getWebResources().getTags()).isEqualTo("<script/>");
+        assertThat(response.getPage().getWebResources().getSuperbatch().getTags())
+                .isEqualTo("<link/>");
+        assertThat(fake.requestsTo("/wiki/api/v2/pages/200").getLast().query())
+                .contains("include-collaborators=true", "include-webresources=true");
     }
 
     @Test

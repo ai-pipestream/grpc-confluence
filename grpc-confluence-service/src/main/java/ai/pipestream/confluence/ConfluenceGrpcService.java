@@ -5,6 +5,7 @@ import ai.pipestream.confluence.v1.BodyFormat;
 import ai.pipestream.confluence.v1.ConfluenceChange;
 import ai.pipestream.confluence.v1.ConfluenceEntity;
 import ai.pipestream.confluence.v1.ConfluenceServiceGrpc;
+import ai.pipestream.confluence.v1.ContentIncludes;
 import ai.pipestream.confluence.v1.ConfluenceSnapshot;
 import ai.pipestream.confluence.v1.GetAttachmentRequest;
 import ai.pipestream.confluence.v1.GetAttachmentResponse;
@@ -213,6 +214,23 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
         }
     }
 
+    /**
+     * Query for a single page or blog post read: the body format plus the
+     * expansions the mapper understands. The other ContentIncludes flags are
+     * not wired yet.
+     */
+    private static Map<String, String> contentQuery(BodyFormat format, ContentIncludes include) {
+        Map<String, String> query = new TreeMap<>();
+        query.put("body-format", bodyFormatOrStorage(format));
+        if (include.getCollaborators()) {
+            query.put("include-collaborators", "true");
+        }
+        if (include.getWebResources()) {
+            query.put("include-webresources", "true");
+        }
+        return query;
+    }
+
     private static void putList(Map<String, String> query, String name, List<String> values) {
         if (!values.isEmpty()) {
             query.put(name, String.join(",", values));
@@ -233,7 +251,7 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
         try {
             Session session = session(request.getConnectionId());
             JsonNode node = session.client.get("/api/v2/pages/" + request.getId(),
-                    Map.of("body-format", bodyFormatOrStorage(request.getBodyFormat())));
+                    contentQuery(request.getBodyFormat(), request.getInclude()));
             observer.onNext(GetPageResponse.newBuilder()
                     .setPage(requireValid(session.mapper.toPage(node))).build());
             observer.onCompleted();
@@ -248,7 +266,7 @@ public final class ConfluenceGrpcService extends ConfluenceServiceGrpc.Confluenc
         try {
             Session session = session(request.getConnectionId());
             JsonNode node = session.client.get("/api/v2/blogposts/" + request.getId(),
-                    Map.of("body-format", bodyFormatOrStorage(request.getBodyFormat())));
+                    contentQuery(request.getBodyFormat(), request.getInclude()));
             observer.onNext(GetBlogPostResponse.newBuilder()
                     .setBlogPost(requireValid(session.mapper.toBlogPost(node))).build());
             observer.onCompleted();

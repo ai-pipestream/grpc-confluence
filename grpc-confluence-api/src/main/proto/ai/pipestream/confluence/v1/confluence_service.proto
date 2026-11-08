@@ -376,6 +376,12 @@ message ContentIncludes {
   bool favorited_by_current_user = 6;
   // Include the direct children of the content in the content tree.
   bool direct_children = 7;
+  // Include the account ids of the content's collaborators
+  // (`include-collaborators`).
+  bool collaborators = 8;
+  // Include the web resources needed to render the body
+  // (`include-webresources`; pages and blog posts only).
+  bool web_resources = 9;
 }
 
 // The expansions a space read may ask for (GET /spaces/{id} `include-*`).
