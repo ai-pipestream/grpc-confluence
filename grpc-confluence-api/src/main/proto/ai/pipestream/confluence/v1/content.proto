@@ -164,6 +164,14 @@ message Database {
   Version version = 12;
   // Human-facing URL of the content, for search results and UIs.
   string web_url = 13;
+  // The content properties of the database (include-properties).
+  repeated ContentProperty properties = 14;
+  // The operations the calling user is permitted to perform on the database
+  // (include-operations).
+  repeated Operation operations = 15;
+  // The direct children of the database in the content tree
+  // (include-direct-children).
+  repeated ContentTreeEntry direct_children = 16;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -196,6 +204,14 @@ message Folder {
   Version version = 12;
   // Human-facing URL of the content, for search results and UIs.
   string web_url = 13;
+  // The content properties of the folder (include-properties).
+  repeated ContentProperty properties = 14;
+  // The operations the calling user is permitted to perform on the folder
+  // (include-operations).
+  repeated Operation operations = 15;
+  // The direct children of the folder in the content tree
+  // (include-direct-children).
+  repeated ContentTreeEntry direct_children = 16;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -231,6 +247,14 @@ message SmartLink {
   Version version = 13;
   // Human-facing URL of the content, for search results and UIs.
   string web_url = 14;
+  // The content properties of the Smart Link (include-properties).
+  repeated ContentProperty properties = 15;
+  // The operations the calling user is permitted to perform on the Smart
+  // Link (include-operations).
+  repeated Operation operations = 16;
+  // The direct children of the Smart Link in the content tree
+  // (include-direct-children).
+  repeated ContentTreeEntry direct_children = 17;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -263,6 +287,14 @@ message Whiteboard {
   Version version = 12;
   // Human-facing URL of the content, for search results and UIs.
   string web_url = 13;
+  // The content properties of the whiteboard (include-properties).
+  repeated ContentProperty properties = 14;
+  // The operations the calling user is permitted to perform on the
+  // whiteboard (include-operations).
+  repeated Operation operations = 15;
+  // The direct children of the whiteboard in the content tree
+  // (include-direct-children).
+  repeated ContentTreeEntry direct_children = 16;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }

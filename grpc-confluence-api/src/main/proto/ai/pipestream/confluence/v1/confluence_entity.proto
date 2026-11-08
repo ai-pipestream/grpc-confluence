@@ -9,6 +9,7 @@ import "ai/pipestream/confluence/v1/classification.proto";
 import "ai/pipestream/confluence/v1/comment.proto";
 import "ai/pipestream/confluence/v1/common.proto";
 import "ai/pipestream/confluence/v1/content.proto";
+import "ai/pipestream/confluence/v1/database.proto";
 import "ai/pipestream/confluence/v1/label.proto";
 import "ai/pipestream/confluence/v1/operation.proto";
 import "ai/pipestream/confluence/v1/page.proto";
@@ -94,6 +95,22 @@ message ConfluenceEntity {
     SpacePermissionAssignment space_permission_assignment = 35;
     // Set when the wrapped entity is a content tree entry.
     ContentTreeEntry tree_entry = 36;
+    // Set when the wrapped entity is a database entry (row).
+    DatabaseEntry database_entry = 37;
+    // Set when the wrapped entity is a database field (column definition).
+    DatabaseField database_field = 38;
+    // Set when the wrapped entity is a database view.
+    DatabaseView database_view = 39;
+    // Set when the wrapped entity is a direct content permission entry.
+    ContentPermission content_permission = 40;
+    // Set when the wrapped entity is the restriction state of a content item.
+    RestrictionState restriction_state = 41;
+    // Set when the wrapped entity is a space role assignment.
+    SpaceRoleAssignment space_role_assignment = 42;
+    // Set when the wrapped entity is a space permission definition.
+    SpacePermission space_permission = 43;
+    // Set when the wrapped entity is a detailed version (change-set view).
+    DetailedVersion detailed_version = 44;
   }
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;

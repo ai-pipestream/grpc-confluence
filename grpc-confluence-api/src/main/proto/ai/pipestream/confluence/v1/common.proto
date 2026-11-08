@@ -157,6 +157,46 @@ enum ContentStatus {
   CONTENT_STATUS_ANY = 7;
 }
 
+// The addressable content kinds of the v2 API: the `{content-type}` path
+// segment that selects which per-content sub-resource route (properties,
+// versions, likes, permissions, children, ...) a request targets.
+enum ContentType {
+  // Zero value; the content kind is unknown or was not given.
+  CONTENT_TYPE_UNSPECIFIED = 0;
+  // A page (`pages`).
+  CONTENT_TYPE_PAGE = 1;
+  // A blog post (`blogposts`).
+  CONTENT_TYPE_BLOG_POST = 2;
+  // An attachment (`attachments`).
+  CONTENT_TYPE_ATTACHMENT = 3;
+  // A footer comment (`footer-comments`).
+  CONTENT_TYPE_FOOTER_COMMENT = 4;
+  // An inline comment (`inline-comments`).
+  CONTENT_TYPE_INLINE_COMMENT = 5;
+  // Custom content (`custom-content`).
+  CONTENT_TYPE_CUSTOM_CONTENT = 6;
+  // A whiteboard (`whiteboards`).
+  CONTENT_TYPE_WHITEBOARD = 7;
+  // A database (`databases`).
+  CONTENT_TYPE_DATABASE = 8;
+  // A folder (`folders`).
+  CONTENT_TYPE_FOLDER = 9;
+  // A Smart Link in the content tree (`embeds`).
+  CONTENT_TYPE_SMART_LINK = 10;
+  // A space (`spaces`); valid only where a route exists for spaces
+  // (operations, properties, labels, permissions, role assignments).
+  CONTENT_TYPE_SPACE = 11;
+}
+
+// A typed reference to one piece of content: the kind plus its id. Used
+// wherever the v2 API keys a sub-resource by `{content-type}/{id}`.
+message ContentRef {
+  // The content kind.
+  ContentType type = 1;
+  // ID of the content.
+  string id = 2;
+}
+
 // The content kind of a parent, or unset if there is no parent.
 enum ParentContentType {
   // Zero value; there is no parent.
