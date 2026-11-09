@@ -32,8 +32,8 @@ import java.util.concurrent.TimeUnit;
  *   {@code CONFLUENCE_TOKEN}) and the rest of the crawler config, per
  *   {@link ConfluenceConnectorConfig#fromEnvironment()}</li>
  *   <li>{@code CONFLUENCE_GRPC_PORT}: listen port, default 9095</li>
- *   <li>{@code CONFLUENCE_ATTACHMENT_MAX_BYTES}: inline attachment cap,
- *   default 25 MiB</li>
+ *   <li>{@code CONFLUENCE_ATTACHMENT_MAX_BYTES}: optional inline attachment
+ *   cap in bytes; unset or 0 means no cap</li>
  *   <li>{@code CONFLUENCE_KAFKA_BOOTSTRAP_SERVERS} (plus optional
  *   {@code CONFLUENCE_KAFKA_TOPIC} / {@code CONFLUENCE_KAFKA_SNAPSHOTS_TOPIC}):
  *   every change a sync emits also publishes through {@link KafkaChangeSink}</li>

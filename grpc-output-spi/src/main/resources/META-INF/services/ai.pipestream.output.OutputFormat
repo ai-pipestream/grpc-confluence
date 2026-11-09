@@ -1,3 +1,2 @@
 ai.pipestream.output.ProtobufOutputFormat
 ai.pipestream.output.JsonOutputFormat
-ai.pipestream.output.MicrosoftConnectorOutputFormat

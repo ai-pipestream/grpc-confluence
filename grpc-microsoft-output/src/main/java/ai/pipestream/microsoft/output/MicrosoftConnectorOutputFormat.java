@@ -1,6 +1,9 @@
-package ai.pipestream.output;
+package ai.pipestream.microsoft.output;
 
 import ai.pipestream.microsoft.v1.MicrosoftChange;
+import ai.pipestream.output.OutputFormat;
+import ai.pipestream.output.OutputObject;
+import ai.pipestream.output.OutputStore;
 import com.google.protobuf.Message;
 
 import java.io.IOException;

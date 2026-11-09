@@ -174,9 +174,10 @@ message GetAttachmentRequest {
   // ID of the attachment.
   string id = 1;
   // When true, the binary is downloaded through the client's download path
-  // and inlined as Attachment.content. Refused with FAILED_PRECONDITION when
-  // the attachment exceeds the server's size cap (CONFLUENCE_ATTACHMENT_MAX_BYTES,
-  // default 25 MiB): bulk bytes do not belong on a unary rpc.
+  // and inlined as Attachment.content. No size cap by default; when the
+  // operator sets CONFLUENCE_ATTACHMENT_MAX_BYTES, larger attachments are
+  // refused with FAILED_PRECONDITION. Clients must allow inbound messages
+  // as large as the attachments they request.
   bool include_content = 2;
   // Catalog connection to use. Empty = the process-default (env) connection.
   string connection_id = 3;

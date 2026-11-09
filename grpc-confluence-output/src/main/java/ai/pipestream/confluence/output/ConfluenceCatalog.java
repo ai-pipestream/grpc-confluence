@@ -1,4 +1,4 @@
-package ai.pipestream.okf.confluence;
+package ai.pipestream.confluence.output;
 
 import ai.pipestream.confluence.v1.Attachment;
 import ai.pipestream.confluence.v1.BlogPost;

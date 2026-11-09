@@ -2,6 +2,7 @@ package ai.pipestream.confluence;
 
 import ai.pipestream.confluence.v1.ConfluenceChange;
 import ai.pipestream.confluence.v1.ConfluenceSnapshot;
+import ai.pipestream.confluence.output.ConfluenceObjectKeys;
 import ai.pipestream.output.ObjectKeys;
 import ai.pipestream.output.OutputEnv;
 import ai.pipestream.output.OutputFormat;
@@ -143,7 +144,7 @@ public final class OutputChangeSink implements ChangeSink, AutoCloseable {
     @Override
     public void emit(ConfluenceChange change) {
         records.add(change);
-        String key = ObjectKeys.under(prefix, ObjectKeys.of(change));
+        String key = ObjectKeys.under(prefix, ConfluenceObjectKeys.of(change));
         try {
             for (OutputFormat format : formats) {
                 if (format.supports(change)) {
