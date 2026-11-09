@@ -66,8 +66,8 @@ public final class ConfluenceGrpcService
     }
 
 
-    /** Default cap for inlined attachment bytes: 25 MiB. */
-    public static final long DEFAULT_ATTACHMENT_MAX_BYTES = 25L * 1024 * 1024;
+    /** Default inline byte cap: 0, meaning no cap. Set a positive value to enforce one. */
+    public static final long DEFAULT_ATTACHMENT_MAX_BYTES = 0L;
 
     /**
      * The server implementation's default size of one {@code DownloadAttachment}
@@ -122,7 +122,7 @@ public final class ConfluenceGrpcService
      *
      * @param config connector config
      * @param client the authorized REST client
-     * @param attachmentMaxBytes inline attachment byte cap; must be positive
+     * @param attachmentMaxBytes inline attachment byte cap; 0 or less means no cap
      */
     public ConfluenceGrpcService(ConfluenceConnectorConfig config, ConfluenceClient client,
             long attachmentMaxBytes) {
@@ -135,7 +135,7 @@ public final class ConfluenceGrpcService
      *
      * @param config connector config
      * @param client the authorized REST client
-     * @param attachmentMaxBytes inline attachment byte cap; must be positive
+     * @param attachmentMaxBytes inline attachment byte cap; 0 or less means no cap
      * @param downstream optional extra sink for {@code Sync} emissions; {@code null} for none
      */
     public ConfluenceGrpcService(ConfluenceConnectorConfig config, ConfluenceClient client,
@@ -151,7 +151,7 @@ public final class ConfluenceGrpcService
      * @param config process-default connector config; {@code null} when only
      *        catalog connections are used
      * @param client process-default REST client; {@code null} when {@code config} is
-     * @param attachmentMaxBytes inline attachment byte cap; must be positive
+     * @param attachmentMaxBytes inline attachment byte cap; 0 or less means no cap
      * @param downstream optional extra sink for {@code Sync}
      * @param connections generated {@code ConnectionService} stub; {@code null}
      *        when the catalog is not configured
@@ -174,7 +174,7 @@ public final class ConfluenceGrpcService
      * @param config process-default connector config; {@code null} when only
      *        catalog connections are used
      * @param client process-default REST client; {@code null} when {@code config} is
-     * @param attachmentMaxBytes inline attachment byte cap; must be positive
+     * @param attachmentMaxBytes inline attachment byte cap; 0 means no cap, never negative
      * @param downstream optional extra sink for {@code Sync}
      * @param connections generated {@code ConnectionService} stub; {@code null}
      *        when the catalog is not configured
@@ -192,8 +192,8 @@ public final class ConfluenceGrpcService
         this.config = config;
         this.client = client;
         this.mapper = config == null ? null : new ConfluenceMapper(config.baseUrl());
-        if (attachmentMaxBytes <= 0) {
-            throw new IllegalArgumentException("attachmentMaxBytes must be positive");
+        if (attachmentMaxBytes < 0) {
+            throw new IllegalArgumentException("attachmentMaxBytes must not be negative");
         }
         if (downloadChunkBytes <= 0) {
             throw new IllegalArgumentException("downloadChunkBytes must be positive");
@@ -496,9 +496,8 @@ public final class ConfluenceGrpcService
                     "/api/v2/attachments/" + requireId(request.getId(), "id"), query.map());
             Attachment attachment = requireValid(session.mapper.toAttachment(node));
             if (request.getIncludeContent()) {
-                // The caller's ceiling when set; otherwise the server's configured inline cap.
-                long cap = request.getMaxContentBytes() > 0
-                        ? request.getMaxContentBytes() : attachmentMaxBytes;
+                // The tighter of the caller's ceiling and the operator's cap; 0 = no cap.
+                long cap = tighterCap(request.getMaxContentBytes(), attachmentMaxBytes);
                 attachment = requireValid(withContent(session, attachment, cap));
             }
             reply(observer, GetAttachmentResponse.newBuilder().setAttachment(attachment).build());
@@ -2124,15 +2123,23 @@ public final class ConfluenceGrpcService
         }
     }
 
+    /** The smaller of two caps where 0 (or less) means "no cap". */
+    private static long tighterCap(long a, long b) {
+        if (a <= 0) {
+            return Math.max(b, 0);
+        }
+        return b <= 0 ? a : Math.min(a, b);
+    }
+
     /**
-     * Inlines the binary, failing with FAILED_PRECONDITION above {@code cap}
-     * bytes (declared size first, then the bytes actually read, so an
-     * understated {@code file_size} is still caught without buffering past
-     * the cap).
+     * Inlines the binary. With a positive {@code cap} it fails with
+     * FAILED_PRECONDITION above that many bytes (declared size first, then the
+     * bytes actually read, so an understated {@code file_size} is still caught
+     * without buffering past the cap). A cap of 0 means no cap.
      */
     private static Attachment withContent(Session session, Attachment attachment, long cap)
             throws IOException, InterruptedException {
-        if (attachment.getFileSize() > cap) {
+        if (cap > 0 && attachment.getFileSize() > cap) {
             throw Status.FAILED_PRECONDITION
                     .withDescription("attachment " + attachment.getId() + " is "
                             + attachment.getFileSize() + " bytes, above the " + cap
@@ -2145,10 +2152,11 @@ public final class ConfluenceGrpcService
                     .asRuntimeException();
         }
         byte[] bytes;
+        long readLimit = cap > 0 ? cap + 1 : Integer.MAX_VALUE - 8L;
         try (java.io.InputStream in = session.client.openAttachmentStream(attachment.getDownloadUrl())) {
-            bytes = in.readNBytes((int) Math.min(Integer.MAX_VALUE - 8L, cap + 1));
+            bytes = in.readNBytes((int) Math.min(Integer.MAX_VALUE - 8L, readLimit));
         }
-        if (bytes.length > cap) {
+        if (cap > 0 && bytes.length > cap) {
             throw Status.FAILED_PRECONDITION
                     .withDescription("attachment " + attachment.getId() + " downloaded above the "
                             + cap + " byte inline cap; use DownloadAttachment instead")

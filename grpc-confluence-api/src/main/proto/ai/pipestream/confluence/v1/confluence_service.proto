@@ -802,8 +802,11 @@ message GetAttachmentRequest {
   // ID of the attachment.
   string id = 1;
   // When true, the binary is downloaded through the client's download path
-  // and inlined as Attachment.content. There is no fixed cap: the only limit
-  // is `max_content_bytes` when the caller sets one. Bulk bytes are better
+  // and inlined as Attachment.content. No size cap by default: the limit is
+  // the tighter of `max_content_bytes` (when the caller sets one) and
+  // CONFLUENCE_ATTACHMENT_MAX_BYTES (when the operator sets one); above it
+  // the rpc fails with FAILED_PRECONDITION. Clients must allow inbound
+  // messages as large as the attachments they request. Bulk bytes are better
   // served by DownloadAttachment, which streams.
   bool include_content = 2;
   // Catalog connection to use. Empty = the process-default (env) connection.

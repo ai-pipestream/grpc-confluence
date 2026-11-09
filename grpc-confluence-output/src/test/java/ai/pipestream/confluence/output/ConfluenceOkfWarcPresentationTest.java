@@ -1,4 +1,4 @@
-package ai.pipestream.okf;
+package ai.pipestream.confluence.output;
 
 import ai.pipestream.confluence.v1.Attachment;
 import ai.pipestream.confluence.v1.BlogPost;
@@ -10,7 +10,10 @@ import ai.pipestream.confluence.v1.ConfluenceEntity;
 import ai.pipestream.confluence.v1.Label;
 import ai.pipestream.confluence.v1.Page;
 import ai.pipestream.confluence.v1.Space;
-import ai.pipestream.okf.confluence.ConfluenceCatalog;
+import ai.pipestream.okf.CatalogEntry;
+import ai.pipestream.okf.KnowledgeBundle;
+import ai.pipestream.okf.OkfConformance;
+import ai.pipestream.okf.OkfOutput;
 import ai.pipestream.okf.warc.WarcParse;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
