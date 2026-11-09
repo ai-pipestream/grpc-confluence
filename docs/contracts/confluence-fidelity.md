@@ -81,7 +81,7 @@ All additions are wire-compatible. They use new field numbers only, and
 | Database | `repeated IncludeExpansion truncated_includes` | 18 |
 | Folder | `repeated IncludeExpansion truncated_includes` | 18 |
 | SmartLink | `repeated IncludeExpansion truncated_includes` | 19 |
-| PropertyValue | oneof arms `PropertyNull null_value`, `PropertyList list_value`, `PropertyObject object_value`, `string big_integer_value` (replacing the removed `json_value` / `json_list_value`, now reserved) | 7, 8, 9, 10 (5, 6 reserved) |
+| PropertyValue | oneof arms `PropertyNull null_value`, `PropertyList list_value`, `PropertyObject object_value`, `string big_integer_value`, `string decimal_value` (replacing the removed `json_value` / `json_list_value`, now reserved) | 7, 8, 9, 10, 11 (5, 6 reserved) |
 | (new messages) | `PropertyNull`, `PropertyList`, `PropertyObject`, `PropertyEntry` | - |
 | (new enum) | `IncludeExpansion`: UNSPECIFIED, LABELS, PROPERTIES, OPERATIONS, LIKES, VERSIONS, DIRECT_CHILDREN, PERMISSIONS, ROLE_ASSIGNMENTS | - |
 
@@ -155,11 +155,12 @@ contract models them anyway, and the mapper fills them through the shared
    | `string string_value` | 1 | string |
    | `int64 integer_value` | 2 | integer token that fits in int64 |
    | `bool bool_value` | 3 | `true` / `false` |
-   | `double double_value` | 4 | number with a fraction or exponent (`1.0`, `2.5`, `1e3`) |
+   | `double double_value` | 4 | number with a fraction or exponent whose exact value is a double's shortest decimal form (`1.0`, `0.1`, `2.5`, `1e3`) |
    | `PropertyNull null_value` | 7 | explicit `null` (an unset oneof means no `value` was returned) |
    | `PropertyList list_value` | 8 | array: `repeated PropertyValue values`, in source order |
    | `PropertyObject object_value` | 9 | object: `repeated PropertyEntry entries` (`string key`, `PropertyValue value`), in source order |
    | `string big_integer_value` | 10 | integer token outside int64, as its exact canonical decimal digits |
+   | `string decimal_value` | 11 | number with a fraction or exponent that no double holds exactly (`1.00000000000000000001`, `1E+400`), as its exact `BigDecimal#toString()` text |
 
    The removed `json_value` (5, Struct) and `json_list_value` (6, ListValue)
    arms have both numbers and names reserved, so `buf breaking` (WIRE_JSON)
@@ -174,10 +175,32 @@ contract models them anyway, and the mapper fills them through the shared
      int64 was silently truncated by `longValue()`. `ConfluenceValidator`
      rejects a `big_integer_value` that is not canonical or that fits in
      int64.
-   - Numbers with a fraction or exponent are parsed by Jackson as IEEE 754
-     doubles before the mapper sees them, so a decimal with more than about
-     17 significant digits, or beyond the double range, is already rounded
-     at parse time.
+   - Decimals are lossless too. `ConfluenceClient` parses responses with
+     `USE_BIG_DECIMAL_FOR_FLOATS` (and `STRIP_TRAILING_BIGDECIMAL_ZEROES`
+     off), so every number with a fraction or exponent reaches the mapper as
+     an exact `BigDecimal` with its parsed scale; integers beyond int64 stay
+     `BigInteger`. If the double nearest the value is finite and its
+     `Double.toString` form is numerically equal to the value (`0.1`, `2.5`,
+     `1.50`), the value is `double_value`. Otherwise (more significant
+     digits than a double holds, or outside the double range, such as
+     `1.00000000000000000001`, `1e400` or `1e-400`) it is `decimal_value`
+     with `BigDecimal#toString()` text: optional `-`, coefficient digits with
+     an optional `.` fraction, and `E` plus a signed exponent when the
+     exponent is large or small (`1E+400`). That text is always valid JSON
+     number syntax, and trailing zeros of the parsed scale are kept. The
+     validator requires `decimal_value` to be exactly that canonical text and
+     not exactly representable as a double. The arm choice preserves the
+     numeric value, not the source spelling (`1.50` becomes the double 1.5),
+     and `-0.0` maps to `0.0` because `BigDecimal` has no signed zero.
+     Jackson's default 1000-character limit on number tokens still applies.
+   - Switching the parser changes no other mapper output: `doubleValue()`,
+     `asDouble()`, `intValue()`, `longValue()`, `asLong()` and
+     `isIntegralNumber()` give the same results for in-range numbers
+     (covered by `bigDecimalParsingLeavesOtherNumericReadsUnchanged`). The
+     one visible difference is the serialized `atlas_doc_format` text of an
+     ADF document, which now repeats a number like `1e3` or a 20-digit
+     decimal as its exact decimal (`1E+3`) instead of the rounded double
+     (`1000.0`).
    - Jackson's tree model keeps the last of duplicate object keys, so the
      REST edge cannot currently observe duplicates; the wire shape is ready
      for them if the client moves to a streaming parse.
@@ -277,7 +300,7 @@ Routes: GET /spaces, GET /spaces/{id}
 | `properties.results[]` | `Space.space_properties` | yes |
 | `properties.results[].id` | `SpaceProperty.id` | yes |
 | `properties.results[].key` | `SpaceProperty.key` | yes |
-| `properties.results[].value` | `SpaceProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
+| `properties.results[].value` | `SpaceProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/decimal/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
 | `properties.results[].createdAt` | `SpaceProperty.created_at` | yes |
 | `properties.results[].createdBy` | `SpaceProperty.created_by` | yes |
 | `properties.results[].version` | `SpaceProperty.version` | yes |
@@ -354,7 +377,7 @@ Routes: GET /pages, GET /spaces/{id}/pages, GET /labels/{id}/pages, GET /pages/{
 | `properties.results[]` | `Page.properties` | yes |
 | `properties.results[].id` | `ContentProperty.id` | yes |
 | `properties.results[].key` | `ContentProperty.key` | yes |
-| `properties.results[].value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
+| `properties.results[].value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/decimal/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
 | `properties.results[].version` | `ContentProperty.version` | yes |
 | `properties.results[].version.createdAt` | `Version.created_at` | yes |
 | `properties.results[].version.message` | `Version.message` | yes |
@@ -428,7 +451,7 @@ Routes: GET /blogposts, GET /spaces/{id}/blogposts, GET /labels/{id}/blogposts, 
 | `properties.results[]` | `BlogPost.properties` | yes |
 | `properties.results[].id` | `ContentProperty.id` | yes |
 | `properties.results[].key` | `ContentProperty.key` | yes |
-| `properties.results[].value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
+| `properties.results[].value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/decimal/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
 | `properties.results[].version` | `ContentProperty.version` | yes |
 | `properties.results[].version.createdAt` | `Version.created_at` | yes |
 | `properties.results[].version.message` | `Version.message` | yes |
@@ -499,7 +522,7 @@ Routes: GET /attachments, GET /pages/{id}/attachments, GET /blogposts/{id}/attac
 | `properties.results[]` | `Attachment.properties` | yes |
 | `properties.results[].id` | `ContentProperty.id` | yes |
 | `properties.results[].key` | `ContentProperty.key` | yes |
-| `properties.results[].value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
+| `properties.results[].value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/decimal/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
 | `properties.results[].version` | `ContentProperty.version` | yes |
 | `properties.results[].version.createdAt` | `Version.created_at` | yes |
 | `properties.results[].version.message` | `Version.message` | yes |
@@ -564,7 +587,7 @@ Routes: GET /pages/{id}/footer-comments, GET /blogposts/{id}/footer-comments, GE
 | `properties.results[]` | `Comment.properties` | yes |
 | `properties.results[].id` | `ContentProperty.id` | yes |
 | `properties.results[].key` | `ContentProperty.key` | yes |
-| `properties.results[].value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
+| `properties.results[].value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/decimal/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
 | `properties.results[].version` | `ContentProperty.version` | yes |
 | `properties.results[].version.createdAt` | `Version.created_at` | yes |
 | `properties.results[].version.message` | `Version.message` | yes |
@@ -641,7 +664,7 @@ Routes: GET /custom-content, GET /spaces/{id}/custom-content, GET /pages/{id}/cu
 | `properties.results[]` | `CustomContent.properties` | yes |
 | `properties.results[].id` | `ContentProperty.id` | yes |
 | `properties.results[].key` | `ContentProperty.key` | yes |
-| `properties.results[].value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
+| `properties.results[].value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/decimal/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
 | `properties.results[].version` | `ContentProperty.version` | yes |
 | `properties.results[].version.createdAt` | `Version.created_at` | yes |
 | `properties.results[].version.message` | `Version.message` | yes |
@@ -876,7 +899,7 @@ Routes: GET /pages/{page-id}/properties, GET /blogposts/{blogpost-id}/properties
 |---|---|---|
 | `id` | `ContentProperty.id` | yes |
 | `key` | `ContentProperty.key` | yes |
-| `value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
+| `value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/decimal/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
 | `version` | `ContentProperty.version` | yes |
 | `version.createdAt` | `Version.created_at` | yes |
 | `version.message` | `Version.message` | yes |
@@ -892,7 +915,7 @@ Routes: GET /spaces/{space-id}/properties
 |---|---|---|
 | `id` | `SpaceProperty.id` | yes |
 | `key` | `SpaceProperty.key` | yes |
-| `value` | `SpaceProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
+| `value` | `SpaceProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/decimal/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
 | `createdAt` | `SpaceProperty.created_at` | yes |
 | `createdBy` | `SpaceProperty.created_by` | yes |
 | `version` | `SpaceProperty.version` | yes |

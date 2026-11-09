@@ -123,6 +123,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import com.google.protobuf.Timestamp;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -1699,7 +1700,12 @@ public final class ConfluenceMapper {
      * {@code Struct} round-trip. Integer tokens that fit in int64 stay
      * {@code integer_value}; larger ones keep their exact decimal digits in
      * {@code big_integer_value}, so nothing is rounded through a double.
-     * Fractional or exponent numbers become {@code double_value}. Object
+     * Fractional or exponent numbers become {@code double_value} when the
+     * double's shortest decimal form equals the exact value, and otherwise
+     * {@code decimal_value} with the exact {@link BigDecimal#toString()}
+     * text; that choice needs the {@link ConfluenceClient} parser, which
+     * reads floats as {@link BigDecimal}s (a tree whose floats are already
+     * doubles maps them to {@code double_value} as parsed). Object
      * members keep source order, and duplicate keys (when the parser
      * retains them) stay separate entries.
      *
@@ -1722,6 +1728,14 @@ public final class ConfluenceMapper {
                 return b.setIntegerValue(node.longValue()).build();
             }
             return b.setBigIntegerValue(node.bigIntegerValue().toString()).build();
+        }
+        if (node.isBigDecimal()) {
+            BigDecimal exact = node.decimalValue();
+            double approx = exact.doubleValue();
+            if (Double.isFinite(approx) && new BigDecimal(Double.toString(approx)).compareTo(exact) == 0) {
+                return b.setDoubleValue(approx).build();
+            }
+            return b.setDecimalValue(exact.toString()).build();
         }
         if (node.isNumber()) {
             return b.setDoubleValue(node.doubleValue()).build();

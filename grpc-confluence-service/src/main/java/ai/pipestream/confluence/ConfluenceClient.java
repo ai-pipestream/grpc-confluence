@@ -1,7 +1,10 @@
 package ai.pipestream.confluence;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.cfg.JsonNodeFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -75,11 +78,32 @@ public final class ConfluenceClient {
         }
     }
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    /**
+     * Response parser. Floating-point numbers parse as exact
+     * {@link java.math.BigDecimal}s with their scale kept, and integers
+     * beyond int64 as {@link java.math.BigInteger}s, so no numeric value is
+     * rounded before the mapper decides between a double and an exact
+     * decimal. {@code doubleValue()} and integral accessors on these nodes
+     * return the same values the default double parse gave.
+     */
+    private static final ObjectMapper JSON = JsonMapper.builder()
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+            .disable(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES)
+            .build();
     private static final int MAX_THROTTLE_RETRIES = 5;
     /** Redirect hops allowed on an attachment download (302 to the media CDN). */
     private static final int MAX_DOWNLOAD_REDIRECTS = 5;
     private static final Duration DEFAULT_MIN_REQUEST_INTERVAL = Duration.ofMillis(100);
+
+    /**
+     * The mapper responses are parsed with, so tests build exactly the
+     * trees the client hands the mapper.
+     *
+     * @return the shared, fully configured response mapper
+     */
+    static ObjectMapper responseJson() {
+        return JSON;
+    }
 
     private final String baseUrl;
     private final String origin;

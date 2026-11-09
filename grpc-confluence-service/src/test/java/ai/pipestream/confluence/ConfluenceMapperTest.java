@@ -52,7 +52,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class ConfluenceMapperTest {
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    /** The client's own response parser, so trees match production (floats as BigDecimal). */
+    private static final ObjectMapper JSON = ConfluenceClient.responseJson();
     private static final String BASE = "https://pipestreamai.atlassian.net/wiki";
 
     private final ConfluenceMapper mapper = new ConfluenceMapper(BASE);
@@ -548,6 +549,50 @@ class ConfluenceMapperTest {
                 ConfluenceFixtures.propertyJson("p8", "my-plugin-huge", "18446744073709551616")));
         assertThat(top.getValue().getBigIntegerValue()).isEqualTo("18446744073709551616");
         assertThat(ConfluenceValidator.create().validate(top).isValid()).isTrue();
+    }
+
+    @Test
+    void decimalsADoubleCannotHoldKeepTheirExactText() throws Exception {
+        PropertyList values = ConfluenceMapper.toPropertyValue(tree(
+                "[0.1, 1.00000000000000000001, 1e400, -1e-400, 0.30000000000000004, "
+                        + "3.14159265358979323846264338327950288, 1.50, 1.000000000000000000010]"))
+                .getListValue();
+        assertThat(values.getValues(0).getValueCase()).isEqualTo(PropertyValue.ValueCase.DOUBLE_VALUE);
+        assertThat(values.getValues(0).getDoubleValue()).isEqualTo(0.1d);
+        assertThat(values.getValues(1).getValueCase()).isEqualTo(PropertyValue.ValueCase.DECIMAL_VALUE);
+        assertThat(values.getValues(1).getDecimalValue()).isEqualTo("1.00000000000000000001");
+        assertThat(values.getValues(2).getDecimalValue()).isEqualTo("1E+400");
+        assertThat(values.getValues(3).getDecimalValue()).isEqualTo("-1E-400");
+        assertThat(values.getValues(4).getDoubleValue()).isEqualTo(0.30000000000000004d);
+        assertThat(values.getValues(5).getDecimalValue())
+                .isEqualTo("3.14159265358979323846264338327950288");
+        // Equal in value to the double 1.5, so the double holds it.
+        assertThat(values.getValues(6).getDoubleValue()).isEqualTo(1.5d);
+        // Trailing zeros of an inexact decimal keep the parsed scale.
+        assertThat(values.getValues(7).getDecimalValue()).isEqualTo("1.000000000000000000010");
+
+        ContentProperty top = mapper.toContentProperty(tree(
+                ConfluenceFixtures.propertyJson("p11", "my-plugin-precise", "1.00000000000000000001")));
+        assertThat(top.getValue().getDecimalValue()).isEqualTo("1.00000000000000000001");
+        assertThat(ConfluenceValidator.create().validate(top).isValid()).isTrue();
+    }
+
+    @Test
+    void bigDecimalParsingLeavesOtherNumericReadsUnchanged() throws Exception {
+        ObjectMapper plain = new ObjectMapper();
+        String json = "{\"a\": 1.5, \"b\": -2.75, \"c\": 1e3, \"d\": 7, \"e\": 0.1, \"f\": 123.999}";
+        JsonNode exact = tree(json);
+        JsonNode doubles = plain.readTree(json);
+        for (String field : List.of("a", "b", "c", "d", "e", "f")) {
+            assertThat(exact.path(field).doubleValue()).as(field).isEqualTo(doubles.path(field).doubleValue());
+            assertThat(exact.path(field).asDouble()).as(field).isEqualTo(doubles.path(field).asDouble());
+            assertThat(exact.path(field).longValue()).as(field).isEqualTo(doubles.path(field).longValue());
+            assertThat(exact.path(field).intValue()).as(field).isEqualTo(doubles.path(field).intValue());
+            assertThat(exact.path(field).asLong()).as(field).isEqualTo(doubles.path(field).asLong());
+            assertThat(exact.path(field).isNumber()).as(field).isTrue();
+            assertThat(exact.path(field).isIntegralNumber()).as(field)
+                    .isEqualTo(doubles.path(field).isIntegralNumber());
+        }
     }
 
     @Test

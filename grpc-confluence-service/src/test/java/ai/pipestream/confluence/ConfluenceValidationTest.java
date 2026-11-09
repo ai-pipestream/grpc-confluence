@@ -107,6 +107,15 @@ class ConfluenceValidationTest {
 
         assertValid(base.toBuilder().setValue(PropertyValue.newBuilder()
                 .setBigIntegerValue("-9223372036854775809")).build());
+        assertValid(base.toBuilder().setValue(PropertyValue.newBuilder()
+                .setDecimalValue("1.00000000000000000001")).build());
+        assertValid(base.toBuilder().setValue(PropertyValue.newBuilder()
+                .setDecimalValue("1E+400")).build());
+        for (String bad : new String[] {"0.1", "1.5", "1e+400", "+1.00000000000000000001", ".5", "", "x"}) {
+            assertViolation(base.toBuilder().setValue(PropertyValue.newBuilder()
+                            .setDecimalValue(bad)).build(),
+                    "value.decimal_value", "property_value.decimal");
+        }
         for (String bad : new String[] {"42", "9223372036854775807", "007", "1e30", "", "-", "+1"}) {
             assertViolation(base.toBuilder().setValue(PropertyValue.newBuilder()
                             .setBigIntegerValue(bad)).build(),

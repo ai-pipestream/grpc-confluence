@@ -55,7 +55,10 @@ message PropertyValue {
     int64 integer_value = 2;
     // JSON true or false.
     bool bool_value = 3;
-    // JSON number with a fraction or exponent, as an IEEE 754 double.
+    // JSON number with a fraction or exponent whose exact value is the
+    // shortest round-trip decimal form of an IEEE 754 double (0.1, 2.5,
+    // 1e3), so the double loses nothing. Other such numbers use
+    // decimal_value.
     double double_value = 4;
     // JSON null, stated explicitly (distinct from an unset oneof, which
     // means no value was returned).
@@ -68,6 +71,14 @@ message PropertyValue {
     // canonical base-10 digits (an optional leading '-', no leading zeros),
     // so no precision is lost to a double.
     string big_integer_value = 10;
+    // JSON number with a fraction or exponent that a double cannot hold
+    // exactly (too many significant digits, or outside the double range),
+    // kept as the exact decimal in java.math.BigDecimal#toString form: an
+    // optional '-', the coefficient digits with an optional '.' fraction,
+    // and, when the exponent is large or small, 'E' with a signed exponent
+    // (for example "1.00000000000000000001" or "1E+400"). Always valid JSON
+    // number text; the parsed scale (trailing zeros) is kept.
+    string decimal_value = 11;
   }
 }
 

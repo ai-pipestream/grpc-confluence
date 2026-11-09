@@ -47,6 +47,7 @@ import com.google.protobuf.Message;
 import com.google.protobuf.Timestamp;
 import io.grpc.Status;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
@@ -399,7 +400,9 @@ public final class ConfluenceValidator {
      * must set an arm (a nested JSON null is {@code null_value}, never an
      * unset oneof), and {@code big_integer_value} must hold canonical decimal
      * digits outside the int64 range (inside it, {@code integer_value} is the
-     * only correct arm).
+     * only correct arm), and {@code decimal_value} must be canonical
+     * {@link BigDecimal#toString()} text whose value a double cannot hold
+     * exactly (otherwise {@code double_value} is the correct arm).
      */
     private static void visitPropertyValue(String prefix, PropertyValue value, List<Violation> out) {
         switch (value.getValueCase()) {
@@ -407,6 +410,12 @@ public final class ConfluenceValidator {
                 if (!isBigIntegerOutsideInt64(value.getBigIntegerValue())) {
                     out.add(new Violation(child(prefix, "big_integer_value"), "property_value.big_integer",
                             "big_integer_value must be canonical decimal digits outside the int64 range"));
+                }
+            }
+            case DECIMAL_VALUE -> {
+                if (!isInexactDecimal(value.getDecimalValue())) {
+                    out.add(new Violation(child(prefix, "decimal_value"), "property_value.decimal",
+                            "decimal_value must be BigDecimal#toString text a double cannot hold exactly"));
                 }
             }
             case LIST_VALUE -> {
@@ -441,6 +450,26 @@ public final class ConfluenceValidator {
             return;
         }
         visitPropertyValue(prefix, value, out);
+    }
+
+    /**
+     * Canonical {@link BigDecimal#toString()} text (the constructor's
+     * output reproduces it, which rejects '+', lowercase 'e', bare '.',
+     * non-ASCII digits and other spellings) for a value whose nearest double
+     * is infinite or prints as a different decimal.
+     */
+    private static boolean isInexactDecimal(String text) {
+        BigDecimal exact;
+        try {
+            exact = new BigDecimal(text);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        if (!exact.toString().equals(text)) {
+            return false;
+        }
+        double approx = exact.doubleValue();
+        return !Double.isFinite(approx) || new BigDecimal(Double.toString(approx)).compareTo(exact) != 0;
     }
 
     /** Canonical base-10 integer text (optional '-', no leading zeros, no "-0") outside int64. */
