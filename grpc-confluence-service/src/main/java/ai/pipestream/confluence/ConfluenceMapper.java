@@ -84,7 +84,11 @@ import ai.pipestream.confluence.v1.Page;
 import ai.pipestream.confluence.v1.ParentContentType;
 import ai.pipestream.confluence.v1.Principal;
 import ai.pipestream.confluence.v1.PrincipalType;
+import ai.pipestream.confluence.v1.PropertyEntry;
 import ai.pipestream.confluence.v1.PropertyKey;
+import ai.pipestream.confluence.v1.PropertyList;
+import ai.pipestream.confluence.v1.PropertyNull;
+import ai.pipestream.confluence.v1.PropertyObject;
 import ai.pipestream.confluence.v1.PropertyValue;
 import ai.pipestream.confluence.v1.ResolvedContentType;
 import ai.pipestream.confluence.v1.RestrictionState;
@@ -117,10 +121,7 @@ import ai.pipestream.confluence.v1.Whiteboard;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
-import com.google.protobuf.ListValue;
-import com.google.protobuf.Struct;
 import com.google.protobuf.Timestamp;
-import com.google.protobuf.Value;
 
 import java.net.URI;
 import java.time.Instant;
@@ -679,30 +680,22 @@ public final class ConfluenceMapper {
         }
     }
 
-    /** The oneof arm matches the JSON value's actual type; objects go to json_value, arrays to json_list_value. */
+    /**
+     * Sets the property's {@code value} member as a typed {@link PropertyValue}
+     * tree (see {@link #toPropertyValue(JsonNode)}). A missing member leaves
+     * the value unset; an explicit JSON {@code null} becomes
+     * {@code null_value}.
+     *
+     * @param node the property object
+     * @param valueSetter receives the mapped value
+     */
     static void setPropertyValue(JsonNode node,
             java.util.function.Consumer<PropertyValue> valueSetter) {
         JsonNode value = node.path("value");
-        if (value.isMissingNode() || value.isNull()) {
+        if (value.isMissingNode()) {
             return;
         }
-        PropertyValue.Builder b = PropertyValue.newBuilder();
-        if (value.isTextual()) {
-            b.setStringValue(value.asText());
-        } else if (value.isBoolean()) {
-            b.setBoolValue(value.asBoolean());
-        } else if (value.isIntegralNumber()) {
-            b.setIntegerValue(value.longValue());
-        } else if (value.isNumber()) {
-            b.setDoubleValue(value.doubleValue());
-        } else if (value.isObject()) {
-            b.setJsonValue(toStruct(value));
-        } else if (value.isArray()) {
-            b.setJsonListValue(toListValue(value));
-        } else {
-            return;
-        }
-        valueSetter.accept(b.build());
+        valueSetter.accept(toPropertyValue(value));
     }
 
     // ======================================================================
@@ -1700,42 +1693,57 @@ public final class ConfluenceMapper {
         }
     }
 
-    /** Jackson tree to protobuf Struct, for property values that genuinely are structured JSON. */
-    static Struct toStruct(JsonNode node) {
-        Struct.Builder b = Struct.newBuilder();
-        for (Map.Entry<String, JsonNode> field : node.properties()) {
-            b.putFields(field.getKey(), toValue(field.getValue()));
-        }
-        return b.build();
-    }
-
-    /** Jackson array to protobuf ListValue, element by element. */
-    static ListValue toListValue(JsonNode array) {
-        ListValue.Builder list = ListValue.newBuilder();
-        array.forEach(item -> list.addValues(toValue(item)));
-        return list.build();
-    }
-
-    private static Value toValue(JsonNode node) {
-        Value.Builder b = Value.newBuilder();
+    /**
+     * Converts one Jackson node, recursively, into the typed
+     * {@link PropertyValue} tree, field by field and without any JSON or
+     * {@code Struct} round-trip. Integer tokens that fit in int64 stay
+     * {@code integer_value}; larger ones keep their exact decimal digits in
+     * {@code big_integer_value}, so nothing is rounded through a double.
+     * Fractional or exponent numbers become {@code double_value}. Object
+     * members keep source order, and duplicate keys (when the parser
+     * retains them) stay separate entries.
+     *
+     * @param node the JSON value; {@code null} or missing maps to {@code null_value}
+     * @return the typed value
+     */
+    static PropertyValue toPropertyValue(JsonNode node) {
+        PropertyValue.Builder b = PropertyValue.newBuilder();
         if (node == null || node.isNull() || node.isMissingNode()) {
-            return b.setNullValue(com.google.protobuf.NullValue.NULL_VALUE).build();
+            return b.setNullValue(PropertyNull.getDefaultInstance()).build();
         }
         if (node.isTextual()) {
-            return b.setStringValue(node.asText()).build();
+            return b.setStringValue(node.textValue()).build();
         }
         if (node.isBoolean()) {
-            return b.setBoolValue(node.asBoolean()).build();
+            return b.setBoolValue(node.booleanValue()).build();
+        }
+        if (node.isIntegralNumber()) {
+            if (node.canConvertToLong()) {
+                return b.setIntegerValue(node.longValue()).build();
+            }
+            return b.setBigIntegerValue(node.bigIntegerValue().toString()).build();
         }
         if (node.isNumber()) {
-            return b.setNumberValue(node.doubleValue()).build();
+            return b.setDoubleValue(node.doubleValue()).build();
         }
         if (node.isArray()) {
-            return b.setListValue(toListValue(node)).build();
+            PropertyList.Builder list = PropertyList.newBuilder();
+            for (JsonNode item : node) {
+                list.addValues(toPropertyValue(item));
+            }
+            return b.setListValue(list).build();
         }
         if (node.isObject()) {
-            return b.setStructValue(toStruct(node)).build();
+            PropertyObject.Builder object = PropertyObject.newBuilder();
+            for (Map.Entry<String, JsonNode> field : node.properties()) {
+                object.addEntries(PropertyEntry.newBuilder()
+                        .setKey(field.getKey())
+                        .setValue(toPropertyValue(field.getValue())));
+            }
+            return b.setObjectValue(object).build();
         }
+        // Binary, POJO and other non-JSON node kinds never come from a parsed
+        // response; keep their text rather than dropping them.
         return b.setStringValue(node.asText()).build();
     }
 

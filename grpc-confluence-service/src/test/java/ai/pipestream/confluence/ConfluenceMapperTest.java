@@ -23,7 +23,10 @@ import ai.pipestream.confluence.v1.Folder;
 import ai.pipestream.confluence.v1.InlineCommentResolutionStatus;
 import ai.pipestream.confluence.v1.Label;
 import ai.pipestream.confluence.v1.Page;
+import ai.pipestream.confluence.v1.PropertyEntry;
 import ai.pipestream.confluence.v1.PropertyKey;
+import ai.pipestream.confluence.v1.PropertyList;
+import ai.pipestream.confluence.v1.PropertyObject;
 import ai.pipestream.confluence.v1.PropertyValue;
 import ai.pipestream.confluence.v1.Space;
 import ai.pipestream.confluence.v1.SpaceProperty;
@@ -289,16 +292,17 @@ class ConfluenceMapperTest {
                 ConfluenceFixtures.propertyJson("p5", "my-plugin-ratio", "1.5")));
         assertThat(ratio.getValue().getDoubleValue()).isEqualTo(1.5d);
 
-        // Objects land in json_value, the schema's only Struct.
+        // Objects land in object_value, the schema's own typed tree.
         ContentProperty structured = mapper.toContentProperty(tree(
                 ConfluenceFixtures.propertyJson("p6", "my-plugin-config",
                         "{\"mode\": \"fast\", \"retries\": 3}")));
         assertThat(structured.getValue().getValueCase())
-                .isEqualTo(PropertyValue.ValueCase.JSON_VALUE);
-        assertThat(structured.getValue().getJsonValue().getFieldsOrThrow("mode").getStringValue())
-                .isEqualTo("fast");
-        assertThat(structured.getValue().getJsonValue().getFieldsOrThrow("retries")
-                .getNumberValue()).isEqualTo(3d);
+                .isEqualTo(PropertyValue.ValueCase.OBJECT_VALUE);
+        PropertyObject config = structured.getValue().getObjectValue();
+        assertThat(config.getEntries(0).getKey()).isEqualTo("mode");
+        assertThat(config.getEntries(0).getValue().getStringValue()).isEqualTo("fast");
+        assertThat(config.getEntries(1).getKey()).isEqualTo("retries");
+        assertThat(config.getEntries(1).getValue().getIntegerValue()).isEqualTo(3L);
     }
 
     @Test
@@ -464,18 +468,118 @@ class ConfluenceMapperTest {
                 ConfluenceFixtures.propertyJson("p7", "my-plugin-tags",
                         "[\"a\", 2, true, {\"k\": \"v\"}]")));
         assertThat(list.getValue().getValueCase())
-                .isEqualTo(PropertyValue.ValueCase.JSON_LIST_VALUE);
-        assertThat(list.getValue().getJsonListValue().getValuesCount()).isEqualTo(4);
-        assertThat(list.getValue().getJsonListValue().getValues(0).getStringValue()).isEqualTo("a");
-        assertThat(list.getValue().getJsonListValue().getValues(1).getNumberValue()).isEqualTo(2d);
-        assertThat(list.getValue().getJsonListValue().getValues(2).getBoolValue()).isTrue();
-        assertThat(list.getValue().getJsonListValue().getValues(3).getStructValue()
-                .getFieldsOrThrow("k").getStringValue()).isEqualTo("v");
+                .isEqualTo(PropertyValue.ValueCase.LIST_VALUE);
+        PropertyList values = list.getValue().getListValue();
+        assertThat(values.getValuesCount()).isEqualTo(4);
+        assertThat(values.getValues(0).getStringValue()).isEqualTo("a");
+        assertThat(values.getValues(1).getValueCase()).isEqualTo(PropertyValue.ValueCase.INTEGER_VALUE);
+        assertThat(values.getValues(1).getIntegerValue()).isEqualTo(2L);
+        assertThat(values.getValues(2).getBoolValue()).isTrue();
+        assertThat(values.getValues(3).getObjectValue().getEntries(0).getKey()).isEqualTo("k");
+        assertThat(values.getValues(3).getObjectValue().getEntries(0).getValue().getStringValue())
+                .isEqualTo("v");
 
         SpaceProperty spaceList = mapper.toSpaceProperty(tree("""
                 {"id": "sp2", "key": "theme-stack", "value": ["dark", "compact"]}
                 """));
-        assertThat(spaceList.getValue().getJsonListValue().getValuesCount()).isEqualTo(2);
+        assertThat(spaceList.getValue().getListValue().getValuesCount()).isEqualTo(2);
+    }
+
+    @Test
+    void nestedObjectsAndArraysOfObjectsMapRecursively() throws Exception {
+        PropertyValue value = ConfluenceMapper.toPropertyValue(tree("""
+                {"outer": {"inner": {"deep": [1, {"x": null}]}},
+                 "rows": [{"id": 1, "tags": ["a"]}, {"id": 2, "tags": []}]}
+                """));
+        PropertyObject root = value.getObjectValue();
+        PropertyValue deep = root.getEntries(0).getValue().getObjectValue()
+                .getEntries(0).getValue().getObjectValue().getEntries(0).getValue();
+        assertThat(root.getEntries(0).getValue().getObjectValue().getEntries(0).getKey())
+                .isEqualTo("inner");
+        assertThat(deep.getListValue().getValues(0).getIntegerValue()).isEqualTo(1L);
+        PropertyEntry x = deep.getListValue().getValues(1).getObjectValue().getEntries(0);
+        assertThat(x.getKey()).isEqualTo("x");
+        assertThat(x.getValue().getValueCase()).isEqualTo(PropertyValue.ValueCase.NULL_VALUE);
+
+        PropertyList rows = root.getEntries(1).getValue().getListValue();
+        assertThat(rows.getValuesCount()).isEqualTo(2);
+        PropertyObject second = rows.getValues(1).getObjectValue();
+        assertThat(second.getEntries(0).getKey()).isEqualTo("id");
+        assertThat(second.getEntries(0).getValue().getIntegerValue()).isEqualTo(2L);
+        assertThat(second.getEntries(1).getValue().getValueCase())
+                .isEqualTo(PropertyValue.ValueCase.LIST_VALUE);
+        assertThat(second.getEntries(1).getValue().getListValue().getValuesCount()).isZero();
+        assertThat(rows.getValues(0).getObjectValue().getEntries(1).getValue().getListValue()
+                .getValues(0).getStringValue()).isEqualTo("a");
+    }
+
+    @Test
+    void integersStayIntegersAndOnlyFractionsBecomeDoubles() throws Exception {
+        PropertyList values = ConfluenceMapper.toPropertyValue(tree(
+                "[0, -7, 9223372036854775807, -9223372036854775808, 1.0, 2.5, 1e3, -0.0]"))
+                .getListValue();
+        assertThat(values.getValues(0).getValueCase()).isEqualTo(PropertyValue.ValueCase.INTEGER_VALUE);
+        assertThat(values.getValues(0).getIntegerValue()).isZero();
+        assertThat(values.getValues(1).getIntegerValue()).isEqualTo(-7L);
+        assertThat(values.getValues(2).getIntegerValue()).isEqualTo(Long.MAX_VALUE);
+        assertThat(values.getValues(3).getIntegerValue()).isEqualTo(Long.MIN_VALUE);
+        for (int i = 4; i < 8; i++) {
+            assertThat(values.getValues(i).getValueCase()).as("element %d", i)
+                    .isEqualTo(PropertyValue.ValueCase.DOUBLE_VALUE);
+        }
+        assertThat(values.getValues(4).getDoubleValue()).isEqualTo(1.0d);
+        assertThat(values.getValues(5).getDoubleValue()).isEqualTo(2.5d);
+        assertThat(values.getValues(6).getDoubleValue()).isEqualTo(1000d);
+    }
+
+    @Test
+    void integersBeyondInt64KeepTheirExactDigits() throws Exception {
+        PropertyList values = ConfluenceMapper.toPropertyValue(tree(
+                "[9223372036854775808, -9223372036854775809, 123456789012345678901234567890]"))
+                .getListValue();
+        assertThat(values.getValuesList()).allSatisfy(v -> assertThat(v.getValueCase())
+                .isEqualTo(PropertyValue.ValueCase.BIG_INTEGER_VALUE));
+        assertThat(values.getValues(0).getBigIntegerValue()).isEqualTo("9223372036854775808");
+        assertThat(values.getValues(1).getBigIntegerValue()).isEqualTo("-9223372036854775809");
+        assertThat(values.getValues(2).getBigIntegerValue())
+                .isEqualTo("123456789012345678901234567890");
+
+        ContentProperty top = mapper.toContentProperty(tree(
+                ConfluenceFixtures.propertyJson("p8", "my-plugin-huge", "18446744073709551616")));
+        assertThat(top.getValue().getBigIntegerValue()).isEqualTo("18446744073709551616");
+        assertThat(ConfluenceValidator.create().validate(top).isValid()).isTrue();
+    }
+
+    @Test
+    void nullAndEmptyContainersAreExplicit() throws Exception {
+        ContentProperty explicitNull = mapper.toContentProperty(tree(
+                ConfluenceFixtures.propertyJson("p9", "my-plugin-none", "null")));
+        assertThat(explicitNull.getValue().getValueCase()).isEqualTo(PropertyValue.ValueCase.NULL_VALUE);
+
+        ContentProperty missing = mapper.toContentProperty(tree(
+                "{\"id\": \"p10\", \"key\": \"my-plugin-absent\"}"));
+        assertThat(missing.hasValue()).isFalse();
+
+        PropertyValue emptyObject = ConfluenceMapper.toPropertyValue(tree("{}"));
+        assertThat(emptyObject.getValueCase()).isEqualTo(PropertyValue.ValueCase.OBJECT_VALUE);
+        assertThat(emptyObject.getObjectValue().getEntriesCount()).isZero();
+
+        PropertyValue emptyList = ConfluenceMapper.toPropertyValue(tree("[]"));
+        assertThat(emptyList.getValueCase()).isEqualTo(PropertyValue.ValueCase.LIST_VALUE);
+        assertThat(emptyList.getListValue().getValuesCount()).isZero();
+
+        assertThat(ConfluenceMapper.toPropertyValue(tree("\"\"")).getValueCase())
+                .isEqualTo(PropertyValue.ValueCase.STRING_VALUE);
+    }
+
+    @Test
+    void objectMembersKeepSourceOrder() throws Exception {
+        PropertyObject object = ConfluenceMapper.toPropertyValue(tree(
+                "{\"zeta\": 1, \"alpha\": 2, \"mid\": 3, \"Alpha\": 4}")).getObjectValue();
+        assertThat(object.getEntriesList()).extracting(PropertyEntry::getKey)
+                .containsExactly("zeta", "alpha", "mid", "Alpha");
+        assertThat(object.getEntriesList()).extracting(e -> e.getValue().getIntegerValue())
+                .containsExactly(1L, 2L, 3L, 4L);
     }
 
     @Test

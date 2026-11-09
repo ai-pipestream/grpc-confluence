@@ -8,7 +8,12 @@ import ai.pipestream.confluence.v1.ConfluenceEntity;
 import ai.pipestream.confluence.v1.ContentProperty;
 import ai.pipestream.confluence.v1.IncludeExpansion;
 import ai.pipestream.confluence.v1.Page;
+import ai.pipestream.confluence.v1.PropertyEntry;
 import ai.pipestream.confluence.v1.PropertyKey;
+import ai.pipestream.confluence.v1.PropertyList;
+import ai.pipestream.confluence.v1.PropertyNull;
+import ai.pipestream.confluence.v1.PropertyObject;
+import ai.pipestream.confluence.v1.PropertyValue;
 import ai.pipestream.confluence.v1.Redaction;
 import ai.pipestream.confluence.v1.Space;
 import ai.pipestream.confluence.v1.SpaceProperty;
@@ -79,6 +84,34 @@ class ConfluenceValidationTest {
         assertViolation(valid.toBuilder().setRedactionId("not-a-uuid").build(),
                 "redaction_id", "redaction.id_uuid");
         assertValid(valid.toBuilder().clearRedactionId().build());
+    }
+
+    @Test
+    void propertyValueTreesAreFullyTyped() {
+        ContentProperty base = ContentProperty.newBuilder().setId("p1")
+                .setKey(PropertyKey.PROPERTY_KEY_EDITOR).build();
+        PropertyValue nullValue = PropertyValue.newBuilder()
+                .setNullValue(PropertyNull.getDefaultInstance()).build();
+        PropertyValue tree = PropertyValue.newBuilder().setObjectValue(PropertyObject.newBuilder()
+                .addEntries(PropertyEntry.newBuilder().setKey("a").setValue(nullValue))
+                .addEntries(PropertyEntry.newBuilder().setKey("b").setValue(PropertyValue.newBuilder()
+                        .setListValue(PropertyList.newBuilder().addValues(nullValue))))).build();
+        assertValid(base.toBuilder().setValue(tree).build());
+
+        assertViolation(base.toBuilder().setValue(PropertyValue.newBuilder().setListValue(
+                        PropertyList.newBuilder().addValues(PropertyValue.getDefaultInstance()))).build(),
+                "value.list_value.values[0]", "property_value.nested_set");
+        assertViolation(base.toBuilder().setValue(PropertyValue.newBuilder().setObjectValue(
+                        PropertyObject.newBuilder().addEntries(PropertyEntry.newBuilder().setKey("k")))).build(),
+                "value.object_value.entries[0].value", "property_value.nested_set");
+
+        assertValid(base.toBuilder().setValue(PropertyValue.newBuilder()
+                .setBigIntegerValue("-9223372036854775809")).build());
+        for (String bad : new String[] {"42", "9223372036854775807", "007", "1e30", "", "-", "+1"}) {
+            assertViolation(base.toBuilder().setValue(PropertyValue.newBuilder()
+                            .setBigIntegerValue(bad)).build(),
+                    "value.big_integer_value", "property_value.big_integer");
+        }
     }
 
     @Test

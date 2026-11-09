@@ -3,7 +3,6 @@ syntax = "proto3";
 package ai.pipestream.confluence.v1;
 
 import "ai/pipestream/confluence/v1/common.proto";
-import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
 option java_multiple_files = true;
@@ -16,9 +15,10 @@ option java_package = "ai.pipestream.confluence.v1";
 // PropertyKey (the REST-edge mapper translates the API's string keys; that
 // translation is documented here, not the schema's concern) and the value is
 // a PropertyValue oneof whose arm matches the value's actual type.
-// google.protobuf.Struct (and ListValue, for top-level arrays) appears only
-// in the json_value / json_list_value arms, for values that genuinely are
-// structured JSON.
+// Structured values (objects and arrays, at any depth) are the schema's own
+// recursive PropertyValue tree, never google.protobuf.Struct: integers stay
+// integers, object keys keep their source order, and duplicate keys are kept
+// as separate entries instead of being merged.
 // ============================================================================
 
 // A well-known Confluence property key. CUSTOM is the escape hatch: when the
@@ -36,29 +36,64 @@ enum PropertyKey {
   PROPERTY_KEY_CUSTOM = 99;
 }
 
-// A typed property value. The arm matches the value's actual type; json_value
-// is only for values that genuinely are structured JSON (custom keys with
-// object values).
+// A typed property value: one JSON value, recursively. The set arm matches
+// the value's actual JSON type, and objects and arrays nest further
+// PropertyValues, so any JSON document maps without loss and without
+// google.protobuf.Struct. An unset oneof means the API returned no value.
 message PropertyValue {
+  // Removed google.protobuf.Struct / ListValue arms (json_value = 5,
+  // json_list_value = 6); replaced by object_value and list_value.
+  reserved 5, 6;
+  reserved "json_value", "json_list_value";
+
   // The typed value; the set arm matches the value's actual type.
   oneof value {
-    // String value.
+    // JSON string.
     string string_value = 1;
-    // Integer value.
+    // JSON integer (a number token with no fraction or exponent) that fits
+    // in a signed 64-bit integer.
     int64 integer_value = 2;
-    // Boolean value.
+    // JSON true or false.
     bool bool_value = 3;
-    // Floating-point value.
+    // JSON number with a fraction or exponent, as an IEEE 754 double.
     double double_value = 4;
-    // Structured JSON object value (custom keys with object values). The
-    // only google.protobuf.Struct in the schema.
-    google.protobuf.Struct json_value = 5;
-    // Structured JSON array value (custom keys whose value is a top-level
-    // JSON array, which a Struct cannot hold). Interim, like json_value:
-    // see the typed-property open question in
-    // docs/contracts/confluence-fidelity.md.
-    google.protobuf.ListValue json_list_value = 6;
+    // JSON null, stated explicitly (distinct from an unset oneof, which
+    // means no value was returned).
+    PropertyNull null_value = 7;
+    // JSON array: its elements in source order.
+    PropertyList list_value = 8;
+    // JSON object: its members in source order.
+    PropertyObject object_value = 9;
+    // JSON integer outside the signed 64-bit range, kept exactly as its
+    // canonical base-10 digits (an optional leading '-', no leading zeros),
+    // so no precision is lost to a double.
+    string big_integer_value = 10;
   }
+}
+
+// The JSON null value. Carries no fields; its presence in
+// PropertyValue.null_value is the value.
+message PropertyNull {}
+
+// A JSON array of property values.
+message PropertyList {
+  // The array's elements, in source order.
+  repeated PropertyValue values = 1;
+}
+
+// A JSON object, as an ordered list of members rather than a map, so member
+// order is preserved and duplicate keys are kept instead of silently merged.
+message PropertyObject {
+  // The object's members, in source order.
+  repeated PropertyEntry entries = 1;
+}
+
+// One member of a JSON object.
+message PropertyEntry {
+  // The member name, exactly as in the source.
+  string key = 1;
+  // The member value.
+  PropertyValue value = 2;
 }
 
 // A content property (typed key-value metadata attached to content).

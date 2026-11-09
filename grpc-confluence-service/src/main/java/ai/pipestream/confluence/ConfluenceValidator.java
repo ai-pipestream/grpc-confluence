@@ -25,7 +25,11 @@ import ai.pipestream.confluence.v1.IncludeExpansion;
 import ai.pipestream.confluence.v1.Label;
 import ai.pipestream.confluence.v1.Like;
 import ai.pipestream.confluence.v1.Page;
+import ai.pipestream.confluence.v1.PropertyEntry;
 import ai.pipestream.confluence.v1.PropertyKey;
+import ai.pipestream.confluence.v1.PropertyList;
+import ai.pipestream.confluence.v1.PropertyObject;
+import ai.pipestream.confluence.v1.PropertyValue;
 import ai.pipestream.confluence.v1.Redaction;
 import ai.pipestream.confluence.v1.RedactionResponse;
 import ai.pipestream.confluence.v1.RedactionSectionResponse;
@@ -43,6 +47,7 @@ import com.google.protobuf.Message;
 import com.google.protobuf.Timestamp;
 import io.grpc.Status;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -56,6 +61,9 @@ import java.util.List;
 public final class ConfluenceValidator {
 
     private static final ConfluenceValidator INSTANCE = new ConfluenceValidator();
+
+    private static final BigInteger INT64_MIN = BigInteger.valueOf(Long.MIN_VALUE);
+    private static final BigInteger INT64_MAX = BigInteger.valueOf(Long.MAX_VALUE);
 
     private ConfluenceValidator() {
     }
@@ -157,6 +165,7 @@ public final class ConfluenceValidator {
             case ContentProperty property -> visitContentProperty(prefix, property, out);
             case SpaceProperty property -> visitSpaceProperty(prefix, property, out);
             case AppProperty property -> visitAppProperty(prefix, property, out);
+            case PropertyValue value -> visitPropertyValue(prefix, value, out);
             case AdminKeyResponse key -> required(prefix, "account_id", key.getAccountId(), out);
             case ConfluenceEntity entity -> visitEntity(prefix, entity, out);
             case ConfluenceSnapshot snapshot -> required(prefix, "snapshot_id", snapshot.getSnapshotId(), out);
@@ -359,6 +368,9 @@ public final class ConfluenceValidator {
     private static void visitContentProperty(String prefix, ContentProperty property, List<Violation> out) {
         required(prefix, "id", property.getId(), out);
         customKey(prefix, property.getKey(), property.getCustomKey(), out);
+        if (property.hasValue()) {
+            visitPropertyValue(child(prefix, "value"), property.getValue(), out);
+        }
         if (property.hasVersion()) {
             visitVersion(child(prefix, "version"), property.getVersion(), out);
         }
@@ -367,6 +379,9 @@ public final class ConfluenceValidator {
     private static void visitSpaceProperty(String prefix, SpaceProperty property, List<Violation> out) {
         required(prefix, "id", property.getId(), out);
         customKey(prefix, property.getKey(), property.getCustomKey(), out);
+        if (property.hasValue()) {
+            visitPropertyValue(child(prefix, "value"), property.getValue(), out);
+        }
         if (property.hasVersion()) {
             visit(child(prefix, "version"), property.getVersion(), out);
         }
@@ -374,6 +389,77 @@ public final class ConfluenceValidator {
 
     private static void visitAppProperty(String prefix, AppProperty property, List<Violation> out) {
         customKey(prefix, property.getKey(), property.getCustomKey(), out);
+        if (property.hasValue()) {
+            visitPropertyValue(child(prefix, "value"), property.getValue(), out);
+        }
+    }
+
+    /**
+     * A property value tree: every list element and object member value
+     * must set an arm (a nested JSON null is {@code null_value}, never an
+     * unset oneof), and {@code big_integer_value} must hold canonical decimal
+     * digits outside the int64 range (inside it, {@code integer_value} is the
+     * only correct arm).
+     */
+    private static void visitPropertyValue(String prefix, PropertyValue value, List<Violation> out) {
+        switch (value.getValueCase()) {
+            case BIG_INTEGER_VALUE -> {
+                if (!isBigIntegerOutsideInt64(value.getBigIntegerValue())) {
+                    out.add(new Violation(child(prefix, "big_integer_value"), "property_value.big_integer",
+                            "big_integer_value must be canonical decimal digits outside the int64 range"));
+                }
+            }
+            case LIST_VALUE -> {
+                PropertyList list = value.getListValue();
+                for (int i = 0; i < list.getValuesCount(); i++) {
+                    nestedPropertyValue(child(prefix, "list_value.values[" + i + "]"), list.getValues(i), out);
+                }
+            }
+            case OBJECT_VALUE -> {
+                PropertyObject object = value.getObjectValue();
+                for (int i = 0; i < object.getEntriesCount(); i++) {
+                    PropertyEntry entry = object.getEntries(i);
+                    String entryPath = child(prefix, "object_value.entries[" + i + "]");
+                    if (!entry.hasValue()) {
+                        out.add(new Violation(child(entryPath, "value"), "property_value.nested_set",
+                                "an object member must carry a value (JSON null is null_value)"));
+                    } else {
+                        nestedPropertyValue(child(entryPath, "value"), entry.getValue(), out);
+                    }
+                }
+            }
+            default -> {
+                // Scalars and null carry nothing further to check.
+            }
+        }
+    }
+
+    private static void nestedPropertyValue(String prefix, PropertyValue value, List<Violation> out) {
+        if (value.getValueCase() == PropertyValue.ValueCase.VALUE_NOT_SET) {
+            out.add(new Violation(prefix, "property_value.nested_set",
+                    "a nested property value must set an arm (JSON null is null_value)"));
+            return;
+        }
+        visitPropertyValue(prefix, value, out);
+    }
+
+    /** Canonical base-10 integer text (optional '-', no leading zeros, no "-0") outside int64. */
+    private static boolean isBigIntegerOutsideInt64(String digits) {
+        int start = digits.startsWith("-") ? 1 : 0;
+        if (digits.length() == start) {
+            return false;
+        }
+        if (digits.charAt(start) == '0') {
+            return false;
+        }
+        for (int i = start; i < digits.length(); i++) {
+            char c = digits.charAt(i);
+            if (c < '0' || c > '9') {
+                return false;
+            }
+        }
+        BigInteger value = new BigInteger(digits);
+        return value.compareTo(INT64_MIN) < 0 || value.compareTo(INT64_MAX) > 0;
     }
 
     private static void visitEntity(String prefix, ConfluenceEntity entity, List<Violation> out) {

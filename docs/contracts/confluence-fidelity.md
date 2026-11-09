@@ -57,7 +57,7 @@ variants are merged: the domain model keeps one message per entity kind.
 |---|---|---|
 | 1 | The `meta.hasMore` of include-* expansions was dropped. A consumer could not tell that a preview of at most 50 entries (labels, properties, operations, likes, versions, direct children, space permissions, role assignments) was partial. | New enum `IncludeExpansion` (common.proto). Each entity with include expansions gets `repeated IncludeExpansion truncated_includes`. The mapper adds the matching value when `meta.hasMore` is true. `meta.cursor` stays dropped as transport. |
 | 2 | Version-history entries (`GET /{content-type}/{id}/versions`) carry a snapshot under `page`, `blogpost`, `attachment`, `custom` or `comment`. `toVersion` ignored it, although `Version.entity` already existed. | `toVersion` fills `Version.entity` (`VersionedEntity`: id, title, body) from whichever snapshot key is present. |
-| 3 | Content and space property values that are a top-level JSON array went to `toStruct()`, which reads object fields only. The array came out as an **empty** Struct, so its contents were lost. | New oneof arm `PropertyValue.json_list_value` (`google.protobuf.ListValue`, field 6). Objects still use `json_value`. This is an interim fix; see open question 1. |
+| 3 | Content and space property values that are a top-level JSON array went to `toStruct()`, which reads object fields only. The array came out as an **empty** Struct, so its contents were lost. | Interim fix: a `google.protobuf.ListValue json_list_value` arm (field 6). Superseded on 2026-11-09 by the recursive typed `PropertyValue` (open question 1, resolved): arrays are `list_value`, objects `object_value`, and fields 5 and 6 are reserved. |
 | 4 | `RestrictionState.created_by` and `ContentPermission.created_by` preferred `createdByAaid`, which the spec marks as a deprecated alias of `createdBy`. | `createdBy` now wins, and the alias is the fallback. Both spec keys still map to the one field. |
 | 5 | Nothing mapped `POST /content/convert-ids-to-types` into the typed `ResolvedContentType`. `wireEnum` cannot do it, because `blogpost` and `footer-comment` do not match the `ContentType` member names. | New `ConfluenceMapper.toResolvedContentTypes()` and `contentType()`. Built-in values become `ContentType`, anything else goes to `custom_type` verbatim. |
 | 6 | `DatabaseView` had a proto message but no mapper. | New `ConfluenceMapper.toDatabaseView()`. The `ListDatabaseViews` rpc now serves it; see open question 5 and "Route coverage". |
@@ -81,7 +81,8 @@ All additions are wire-compatible. They use new field numbers only, and
 | Database | `repeated IncludeExpansion truncated_includes` | 18 |
 | Folder | `repeated IncludeExpansion truncated_includes` | 18 |
 | SmartLink | `repeated IncludeExpansion truncated_includes` | 19 |
-| PropertyValue | oneof arm `google.protobuf.ListValue json_list_value` | 6 |
+| PropertyValue | oneof arms `PropertyNull null_value`, `PropertyList list_value`, `PropertyObject object_value`, `string big_integer_value` (replacing the removed `json_value` / `json_list_value`, now reserved) | 7, 8, 9, 10 (5, 6 reserved) |
+| (new messages) | `PropertyNull`, `PropertyList`, `PropertyObject`, `PropertyEntry` | - |
 | (new enum) | `IncludeExpansion`: UNSPECIFIED, LABELS, PROPERTIES, OPERATIONS, LIKES, VERSIONS, DIRECT_CHILDREN, PERMISSIONS, ROLE_ASSIGNMENTS | - |
 
 **Why this shape for truncation.** The cheapest wire-compatible option is one
@@ -143,23 +144,62 @@ contract models them anyway, and the mapper fills them through the shared
 
 ## Open questions for the owner
 
-1. **Typed property values (data is not JSON).** `ContentProperty`,
-   `SpaceProperty` and `AppProperty` values that are JSON objects still go to
-   `PropertyValue.json_value` (`google.protobuf.Struct`). Top-level arrays now
-   go to `json_list_value` (`ListValue`), so they are no longer lost. This was
-   not redesigned in this change, as instructed. Struct also has a fidelity
-   flaw of its own: every number becomes a double, so integers above 2^53
-   inside an object lose precision. Three typed alternatives:
+1. **Typed property values (data is not JSON). Resolved 2026-11-09: the
+   owner chose our own recursive typed value (option (b) below).**
+   `PropertyValue` is now recursive and `google.protobuf.Struct` is gone from
+   the Confluence contract (no `google/protobuf/struct.proto` import remains
+   in `grpc-confluence-api`). The oneof arms are:
+
+   | Arm | Number | JSON value |
+   |---|---|---|
+   | `string string_value` | 1 | string |
+   | `int64 integer_value` | 2 | integer token that fits in int64 |
+   | `bool bool_value` | 3 | `true` / `false` |
+   | `double double_value` | 4 | number with a fraction or exponent (`1.0`, `2.5`, `1e3`) |
+   | `PropertyNull null_value` | 7 | explicit `null` (an unset oneof means no `value` was returned) |
+   | `PropertyList list_value` | 8 | array: `repeated PropertyValue values`, in source order |
+   | `PropertyObject object_value` | 9 | object: `repeated PropertyEntry entries` (`string key`, `PropertyValue value`), in source order |
+   | `string big_integer_value` | 10 | integer token outside int64, as its exact canonical decimal digits |
+
+   The removed `json_value` (5, Struct) and `json_list_value` (6, ListValue)
+   arms have both numbers and names reserved, so `buf breaking` (WIRE_JSON)
+   stays clean. Objects are an ordered entry list rather than a
+   `map<string, PropertyValue>`, so key order survives and the schema can
+   carry duplicate keys instead of merging them.
+
+   `ConfluenceMapper.toPropertyValue` builds the tree from the Jackson tree
+   node by node (no `JsonFormat`, no Struct). Lossless choices and limits:
+   - Integers beyond int64 use `big_integer_value` (exact digits) rather
+     than a rounded double. Before this change a top-level integer beyond
+     int64 was silently truncated by `longValue()`. `ConfluenceValidator`
+     rejects a `big_integer_value` that is not canonical or that fits in
+     int64.
+   - Numbers with a fraction or exponent are parsed by Jackson as IEEE 754
+     doubles before the mapper sees them, so a decimal with more than about
+     17 significant digits, or beyond the double range, is already rounded
+     at parse time.
+   - Jackson's tree model keeps the last of duplicate object keys, so the
+     REST edge cannot currently observe duplicates; the wire shape is ready
+     for them if the client moves to a streaming parse.
+   - Every nested list element and object member must set an arm (a nested
+     JSON null is `null_value`); the validator enforces it.
+   - Each JSON object level costs three protobuf message levels and each
+     array level two, so with protobuf's default parse recursion limit of
+     100 a consumer can decode roughly 30 levels of nested objects; deeper
+     values need a raised `CodedInputStream` recursion limit.
+
+   The options as originally put to the owner:
    - **(a) Per-key typed messages.** Add a typed oneof arm per well-known
      property key (for example `EditorProperty`, `ContentAppearance`, and the
      Confluence-owned keys the crawler sees, such as `emoji-title-published`
      and `cover-picture-id-published`). Keep `CUSTOM` plus a serialized
      fallback only for app-defined keys. This gives the strongest typing, but
      the catalogue of keys keeps growing.
-   - **(b) A recursive typed value.** Define our own
+   - **(b) A recursive typed value (chosen).** Define our own
      `PropertyValue { oneof { string; int64; double; bool; PropertyObject; PropertyList; } }`,
-     where `PropertyObject` is a `map<string, PropertyValue>` and
-     `PropertyList` is a `repeated PropertyValue`. This keeps int64 versus
+     where `PropertyObject` holds the members and `PropertyList` is a
+     `repeated PropertyValue` (as built, `PropertyObject` is an ordered
+     entry list rather than a map, and null and big-integer arms were added). This keeps int64 versus
      double exactly and removes the dependency on `google.protobuf.Struct`. It
      is still schema-less, but it is our type, and it can be generated from
      and validated against the wire.
@@ -168,8 +208,9 @@ contract models them anyway, and the mapper fills them through the shared
      string}`, since the value belongs to the app that wrote it. This is
      lossless and simple, but opaque to consumers.
 
-   Recommendation: (b) for app-defined keys, plus (a) for the handful of
-   Confluence-owned keys we act on.
+   Recommendation was (b) for app-defined keys, plus (a) for the handful of
+   Confluence-owned keys we act on; (b) is now in place, and (a) remains
+   possible as a later additive change.
 2. **ADF documents as strings.** Bodies in `atlas_doc_format`, and the
    database `rich` text and AI-summary values (`DatabaseAdfDocument`), travel
    as serialized JSON in a `BodyType` with format `ATLAS_DOC_FORMAT`. The
@@ -236,7 +277,7 @@ Routes: GET /spaces, GET /spaces/{id}
 | `properties.results[]` | `Space.space_properties` | yes |
 | `properties.results[].id` | `SpaceProperty.id` | yes |
 | `properties.results[].key` | `SpaceProperty.key` | yes |
-| `properties.results[].value` | `SpaceProperty.value` | yes - typed oneof by JSON kind (string/integer/bool/double); objects to Struct `json_value`; top-level arrays to `json_list_value` (added: they were silently emptied before); see open question 1 |
+| `properties.results[].value` | `SpaceProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
 | `properties.results[].createdAt` | `SpaceProperty.created_at` | yes |
 | `properties.results[].createdBy` | `SpaceProperty.created_by` | yes |
 | `properties.results[].version` | `SpaceProperty.version` | yes |
@@ -313,7 +354,7 @@ Routes: GET /pages, GET /spaces/{id}/pages, GET /labels/{id}/pages, GET /pages/{
 | `properties.results[]` | `Page.properties` | yes |
 | `properties.results[].id` | `ContentProperty.id` | yes |
 | `properties.results[].key` | `ContentProperty.key` | yes |
-| `properties.results[].value` | `ContentProperty.value` | yes - typed oneof by JSON kind (string/integer/bool/double); objects to Struct `json_value`; top-level arrays to `json_list_value` (added: they were silently emptied before); see open question 1 |
+| `properties.results[].value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
 | `properties.results[].version` | `ContentProperty.version` | yes |
 | `properties.results[].version.createdAt` | `Version.created_at` | yes |
 | `properties.results[].version.message` | `Version.message` | yes |
@@ -387,7 +428,7 @@ Routes: GET /blogposts, GET /spaces/{id}/blogposts, GET /labels/{id}/blogposts, 
 | `properties.results[]` | `BlogPost.properties` | yes |
 | `properties.results[].id` | `ContentProperty.id` | yes |
 | `properties.results[].key` | `ContentProperty.key` | yes |
-| `properties.results[].value` | `ContentProperty.value` | yes - typed oneof by JSON kind (string/integer/bool/double); objects to Struct `json_value`; top-level arrays to `json_list_value` (added: they were silently emptied before); see open question 1 |
+| `properties.results[].value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
 | `properties.results[].version` | `ContentProperty.version` | yes |
 | `properties.results[].version.createdAt` | `Version.created_at` | yes |
 | `properties.results[].version.message` | `Version.message` | yes |
@@ -458,7 +499,7 @@ Routes: GET /attachments, GET /pages/{id}/attachments, GET /blogposts/{id}/attac
 | `properties.results[]` | `Attachment.properties` | yes |
 | `properties.results[].id` | `ContentProperty.id` | yes |
 | `properties.results[].key` | `ContentProperty.key` | yes |
-| `properties.results[].value` | `ContentProperty.value` | yes - typed oneof by JSON kind (string/integer/bool/double); objects to Struct `json_value`; top-level arrays to `json_list_value` (added: they were silently emptied before); see open question 1 |
+| `properties.results[].value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
 | `properties.results[].version` | `ContentProperty.version` | yes |
 | `properties.results[].version.createdAt` | `Version.created_at` | yes |
 | `properties.results[].version.message` | `Version.message` | yes |
@@ -523,7 +564,7 @@ Routes: GET /pages/{id}/footer-comments, GET /blogposts/{id}/footer-comments, GE
 | `properties.results[]` | `Comment.properties` | yes |
 | `properties.results[].id` | `ContentProperty.id` | yes |
 | `properties.results[].key` | `ContentProperty.key` | yes |
-| `properties.results[].value` | `ContentProperty.value` | yes - typed oneof by JSON kind (string/integer/bool/double); objects to Struct `json_value`; top-level arrays to `json_list_value` (added: they were silently emptied before); see open question 1 |
+| `properties.results[].value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
 | `properties.results[].version` | `ContentProperty.version` | yes |
 | `properties.results[].version.createdAt` | `Version.created_at` | yes |
 | `properties.results[].version.message` | `Version.message` | yes |
@@ -600,7 +641,7 @@ Routes: GET /custom-content, GET /spaces/{id}/custom-content, GET /pages/{id}/cu
 | `properties.results[]` | `CustomContent.properties` | yes |
 | `properties.results[].id` | `ContentProperty.id` | yes |
 | `properties.results[].key` | `ContentProperty.key` | yes |
-| `properties.results[].value` | `ContentProperty.value` | yes - typed oneof by JSON kind (string/integer/bool/double); objects to Struct `json_value`; top-level arrays to `json_list_value` (added: they were silently emptied before); see open question 1 |
+| `properties.results[].value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
 | `properties.results[].version` | `ContentProperty.version` | yes |
 | `properties.results[].version.createdAt` | `Version.created_at` | yes |
 | `properties.results[].version.message` | `Version.message` | yes |
@@ -835,7 +876,7 @@ Routes: GET /pages/{page-id}/properties, GET /blogposts/{blogpost-id}/properties
 |---|---|---|
 | `id` | `ContentProperty.id` | yes |
 | `key` | `ContentProperty.key` | yes |
-| `value` | `ContentProperty.value` | yes - typed oneof by JSON kind (string/integer/bool/double); objects to Struct `json_value`; top-level arrays to `json_list_value` (added: they were silently emptied before); see open question 1 |
+| `value` | `ContentProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
 | `version` | `ContentProperty.version` | yes |
 | `version.createdAt` | `Version.created_at` | yes |
 | `version.message` | `Version.message` | yes |
@@ -851,7 +892,7 @@ Routes: GET /spaces/{space-id}/properties
 |---|---|---|
 | `id` | `SpaceProperty.id` | yes |
 | `key` | `SpaceProperty.key` | yes |
-| `value` | `SpaceProperty.value` | yes - typed oneof by JSON kind (string/integer/bool/double); objects to Struct `json_value`; top-level arrays to `json_list_value` (added: they were silently emptied before); see open question 1 |
+| `value` | `SpaceProperty.value` | yes - recursive typed `PropertyValue` by JSON kind at every depth (string/integer/big_integer/double/bool/null/list/object; objects as ordered entries); see open question 1 (resolved) |
 | `createdAt` | `SpaceProperty.created_at` | yes |
 | `createdBy` | `SpaceProperty.created_by` | yes |
 | `version` | `SpaceProperty.version` | yes |
@@ -1202,16 +1243,13 @@ All additions are new rpcs, messages, an enum and one field number, so they
 are wire-compatible. `buf lint` (STANDARD+COMMENTS) and `buf breaking`
 (WIRE_JSON against `origin/main`) are clean.
 
-**Typing caveat (fidelity open question 1 still stands).** `GetContentProperty`,
+**Typing (fidelity open question 1, resolved 2026-11-09).** `GetContentProperty`,
 `GetSpaceProperty`, `ListAppProperties` and `GetAppProperty` reuse the
 existing `ContentProperty`, `SpaceProperty` and `AppProperty` messages. Their
-`PropertyValue` keeps scalar values typed. A JSON-object value still lands in
-the existing `google.protobuf.Struct` arm, and a top-level JSON array in the
-`ListValue` arm. Forge app property values are app-defined objects by
-definition (the spec types `value` as `object`). This change adds no new
-`Struct` use, but removing the existing one needs the typed `PropertyValue`
-redesign proposed in open question 1. That redesign is still pending an
-owner decision.
+`PropertyValue` is the recursive typed value: Forge app property values,
+which are app-defined objects by definition (the spec types `value` as
+`object`), land in `object_value` with every member typed. No
+`google.protobuf.Struct` remains in the Confluence contract.
 
 ### Route table
 
