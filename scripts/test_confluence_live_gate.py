@@ -12,8 +12,6 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = (ROOT / ".github/workflows/ci.yml").read_text()
-confluence = "confluence"
-Confluence = "Confluence"
 KEYS = ['CONFLUENCE_EMAIL', 'CONFLUENCE_API_TOKEN']
 
 
@@ -75,8 +73,8 @@ class LiveGateTest(unittest.TestCase):
     def evidence(self, xml, success):
         with tempfile.TemporaryDirectory() as directory:
             folder = Path(directory)
-            report = folder / (f"grpc-{confluence}-service/build/test-results/liveSmokeTest/"
-                               f"TEST-ai.pipestream.{confluence}.{Confluence}LiveSmokeIT.xml")
+            report = folder / ("grpc-confluence-service/build/test-results/liveSmokeTest/"
+                               "TEST-ai.pipestream.confluence.ConfluenceLiveSmokeIT.xml")
             if xml is not None:
                 report.parent.mkdir(parents=True)
                 report.write_text(xml)
@@ -106,12 +104,12 @@ class LiveGateTest(unittest.TestCase):
         self.evidence("<testsuite><testcase/></testsuite>", True)
 
     def test_fork_and_dispatch_guards(self):
-        for job in (f"live-{confluence}-preflight", f"live-{confluence}"):
+        for job in ("live-confluence-preflight", "live-confluence"):
             body = WORKFLOW.split(f"  {job}:\n", 1)[1].split("    steps:", 1)[0]
             self.assertIn("github.event_name != 'pull_request' || "
                           "github.event.pull_request.head.repo.full_name == github.repository", body)
-        self.assertIn(f"inputs.require_live_{confluence}", WORKFLOW)
-        self.assertIn(f"needs.live-{confluence}-preflight.outputs.ready == 'true'", WORKFLOW)
+        self.assertIn("inputs.require_live_confluence", WORKFLOW)
+        self.assertIn("needs.live-confluence-preflight.outputs.ready == 'true'", WORKFLOW)
         self.assertIn(":liveSmokeTest --rerun-tasks", WORKFLOW)
 
 
