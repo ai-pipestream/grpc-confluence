@@ -1,5 +1,7 @@
 # grpc-confluence
 
+Licensed under Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
 A gRPC version of the Confluence API. The proxy speaks Confluence Cloud
 REST v2 upstream and typed gRPC downstream: clients read spaces, pages,
 blog posts, comments, and attachments over one generated contract, pick up
