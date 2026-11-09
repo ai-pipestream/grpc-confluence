@@ -157,6 +157,44 @@ enum ContentStatus {
   CONTENT_STATUS_ANY = 7;
 }
 
+// The addressable content kinds of the v2 API: the `{content-type}` path
+// segment that selects which per-content sub-resource route (properties,
+// versions, labels, permissions, children, ...) a request targets. Spaces
+// are not content: space-scoped rpcs take a `space_id` instead.
+enum ContentType {
+  // Zero value; the content kind is unknown or was not given.
+  CONTENT_TYPE_UNSPECIFIED = 0;
+  // A page (`pages`).
+  CONTENT_TYPE_PAGE = 1;
+  // A blog post (`blogposts`).
+  CONTENT_TYPE_BLOG_POST = 2;
+  // An attachment (`attachments`).
+  CONTENT_TYPE_ATTACHMENT = 3;
+  // A footer comment (`footer-comments`).
+  CONTENT_TYPE_FOOTER_COMMENT = 4;
+  // An inline comment (`inline-comments`).
+  CONTENT_TYPE_INLINE_COMMENT = 5;
+  // Custom content (`custom-content`).
+  CONTENT_TYPE_CUSTOM_CONTENT = 6;
+  // A whiteboard (`whiteboards`).
+  CONTENT_TYPE_WHITEBOARD = 7;
+  // A database (`databases`).
+  CONTENT_TYPE_DATABASE = 8;
+  // A folder (`folders`).
+  CONTENT_TYPE_FOLDER = 9;
+  // A Smart Link in the content tree (`embeds`).
+  CONTENT_TYPE_SMART_LINK = 10;
+}
+
+// A typed reference to one piece of content: the kind plus its id. Used
+// wherever the v2 API keys a sub-resource by `{content-type}/{id}`.
+message ContentRef {
+  // The content kind.
+  ContentType type = 1;
+  // ID of the content.
+  string id = 2;
+}
+
 // The content kind of a parent, or unset if there is no parent.
 enum ParentContentType {
   // Zero value; there is no parent.
@@ -171,4 +209,55 @@ enum ParentContentType {
   PARENT_CONTENT_TYPE_EMBED = 4;
   // The parent is a folder.
   PARENT_CONTENT_TYPE_FOLDER = 5;
+}
+
+// The web resources the Confluence UI loads to render a body
+// (`webResources` on GET /pages/{id} and /blogposts/{id} with
+// `include-webresources`).
+message WebResources {
+  // HTML tags (script and link elements) for this content's resources.
+  string tags = 1;
+  // The workspace-wide resource batch shared by every page.
+  WebResourceBatch superbatch = 2;
+}
+
+// A batch of web resources as HTML tags.
+message WebResourceBatch {
+  // HTML tags (script and link elements) for the batch.
+  string tags = 1;
+}
+
+// ============================================================================
+// INCLUDE-* EXPANSION PREVIEWS
+// ============================================================================
+
+// One `include-*` expansion of a single-entity read. Upstream returns each
+// expansion as an inline preview of at most 50 entries plus a `meta.hasMore`
+// flag; an entity lists the expansions whose preview was cut short in its
+// `truncated_includes` field, so a consumer knows the repeated field is
+// partial and must page the matching List rpc for the full set. The
+// `meta.cursor` paging token is transport and is not modeled.
+enum IncludeExpansion {
+  // Zero value; never listed.
+  INCLUDE_EXPANSION_UNSPECIFIED = 0;
+  // `labels` (include-labels); the full set is ListLabels.
+  INCLUDE_EXPANSION_LABELS = 1;
+  // `properties` (include-properties); the full set is ListContentProperties
+  // or, on a space, ListSpaceProperties.
+  INCLUDE_EXPANSION_PROPERTIES = 2;
+  // `operations` (include-operations).
+  INCLUDE_EXPANSION_OPERATIONS = 3;
+  // `likes` (include-likes).
+  INCLUDE_EXPANSION_LIKES = 4;
+  // `versions` (include-versions); the full set is ListVersions.
+  INCLUDE_EXPANSION_VERSIONS = 5;
+  // `directChildren` (include-direct-children); the full set is
+  // ListChildren.
+  INCLUDE_EXPANSION_DIRECT_CHILDREN = 6;
+  // `permissions` on a space (include-permissions); the full set is
+  // ListSpacePermissionAssignments.
+  INCLUDE_EXPANSION_PERMISSIONS = 7;
+  // `roleAssignments` on a space (include-role-assignments); the full set
+  // is ListSpaceRoleAssignments.
+  INCLUDE_EXPANSION_ROLE_ASSIGNMENTS = 8;
 }

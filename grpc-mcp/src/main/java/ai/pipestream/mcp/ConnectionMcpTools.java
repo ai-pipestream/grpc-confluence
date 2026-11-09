@@ -25,7 +25,6 @@ import java.util.function.BiFunction;
  * MCP tools that call {@code ConnectionService} over gRPC. This is the
  * setup surface a future UI will use; there is no in-process catalog.
  */
-/** MCP tools over {@code ConnectionService}. */
 public final class ConnectionMcpTools {
 
     private ConnectionMcpTools() {

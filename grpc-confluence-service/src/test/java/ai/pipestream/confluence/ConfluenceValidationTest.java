@@ -6,9 +6,17 @@ import ai.pipestream.confluence.v1.ChangeOperation;
 import ai.pipestream.confluence.v1.ConfluenceChange;
 import ai.pipestream.confluence.v1.ConfluenceEntity;
 import ai.pipestream.confluence.v1.ContentProperty;
+import ai.pipestream.confluence.v1.IncludeExpansion;
 import ai.pipestream.confluence.v1.Page;
+import ai.pipestream.confluence.v1.PropertyEntry;
 import ai.pipestream.confluence.v1.PropertyKey;
+import ai.pipestream.confluence.v1.PropertyList;
+import ai.pipestream.confluence.v1.PropertyNull;
+import ai.pipestream.confluence.v1.PropertyObject;
+import ai.pipestream.confluence.v1.PropertyValue;
 import ai.pipestream.confluence.v1.Redaction;
+import ai.pipestream.confluence.v1.Space;
+import ai.pipestream.confluence.v1.SpaceProperty;
 import ai.pipestream.confluence.v1.User;
 import ai.pipestream.confluence.v1.Version;
 import com.google.protobuf.Message;
@@ -79,6 +87,43 @@ class ConfluenceValidationTest {
     }
 
     @Test
+    void propertyValueTreesAreFullyTyped() {
+        ContentProperty base = ContentProperty.newBuilder().setId("p1")
+                .setKey(PropertyKey.PROPERTY_KEY_EDITOR).build();
+        PropertyValue nullValue = PropertyValue.newBuilder()
+                .setNullValue(PropertyNull.getDefaultInstance()).build();
+        PropertyValue tree = PropertyValue.newBuilder().setObjectValue(PropertyObject.newBuilder()
+                .addEntries(PropertyEntry.newBuilder().setKey("a").setValue(nullValue))
+                .addEntries(PropertyEntry.newBuilder().setKey("b").setValue(PropertyValue.newBuilder()
+                        .setListValue(PropertyList.newBuilder().addValues(nullValue))))).build();
+        assertValid(base.toBuilder().setValue(tree).build());
+
+        assertViolation(base.toBuilder().setValue(PropertyValue.newBuilder().setListValue(
+                        PropertyList.newBuilder().addValues(PropertyValue.getDefaultInstance()))).build(),
+                "value.list_value.values[0]", "property_value.nested_set");
+        assertViolation(base.toBuilder().setValue(PropertyValue.newBuilder().setObjectValue(
+                        PropertyObject.newBuilder().addEntries(PropertyEntry.newBuilder().setKey("k")))).build(),
+                "value.object_value.entries[0].value", "property_value.nested_set");
+
+        assertValid(base.toBuilder().setValue(PropertyValue.newBuilder()
+                .setBigIntegerValue("-9223372036854775809")).build());
+        assertValid(base.toBuilder().setValue(PropertyValue.newBuilder()
+                .setDecimalValue("1.00000000000000000001")).build());
+        assertValid(base.toBuilder().setValue(PropertyValue.newBuilder()
+                .setDecimalValue("1E+400")).build());
+        for (String bad : new String[] {"0.1", "1.5", "1e+400", "+1.00000000000000000001", ".5", "", "x"}) {
+            assertViolation(base.toBuilder().setValue(PropertyValue.newBuilder()
+                            .setDecimalValue(bad)).build(),
+                    "value.decimal_value", "property_value.decimal");
+        }
+        for (String bad : new String[] {"42", "9223372036854775807", "007", "1e30", "", "-", "+1"}) {
+            assertViolation(base.toBuilder().setValue(PropertyValue.newBuilder()
+                            .setBigIntegerValue(bad)).build(),
+                    "value.big_integer_value", "property_value.big_integer");
+        }
+    }
+
+    @Test
     void customPropertyKeyIsExplicitBothWays() {
         ContentProperty custom = ContentProperty.newBuilder()
                 .setId("p1")
@@ -142,5 +187,25 @@ class ConfluenceValidationTest {
                 .setId("300")
                 .setSpaceId("100")
                 .build());
+    }
+
+    @Test
+    void truncatedIncludesMustNameAnExpansion() {
+        Page page = Page.newBuilder().setId("1").setSpaceId("9")
+                .addTruncatedIncludes(IncludeExpansion.INCLUDE_EXPANSION_LABELS).build();
+        assertValid(page);
+        assertViolation(page.toBuilder()
+                        .addTruncatedIncludes(IncludeExpansion.INCLUDE_EXPANSION_UNSPECIFIED).build(),
+                "truncated_includes[1]", "enum.defined_only");
+    }
+
+    @Test
+    void spacePropertiesOfASpaceAreValidated() {
+        Space space = Space.newBuilder().setId("9").setKey("ENG")
+                .addSpaceProperties(SpaceProperty.newBuilder().setId("sp1")
+                        .setKey(PropertyKey.PROPERTY_KEY_EDITOR)).build();
+        assertValid(space);
+        assertViolation(space.toBuilder().addSpaceProperties(SpaceProperty.getDefaultInstance()).build(),
+                "space_properties[1].id", "required");
     }
 }

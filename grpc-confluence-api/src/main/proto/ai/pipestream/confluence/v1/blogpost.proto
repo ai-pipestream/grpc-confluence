@@ -67,6 +67,17 @@ message BlogPost {
   bool is_favorited_by_current_user = 14;
   // Human-facing URL of the content, for search results and UIs.
   string web_url = 15;
+  // Account IDs of the users who collaborated on this content. Present
+  // only when the read asked for collaborators (`include-collaborators`);
+  // upstream returns bare account ids, so resolve names with BatchGetUsers.
+  repeated string collaborator_account_ids = 16;
+  // Web resources (script and stylesheet tags) the Confluence UI needs to
+  // render the body. Present only when the read asked for them
+  // (`include-webresources`; the response field is `webResources`).
+  WebResources web_resources = 17;
+  // Include expansions whose inline preview (at most 50 entries) was cut
+  // short upstream (`meta.hasMore`): the matching repeated field is partial.
+  repeated IncludeExpansion truncated_includes = 18;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }

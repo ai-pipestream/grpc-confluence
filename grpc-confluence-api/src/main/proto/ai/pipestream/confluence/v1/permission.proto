@@ -8,8 +8,124 @@ option java_multiple_files = true;
 option java_package = "ai.pipestream.confluence.v1";
 
 // ============================================================================
+// CONTENT PERMISSIONS (read side): the direct restriction state of a piece
+// of content and its direct user/group permission entries. Added to v2 in
+// October 2026 for pages, blog posts, databases, whiteboards and folders
+// (GET /{content-type}/{id}/restriction-state, GET /{content-type}/{id}/
+// permissions). Inherited restrictions are not represented; effective
+// access is the intersection with the ancestors' and the space's
+// permissions, which the consumer resolves.
+// ============================================================================
+
+// The direct restriction state of a content item.
+enum ContentRestrictionState {
+  // Zero value; the state is unknown or was not returned.
+  CONTENT_RESTRICTION_STATE_UNSPECIFIED = 0;
+  // No direct restrictions. Effective access may still be restricted by a
+  // parent.
+  CONTENT_RESTRICTION_STATE_OPEN = 1;
+  // Direct viewing is open but editing is restricted to explicitly granted
+  // users/groups.
+  CONTENT_RESTRICTION_STATE_EDIT_RESTRICTED = 2;
+  // Direct viewing and editing are restricted to explicitly granted
+  // users/groups.
+  CONTENT_RESTRICTION_STATE_VIEW_RESTRICTED = 3;
+}
+
+// The direct restriction state of a content item, with who set it.
+message RestrictionState {
+  // The direct restriction state.
+  ContentRestrictionState state = 1;
+  // When the restriction was set. Absent when the state is OPEN.
+  optional google.protobuf.Timestamp created_at = 2;
+  // Atlassian account ID of the user who set the restriction. Absent when
+  // the state is OPEN.
+  optional string created_by = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Whether the security-trimming data Sync read for one access-control owner
+// (a space, page, blog post, whiteboard, database or folder) is the whole
+// of it. Carried on ConfluenceEntity.security_completeness. A consumer that
+// trims by permission should deny access to an owner whose latest marker is
+// anything but COMPLETE: a missing restriction state or permission list
+// then means "unknown", never "unrestricted".
+enum SecurityCompleteness {
+  // Not assessed: the entity is not an access-control owner (comments,
+  // attachments, labels and Smart Links inherit their container's access),
+  // or it was not produced by Sync's security crawl (the read rpcs).
+  SECURITY_COMPLETENESS_UNSPECIFIED = 0;
+  // Every security route of the owner answered and every page of each
+  // paged list was read. A route the tenant does not serve at all (HTTP
+  // 404, for example space role assignments outside role-based access)
+  // counts as answered with no entries.
+  SECURITY_COMPLETENESS_COMPLETE = 1;
+  // At least one security route answered with a 4xx other than 404 (for
+  // example 403 for a restricted page) on its first or any later page, so
+  // the restriction state and/or permission entries emitted for this owner
+  // are missing or partial. Deny by default.
+  SECURITY_COMPLETENESS_UNAVAILABLE = 2;
+}
+
+// The operation a content permission grants.
+enum ContentPermissionOperation {
+  // Zero value; the operation is unknown or was not returned.
+  CONTENT_PERMISSION_OPERATION_UNSPECIFIED = 0;
+  // Permission to view the content.
+  CONTENT_PERMISSION_OPERATION_READ = 1;
+  // Permission to edit the content (implies read).
+  CONTENT_PERMISSION_OPERATION_UPDATE = 2;
+}
+
+// The kind of principal a content permission entry names.
+enum ContentPermissionPrincipalType {
+  // Zero value; the principal kind is unknown or was not returned.
+  CONTENT_PERMISSION_PRINCIPAL_TYPE_UNSPECIFIED = 0;
+  // A user (principal id is an Atlassian account ID).
+  CONTENT_PERMISSION_PRINCIPAL_TYPE_USER = 1;
+  // A group (principal id is the group ID).
+  CONTENT_PERMISSION_PRINCIPAL_TYPE_GROUP = 2;
+}
+
+// A user or group principal on a content permission entry.
+message ContentPermissionPrincipal {
+  // The kind of principal.
+  ContentPermissionPrincipalType principal_type = 1;
+  // The identifier of the principal: the Atlassian account ID for users, the
+  // group ID for groups.
+  string principal_id = 2;
+}
+
+// One direct permission entry on a content item.
+message ContentPermission {
+  // The operation the permission grants.
+  ContentPermissionOperation operation = 1;
+  // The principal the permission is granted to.
+  ContentPermissionPrincipal principal = 2;
+  // When the permission entry was created.
+  google.protobuf.Timestamp created_at = 3;
+  // Atlassian account ID of the user who created the permission entry.
+  string created_by = 4;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// ============================================================================
 // SPACE PERMISSIONS, SPACE ROLES, SPACE PERMISSION TRANSITION
 // ============================================================================
+
+// The role-based-access mode of the tenant (GET /space-role-mode).
+enum SpaceRoleMode {
+  // Zero value; the mode is unknown or was not returned.
+  SPACE_ROLE_MODE_UNSPECIFIED = 0;
+  // Classic space permissions; roles are not in use.
+  SPACE_ROLE_MODE_PRE_ROLES = 1;
+  // The tenant is transitioning from permissions to roles.
+  SPACE_ROLE_MODE_ROLES_TRANSITION = 2;
+  // Role-based access is in effect.
+  SPACE_ROLE_MODE_ROLES = 3;
+}
 
 // The principal type of a space role assignment.
 enum PrincipalType {
@@ -221,8 +337,36 @@ message BulkTransitionCombinationEntry {
   int64 principal_count = 3;
   // The decoded space permissions that make up this combination.
   repeated BulkTransitionDecodedPermission permissions = 4;
-  // The principal types that currently hold this combination.
+  // The principal types that currently hold this combination, as the raw
+  // wire strings (kept so a value newer than this contract is not lost).
   repeated string principal_types = 5;
+  // The same principal types, typed. A wire value this contract does not
+  // know maps to BULK_TRANSITION_PRINCIPAL_TYPE_UNSPECIFIED and survives in
+  // `principal_types`.
+  repeated BulkTransitionPrincipalType typed_principal_types = 6;
+}
+
+// A principal type holding a space permission combination
+// (`principalTypes` items of the combinations route).
+enum BulkTransitionPrincipalType {
+  // Not specified, or a value this contract does not know.
+  BULK_TRANSITION_PRINCIPAL_TYPE_UNSPECIFIED = 0;
+  // A user.
+  BULK_TRANSITION_PRINCIPAL_TYPE_USER = 1;
+  // A group.
+  BULK_TRANSITION_PRINCIPAL_TYPE_GROUP = 2;
+  // A guest user.
+  BULK_TRANSITION_PRINCIPAL_TYPE_GUEST = 3;
+  // Anonymous access.
+  BULK_TRANSITION_PRINCIPAL_TYPE_ANONYMOUS = 4;
+  // The all-licensed-users user class.
+  BULK_TRANSITION_PRINCIPAL_TYPE_ALL_LICENSED_USERS_USER_CLASS = 5;
+  // The all-product-admins user class.
+  BULK_TRANSITION_PRINCIPAL_TYPE_ALL_PRODUCT_ADMINS_USER_CLASS = 6;
+  // An app.
+  BULK_TRANSITION_PRINCIPAL_TYPE_APP = 7;
+  // A team.
+  BULK_TRANSITION_PRINCIPAL_TYPE_TEAM = 8;
 }
 
 // One page of unassigned permission combinations.

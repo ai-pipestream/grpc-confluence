@@ -5,7 +5,7 @@ import ai.pipestream.confluence.v1.GetAttachmentRequest;
 import ai.pipestream.confluence.v1.GetPageRequest;
 import ai.pipestream.confluence.v1.ListAttachmentsRequest;
 import ai.pipestream.confluence.v1.ListAttachmentsResponse;
-import ai.pipestream.confluence.v1.ListSpacesRequest;
+import ai.pipestream.confluence.v1.StreamSpacesRequest;
 import ai.pipestream.confluence.v1.SyncRequest;
 import ai.pipestream.confluence.v1.SyncResponse;
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -43,16 +43,16 @@ public final class ConfluenceMcpTools {
                         List.of()),
                 (exchange, request) -> {
                     int limit = McpJson.argInt(request.arguments(), "limit", 0);
-                    var response = stub.listSpaces(ListSpacesRequest.newBuilder()
+                    var stream = stub.streamSpaces(StreamSpacesRequest.newBuilder()
                             .setLimit(limit)
                             .setConnectionId(McpJson.argString(request.arguments(),
                                     "connectionId", ""))
                             .build());
                     List<Map<String, String>> spaces = new ArrayList<>();
-                    response.getSpacesList().forEach(space -> spaces.add(Map.of(
-                            "id", space.getId(),
-                            "key", space.getKey(),
-                            "name", space.getName())));
+                    stream.forEachRemaining(message -> spaces.add(Map.of(
+                            "id", message.getSpace().getId(),
+                            "key", message.getSpace().getKey(),
+                            "name", message.getSpace().getName())));
                     return text(McpJson.write(Map.of("spaces", spaces, "count", spaces.size())));
                 });
     }

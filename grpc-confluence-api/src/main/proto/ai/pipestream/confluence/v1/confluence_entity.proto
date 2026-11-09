@@ -9,6 +9,7 @@ import "ai/pipestream/confluence/v1/classification.proto";
 import "ai/pipestream/confluence/v1/comment.proto";
 import "ai/pipestream/confluence/v1/common.proto";
 import "ai/pipestream/confluence/v1/content.proto";
+import "ai/pipestream/confluence/v1/database.proto";
 import "ai/pipestream/confluence/v1/label.proto";
 import "ai/pipestream/confluence/v1/operation.proto";
 import "ai/pipestream/confluence/v1/page.proto";
@@ -33,10 +34,19 @@ option java_package = "ai.pipestream.confluence.v1";
 // declares ids as strings holding numbers). One arm per entity kind.
 // ============================================================================
 message ConfluenceEntity {
-  // The Confluence id of the wrapped entity.
+  // The Confluence id of the wrapped entity. Records that only exist in
+  // relation to an owner are keyed under it, e.g. `page:<id>/label/<id>`,
+  // `space:<id>/permission/...`, `page:<id>/restriction-state`.
   string entity_id = 1;
   // When the crawler ingested this record.
   google.protobuf.Timestamp ingested_at = 2;
+  // Completeness of the security-trimming data Sync read for this entity,
+  // set on access-control owners (space, page, blog post, whiteboard,
+  // database, folder) and on the `restriction_state` record Sync emits for
+  // each owner on every run, which is the per-run marker for owners whose
+  // content did not change. UNSPECIFIED on every other entity and outside
+  // Sync. See SecurityCompleteness: consumers should deny unless COMPLETE.
+  SecurityCompleteness security_completeness = 3;
   // The wrapped entity. Exactly one arm is set; the set arm identifies the
   // entity kind.
   oneof entity {
@@ -94,6 +104,19 @@ message ConfluenceEntity {
     SpacePermissionAssignment space_permission_assignment = 35;
     // Set when the wrapped entity is a content tree entry.
     ContentTreeEntry tree_entry = 36;
+    // Set when the wrapped entity is a database entry (row).
+    DatabaseEntry database_entry = 37;
+    // Set when the wrapped entity is a database field (column definition).
+    // Named `database_field_definition` rather than `database_field`: the
+    // latter collides in generated Java with the `database` arm's
+    // getDatabaseFieldBuilder().
+    DatabaseField database_field_definition = 38;
+    // Set when the wrapped entity is a direct content permission entry.
+    ContentPermission content_permission = 39;
+    // Set when the wrapped entity is the restriction state of a content item.
+    RestrictionState restriction_state = 40;
+    // Set when the wrapped entity is a space role assignment.
+    SpaceRoleAssignment space_role_assignment = 41;
   }
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;

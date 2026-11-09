@@ -1,7 +1,18 @@
 package ai.pipestream.confluence;
 
 import ai.pipestream.confluence.v1.AccountStatus;
+import ai.pipestream.confluence.v1.DetailedVersion;
+import ai.pipestream.confluence.v1.SpacePermission;
+import ai.pipestream.confluence.v1.AppProperty;
+import ai.pipestream.confluence.v1.AdminKeyResponse;
+import ai.pipestream.confluence.v1.BulkTransitionCombinationEntry;
+import ai.pipestream.confluence.v1.BulkTransitionDecodedPermission;
+import ai.pipestream.confluence.v1.BulkTransitionPrincipalType;
+import ai.pipestream.confluence.v1.BulkTransitionTaskStatusResponse;
+import ai.pipestream.confluence.v1.BulkTransitionTaskStatus;
 import ai.pipestream.confluence.v1.AccountType;
+import ai.pipestream.confluence.v1.Ancestor;
+import ai.pipestream.confluence.v1.AncestorType;
 import ai.pipestream.confluence.v1.Attachment;
 import ai.pipestream.confluence.v1.BlogPost;
 import ai.pipestream.confluence.v1.BlogPostContentStatus;
@@ -12,40 +23,113 @@ import ai.pipestream.confluence.v1.ClassificationLevel;
 import ai.pipestream.confluence.v1.ClassificationLevelColor;
 import ai.pipestream.confluence.v1.ClassificationLevelStatus;
 import ai.pipestream.confluence.v1.Comment;
+import ai.pipestream.confluence.v1.CommentKind;
+import ai.pipestream.confluence.v1.ContentPermission;
+import ai.pipestream.confluence.v1.ContentPermissionOperation;
+import ai.pipestream.confluence.v1.ContentPermissionPrincipal;
+import ai.pipestream.confluence.v1.ContentPermissionPrincipalType;
 import ai.pipestream.confluence.v1.ContentProperty;
+import ai.pipestream.confluence.v1.ContentRestrictionState;
 import ai.pipestream.confluence.v1.ContentStatus;
+import ai.pipestream.confluence.v1.ContentTreeEntry;
+import ai.pipestream.confluence.v1.ContentType;
 import ai.pipestream.confluence.v1.CustomContent;
+import ai.pipestream.confluence.v1.DataPolicy;
+import ai.pipestream.confluence.v1.DataPolicyMetadata;
 import ai.pipestream.confluence.v1.Database;
+import ai.pipestream.confluence.v1.DatabaseAiSummaryFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseAiSummaryUpdater;
+import ai.pipestream.confluence.v1.DatabaseAiSummaryValue;
+import ai.pipestream.confluence.v1.DatabaseAiSummaryValueMetadata;
+import ai.pipestream.confluence.v1.DatabaseAttachmentValue;
+import ai.pipestream.confluence.v1.DatabaseBacklinkFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseDateFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseEntry;
+import ai.pipestream.confluence.v1.DatabaseEntryDetailsFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseEntryLinkValue;
+import ai.pipestream.confluence.v1.DatabaseEntryRef;
+import ai.pipestream.confluence.v1.DatabaseField;
+import ai.pipestream.confluence.v1.DatabaseFieldType;
+import ai.pipestream.confluence.v1.DatabaseFieldValue;
+import ai.pipestream.confluence.v1.DatabaseHyperlinkItem;
+import ai.pipestream.confluence.v1.DatabaseHyperlinkValue;
+import ai.pipestream.confluence.v1.DatabaseJiraIssueDetailsFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseJiraIssueFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseJiraIssueRef;
+import ai.pipestream.confluence.v1.DatabaseJiraIssueValue;
+import ai.pipestream.confluence.v1.DatabaseNumberFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseNumberFormat;
+import ai.pipestream.confluence.v1.DatabaseNumberFormatType;
+import ai.pipestream.confluence.v1.DatabasePageDetailsFieldSettings;
+import ai.pipestream.confluence.v1.DatabasePageLinkValue;
+import ai.pipestream.confluence.v1.DatabaseSelectFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseSelectOption;
+import ai.pipestream.confluence.v1.DatabaseSelectValue;
+import ai.pipestream.confluence.v1.DatabaseSourceFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseTextFieldSettings;
+import ai.pipestream.confluence.v1.DatabaseTextValue;
+import ai.pipestream.confluence.v1.DatabaseUserValue;
+import ai.pipestream.confluence.v1.DatabaseView;
+import ai.pipestream.confluence.v1.DatabaseViewType;
 import ai.pipestream.confluence.v1.Folder;
 import ai.pipestream.confluence.v1.Icon;
+import ai.pipestream.confluence.v1.IncludeExpansion;
 import ai.pipestream.confluence.v1.InlineCommentProperties;
 import ai.pipestream.confluence.v1.InlineCommentResolutionStatus;
 import ai.pipestream.confluence.v1.Label;
+import ai.pipestream.confluence.v1.Like;
+import ai.pipestream.confluence.v1.OnlyArchivedAndCurrentContentStatus;
+import ai.pipestream.confluence.v1.Operation;
 import ai.pipestream.confluence.v1.Page;
 import ai.pipestream.confluence.v1.ParentContentType;
+import ai.pipestream.confluence.v1.Principal;
+import ai.pipestream.confluence.v1.PrincipalType;
+import ai.pipestream.confluence.v1.PropertyEntry;
 import ai.pipestream.confluence.v1.PropertyKey;
+import ai.pipestream.confluence.v1.PropertyList;
+import ai.pipestream.confluence.v1.PropertyNull;
+import ai.pipestream.confluence.v1.PropertyObject;
 import ai.pipestream.confluence.v1.PropertyValue;
+import ai.pipestream.confluence.v1.ResolvedContentType;
+import ai.pipestream.confluence.v1.RestrictionState;
+import ai.pipestream.confluence.v1.RoleType;
+import ai.pipestream.confluence.v1.SmartLink;
 import ai.pipestream.confluence.v1.Space;
 import ai.pipestream.confluence.v1.SpaceDescription;
 import ai.pipestream.confluence.v1.SpaceIcon;
+import ai.pipestream.confluence.v1.SpacePermissionAssignment;
+import ai.pipestream.confluence.v1.SpacePermissionOperation;
+import ai.pipestream.confluence.v1.SpacePermissionOperationKey;
+import ai.pipestream.confluence.v1.SpacePermissionOperationTargetType;
+import ai.pipestream.confluence.v1.SpacePermissionPrincipal;
+import ai.pipestream.confluence.v1.SpacePermissionPrincipalType;
 import ai.pipestream.confluence.v1.SpaceProperty;
 import ai.pipestream.confluence.v1.SpacePropertyVersion;
+import ai.pipestream.confluence.v1.SpaceRole;
+import ai.pipestream.confluence.v1.SpaceRoleAssignment;
+import ai.pipestream.confluence.v1.SpaceRoleMode;
 import ai.pipestream.confluence.v1.SpaceStatus;
 import ai.pipestream.confluence.v1.SpaceType;
 import ai.pipestream.confluence.v1.Task;
 import ai.pipestream.confluence.v1.TaskStatus;
 import ai.pipestream.confluence.v1.User;
 import ai.pipestream.confluence.v1.Version;
+import ai.pipestream.confluence.v1.VersionedEntity;
+import ai.pipestream.confluence.v1.WebResourceBatch;
+import ai.pipestream.confluence.v1.WebResources;
 import ai.pipestream.confluence.v1.Whiteboard;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.protobuf.Struct;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.Message;
 import com.google.protobuf.Timestamp;
-import com.google.protobuf.Value;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -78,7 +162,7 @@ public final class ConfluenceMapper {
      *        absolute {@code web_url} / {@code download_url} values
      */
     public ConfluenceMapper(String baseUrl) {
-        this.baseUrl = Objects.requireNonNull(baseUrl, "baseUrl").replaceAll("/+$", "");
+        this.baseUrl = Strings.stripTrailingSlashes(Objects.requireNonNull(baseUrl, "baseUrl"));
         URI uri = URI.create(this.baseUrl);
         this.basePath = uri.getPath() == null ? "" : uri.getPath();
         this.origin = uri.getScheme() + "://" + uri.getAuthority();
@@ -120,6 +204,7 @@ public final class ConfluenceMapper {
                     .build());
         }
         b.setWebUrl(absolute(webui(node)));
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -173,6 +258,11 @@ public final class ConfluenceMapper {
         setVersion(node, b::setVersion);
         setBody(node, b::setBody);
         b.setWebUrl(absolute(webui(node)));
+        b.addAllCollaboratorAccountIds(collaboratorIds(node));
+        if (node.path("webResources").isObject()) {
+            b.setWebResources(toWebResources(node.path("webResources")));
+        }
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -194,6 +284,11 @@ public final class ConfluenceMapper {
         setVersion(node, b::setVersion);
         setBody(node, b::setBody);
         b.setWebUrl(absolute(webui(node)));
+        b.addAllCollaboratorAccountIds(collaboratorIds(node));
+        if (node.path("webResources").isObject()) {
+            b.setWebResources(toWebResources(node.path("webResources")));
+        }
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -210,6 +305,18 @@ public final class ConfluenceMapper {
      * @return the proto; missing fields stay unset
      */
     public Comment toComment(JsonNode node) {
+        return toComment(node, CommentKind.COMMENT_KIND_UNSPECIFIED);
+    }
+
+    /**
+     * Maps a REST v2 {@code Comment} JSON object read from a footer or inline
+     * route. The API does not echo the kind, so the caller passes it.
+     *
+     * @param node the API object
+     * @param kind the kind of the route the comment was read from
+     * @return the proto; missing fields stay unset
+     */
+    public Comment toComment(JsonNode node, CommentKind kind) {
         Comment.Builder b = Comment.newBuilder()
                 .setId(text(node, "id"))
                 .setStatus(wireEnum(ContentStatus.class, "CONTENT_STATUS_", text(node, "status"),
@@ -222,7 +329,8 @@ public final class ConfluenceMapper {
                 .setParentCommentId(text(node, "parentCommentId"))
                 .setResolutionStatus(wireEnum(InlineCommentResolutionStatus.class,
                         "INLINE_COMMENT_RESOLUTION_STATUS_", text(node, "resolutionStatus"),
-                        InlineCommentResolutionStatus.INLINE_COMMENT_RESOLUTION_STATUS_UNSPECIFIED));
+                        InlineCommentResolutionStatus.INLINE_COMMENT_RESOLUTION_STATUS_UNSPECIFIED))
+                .setKind(kind);
         setVersion(node, b::setVersion);
         setBody(node, b::setBody);
         if (hasText(node, "resolutionLastModifierId")) {
@@ -248,6 +356,7 @@ public final class ConfluenceMapper {
                     .build());
         }
         b.setWebUrl(absolute(webui(node)));
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -288,6 +397,8 @@ public final class ConfluenceMapper {
         String download = hasText(node, "downloadLink") ? text(node, "downloadLink")
                 : text(node.path("_links"), "download");
         b.setDownloadUrl(absolute(download));
+        b.addAllCollaboratorAccountIds(collaboratorIds(node));
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -411,6 +522,8 @@ public final class ConfluenceMapper {
         setTimestamp(node, "createdAt", b::setCreatedAt);
         setVersion(node, b::setVersion);
         b.setWebUrl(absolute(webui(node)));
+        b.addAllCollaboratorAccountIds(collaboratorIds(node));
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -439,6 +552,8 @@ public final class ConfluenceMapper {
         setTimestamp(node, "createdAt", b::setCreatedAt);
         setVersion(node, b::setVersion);
         b.setWebUrl(absolute(webui(node)));
+        b.addAllCollaboratorAccountIds(collaboratorIds(node));
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -467,6 +582,8 @@ public final class ConfluenceMapper {
         setTimestamp(node, "createdAt", b::setCreatedAt);
         setVersion(node, b::setVersion);
         b.setWebUrl(absolute(webui(node)));
+        b.addAllCollaboratorAccountIds(collaboratorIds(node));
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -492,6 +609,8 @@ public final class ConfluenceMapper {
         setVersion(node, b::setVersion);
         setBody(node, b::setBody);
         b.setWebUrl(absolute(webui(node)));
+        b.addAllCollaboratorAccountIds(collaboratorIds(node));
+        applyIncludes(b, node);
         return b.build();
     }
 
@@ -562,33 +681,59 @@ public final class ConfluenceMapper {
         }
     }
 
-    /** The oneof arm matches the JSON value's actual type; objects/arrays go to json_value. */
+    /**
+     * Sets the property's {@code value} member as a typed {@link PropertyValue}
+     * tree (see {@link #toPropertyValue(JsonNode)}). A missing member leaves
+     * the value unset; an explicit JSON {@code null} becomes
+     * {@code null_value}.
+     *
+     * @param node the property object
+     * @param valueSetter receives the mapped value
+     */
     static void setPropertyValue(JsonNode node,
             java.util.function.Consumer<PropertyValue> valueSetter) {
         JsonNode value = node.path("value");
-        if (value.isMissingNode() || value.isNull()) {
+        if (value.isMissingNode()) {
             return;
         }
-        PropertyValue.Builder b = PropertyValue.newBuilder();
-        if (value.isTextual()) {
-            b.setStringValue(value.asText());
-        } else if (value.isBoolean()) {
-            b.setBoolValue(value.asBoolean());
-        } else if (value.isIntegralNumber()) {
-            b.setIntegerValue(value.longValue());
-        } else if (value.isNumber()) {
-            b.setDoubleValue(value.doubleValue());
-        } else if (value.isObject() || value.isArray()) {
-            b.setJsonValue(toStruct(value));
-        } else {
-            return;
-        }
-        valueSetter.accept(b.build());
+        valueSetter.accept(toPropertyValue(value));
     }
 
     // ======================================================================
     // VERSIONS AND CLASSIFICATION LEVELS
     // ======================================================================
+
+    /**
+     * The account ids of {@code collaborators} ({@code include-collaborators}):
+     * an array of {@code {accountId}} objects; empty when absent.
+     *
+     * @param node the content object
+     * @return the account ids, in API order
+     */
+    static List<String> collaboratorIds(JsonNode node) {
+        List<String> ids = new ArrayList<>();
+        node.path("collaborators").forEach(c -> {
+            if (hasText(c, "accountId")) {
+                ids.add(text(c, "accountId"));
+            }
+        });
+        return ids;
+    }
+
+    /**
+     * Maps the {@code webResources} object ({@code include-webresources}).
+     *
+     * @param node the {@code webResources} object
+     * @return the proto
+     */
+    static WebResources toWebResources(JsonNode node) {
+        WebResources.Builder b = WebResources.newBuilder().setTags(text(node, "tags"));
+        if (node.path("superbatch").isObject()) {
+            b.setSuperbatch(WebResourceBatch.newBuilder()
+                    .setTags(text(node.path("superbatch"), "tags")));
+        }
+        return b.build();
+    }
 
     /**
      * Maps a REST v2 {@code Version} JSON object to the domain proto.
@@ -604,8 +749,24 @@ public final class ConfluenceMapper {
                 .setMinorEdit(node.path("minorEdit").asBoolean(false))
                 .setAuthorId(text(node, "authorId"));
         setTimestamp(node, "createdAt", b::setCreatedAt);
+        // Version-history entries name their snapshot after the content kind.
+        for (String kind : VERSIONED_ENTITY_KEYS) {
+            JsonNode entity = node.path(kind);
+            if (entity.isObject()) {
+                VersionedEntity.Builder eb = VersionedEntity.newBuilder()
+                        .setTitle(text(entity, "title"))
+                        .setId(text(entity, "id"));
+                setBody(entity, eb::setBody);
+                b.setEntity(eb);
+                break;
+            }
+        }
         return b.build();
     }
+
+    /** The snapshot key of each version-history shape (PageVersion, BlogPostVersion, ...). */
+    private static final List<String> VERSIONED_ENTITY_KEYS =
+            List.of("page", "blogpost", "attachment", "custom", "comment");
 
     /**
      * Maps a REST v2 {@code ClassificationLevel} JSON object to the domain proto.
@@ -627,6 +788,763 @@ public final class ConfluenceMapper {
                         text(node, "color"),
                         ClassificationLevelColor.CLASSIFICATION_LEVEL_COLOR_UNSPECIFIED));
         return b.build();
+    }
+
+    // ======================================================================
+    // SMART LINKS AND THE CONTENT TREE
+    // ======================================================================
+
+    /**
+     * Maps a REST v2 {@code SmartLink} ({@code /embeds/{id}}) JSON object to the domain proto.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public SmartLink toSmartLink(JsonNode node) {
+        SmartLink.Builder b = SmartLink.newBuilder()
+                .setId(text(node, "id"))
+                .setType(text(node, "type"))
+                .setStatus(wireEnum(ContentStatus.class, "CONTENT_STATUS_", text(node, "status"),
+                        ContentStatus.CONTENT_STATUS_UNSPECIFIED))
+                .setTitle(text(node, "title"))
+                .setParentId(text(node, "parentId"))
+                .setParentType(wireEnum(ParentContentType.class, "PARENT_CONTENT_TYPE_",
+                        text(node, "parentType"), ParentContentType.PARENT_CONTENT_TYPE_UNSPECIFIED))
+                .setAuthorId(text(node, "authorId"))
+                .setOwnerId(text(node, "ownerId"))
+                .setEmbedUrl(text(node, "embedUrl"))
+                .setSpaceId(text(node, "spaceId"));
+        if (node.path("position").isIntegralNumber()) {
+            b.setPosition(node.path("position").intValue());
+        }
+        setTimestamp(node, "createdAt", b::setCreatedAt);
+        setVersion(node, b::setVersion);
+        b.setWebUrl(absolute(webui(node)));
+        b.addAllCollaboratorAccountIds(collaboratorIds(node));
+        applyIncludes(b, node);
+        return b.build();
+    }
+
+    /**
+     * Maps a direct-children, descendants or custom-content child entry.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public ContentTreeEntry toTreeEntry(JsonNode node) {
+        ContentTreeEntry.Builder b = ContentTreeEntry.newBuilder()
+                .setId(text(node, "id"))
+                .setStatus(wireEnum(OnlyArchivedAndCurrentContentStatus.class,
+                        "ONLY_ARCHIVED_AND_CURRENT_CONTENT_STATUS_", text(node, "status"),
+                        OnlyArchivedAndCurrentContentStatus.ONLY_ARCHIVED_AND_CURRENT_CONTENT_STATUS_UNSPECIFIED))
+                .setTitle(text(node, "title"))
+                .setType(text(node, "type"))
+                .setSpaceId(text(node, "spaceId"))
+                .setParentId(text(node, "parentId"));
+        if (node.path("depth").isIntegralNumber()) {
+            b.setDepth(node.path("depth").intValue());
+        }
+        if (node.path("childPosition").isIntegralNumber()) {
+            b.setChildPosition(node.path("childPosition").intValue());
+        }
+        return b.build();
+    }
+
+    /**
+     * Maps an ancestor entry.
+     *
+     * @param node the API object
+     * @return the proto
+     */
+    public Ancestor toAncestor(JsonNode node) {
+        return Ancestor.newBuilder()
+                .setId(text(node, "id"))
+                .setType(wireEnum(AncestorType.class, "ANCESTOR_TYPE_", text(node, "type"),
+                        AncestorType.ANCESTOR_TYPE_UNSPECIFIED))
+                .build();
+    }
+
+    // ======================================================================
+    // PERMISSIONS
+    // ======================================================================
+
+    /**
+     * Maps a {@code restriction-state} response.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public RestrictionState toRestrictionState(JsonNode node) {
+        RestrictionState.Builder b = RestrictionState.newBuilder()
+                .setState(wireEnum(ContentRestrictionState.class, "CONTENT_RESTRICTION_STATE_",
+                        text(node, "state"), ContentRestrictionState.CONTENT_RESTRICTION_STATE_UNSPECIFIED));
+        setTimestamp(node, "createdAt", b::setCreatedAt);
+        String createdBy = createdBy(node);
+        if (!createdBy.isEmpty()) {
+            b.setCreatedBy(createdBy);
+        }
+        return b.build();
+    }
+
+    /** {@code createdBy}, falling back to its deprecated alias {@code createdByAaid}. */
+    private static String createdBy(JsonNode node) {
+        return hasText(node, "createdBy") ? text(node, "createdBy") : text(node, "createdByAaid");
+    }
+
+    /**
+     * Maps one direct content permission entry ({@code /{content-type}/{id}/permissions}).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public ContentPermission toContentPermission(JsonNode node) {
+        JsonNode principal = node.path("principal");
+        ContentPermission.Builder b = ContentPermission.newBuilder()
+                .setOperation(wireEnum(ContentPermissionOperation.class, "CONTENT_PERMISSION_OPERATION_",
+                        text(node, "operation"), ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_UNSPECIFIED))
+                .setPrincipal(ContentPermissionPrincipal.newBuilder()
+                        .setPrincipalType(wireEnum(ContentPermissionPrincipalType.class,
+                                "CONTENT_PERMISSION_PRINCIPAL_TYPE_", text(principal, "principalType"),
+                                ContentPermissionPrincipalType.CONTENT_PERMISSION_PRINCIPAL_TYPE_UNSPECIFIED))
+                        .setPrincipalId(text(principal, "principalId")))
+                .setCreatedBy(createdBy(node));
+        setTimestamp(node, "createdAt", b::setCreatedAt);
+        return b.build();
+    }
+
+    /**
+     * Maps one space permission assignment ({@code /spaces/{id}/permissions}).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public SpacePermissionAssignment toSpacePermissionAssignment(JsonNode node) {
+        JsonNode principal = node.path("principal");
+        JsonNode operation = node.path("operation");
+        return SpacePermissionAssignment.newBuilder()
+                .setId(text(node, "id"))
+                .setPrincipal(SpacePermissionPrincipal.newBuilder()
+                        .setType(wireEnum(SpacePermissionPrincipalType.class,
+                                "SPACE_PERMISSION_PRINCIPAL_TYPE_", text(principal, "type"),
+                                SpacePermissionPrincipalType.SPACE_PERMISSION_PRINCIPAL_TYPE_UNSPECIFIED))
+                        .setId(text(principal, "id")))
+                .setOperation(SpacePermissionOperation.newBuilder()
+                        .setKey(wireEnum(SpacePermissionOperationKey.class,
+                                "SPACE_PERMISSION_OPERATION_KEY_", text(operation, "key"),
+                                SpacePermissionOperationKey.SPACE_PERMISSION_OPERATION_KEY_UNSPECIFIED))
+                        .setTargetType(wireEnum(SpacePermissionOperationTargetType.class,
+                                "SPACE_PERMISSION_OPERATION_TARGET_TYPE_", snake(text(operation, "targetType")),
+                                SpacePermissionOperationTargetType.SPACE_PERMISSION_OPERATION_TARGET_TYPE_UNSPECIFIED)))
+                .build();
+    }
+
+    /**
+     * Maps one space role ({@code /space-roles}).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public SpaceRole toSpaceRole(JsonNode node) {
+        SpaceRole.Builder b = SpaceRole.newBuilder()
+                .setId(text(node, "id"))
+                .setType(wireEnum(RoleType.class, "ROLE_TYPE_", text(node, "type"),
+                        RoleType.ROLE_TYPE_UNSPECIFIED))
+                .setName(text(node, "name"))
+                .setDescription(text(node, "description"));
+        node.path("spacePermissions").forEach(permission -> {
+            if (permission.isTextual()) {
+                b.addSpacePermissions(permission.asText());
+            }
+        });
+        return b.build();
+    }
+
+    /**
+     * Maps one space role assignment ({@code /spaces/{id}/role-assignments}).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public SpaceRoleAssignment toSpaceRoleAssignment(JsonNode node) {
+        return SpaceRoleAssignment.newBuilder()
+                .setPrincipal(toPrincipal(node.path("principal")))
+                .setRoleId(text(node, "roleId"))
+                .build();
+    }
+
+    private static Principal toPrincipal(JsonNode node) {
+        return Principal.newBuilder()
+                .setPrincipalType(wireEnum(PrincipalType.class, "PRINCIPAL_TYPE_",
+                        text(node, "principalType"), PrincipalType.PRINCIPAL_TYPE_UNSPECIFIED))
+                .setPrincipalId(text(node, "principalId"))
+                .build();
+    }
+
+    /**
+     * Maps the {@code /space-role-mode} response.
+     *
+     * @param node the API object
+     * @return the mode; UNSPECIFIED when unknown
+     */
+    public static SpaceRoleMode toSpaceRoleMode(JsonNode node) {
+        return wireEnum(SpaceRoleMode.class, "SPACE_ROLE_MODE_", text(node, "mode"),
+                SpaceRoleMode.SPACE_ROLE_MODE_UNSPECIFIED);
+    }
+
+    // ======================================================================
+    // CONTENT TYPE RESOLUTION
+    // ======================================================================
+
+    /**
+     * Maps the {@code POST /content/convert-ids-to-types} response: one entry
+     * per key of {@code results}. Built-in kinds become {@link ContentType};
+     * any other value is a custom content type and lands in
+     * {@code custom_type} verbatim.
+     *
+     * @param node the API object
+     * @return the entries, in API order
+     */
+    public List<ResolvedContentType> toResolvedContentTypes(JsonNode node) {
+        List<ResolvedContentType> out = new ArrayList<>();
+        for (Map.Entry<String, JsonNode> entry : node.path("results").properties()) {
+            if (!entry.getValue().isTextual()) {
+                continue;
+            }
+            String wire = entry.getValue().asText();
+            ContentType type = contentType(wire);
+            ResolvedContentType.Builder b = ResolvedContentType.newBuilder()
+                    .setId(entry.getKey())
+                    .setType(type);
+            if (type == ContentType.CONTENT_TYPE_UNSPECIFIED) {
+                b.setCustomType(wire);
+            }
+            out.add(b.build());
+        }
+        return out;
+    }
+
+    /**
+     * The built-in content-type strings of the v2 API (singular, as
+     * {@code convert-ids-to-types} returns them) to {@link ContentType};
+     * anything else is {@code UNSPECIFIED}.
+     *
+     * @param wire the API string, or {@code null}
+     * @return the matching kind, {@code UNSPECIFIED} for custom content types
+     */
+    public static ContentType contentType(String wire) {
+        return switch (wire == null ? "" : wire) {
+            case "page" -> ContentType.CONTENT_TYPE_PAGE;
+            case "blogpost" -> ContentType.CONTENT_TYPE_BLOG_POST;
+            case "attachment" -> ContentType.CONTENT_TYPE_ATTACHMENT;
+            case "footer-comment" -> ContentType.CONTENT_TYPE_FOOTER_COMMENT;
+            case "inline-comment" -> ContentType.CONTENT_TYPE_INLINE_COMMENT;
+            case "whiteboard" -> ContentType.CONTENT_TYPE_WHITEBOARD;
+            case "database" -> ContentType.CONTENT_TYPE_DATABASE;
+            case "folder" -> ContentType.CONTENT_TYPE_FOLDER;
+            case "embed" -> ContentType.CONTENT_TYPE_SMART_LINK;
+            default -> ContentType.CONTENT_TYPE_UNSPECIFIED;
+        };
+    }
+
+    // ======================================================================
+    // DATA POLICIES
+    // ======================================================================
+
+    /**
+     * Maps one {@code /data-policies/spaces} entry.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public DataPolicy toDataPolicy(JsonNode node) {
+        DataPolicy.Builder b = DataPolicy.newBuilder()
+                .setId(text(node, "id"))
+                .setKey(text(node, "key"))
+                .setName(text(node, "name"))
+                .setAnyContentBlocked(node.path("dataPolicy").path("anyContentBlocked").asBoolean(false));
+        if (node.path("description").isObject()) {
+            b.setDescription(toSpaceDescription(node.path("description")));
+        }
+        JsonNode icon = node.path("icon");
+        if (icon.isObject()) {
+            b.setIcon(SpaceIcon.newBuilder()
+                    .setPath(text(icon, "path"))
+                    .setApiDownloadUrl(absolute(text(icon, "apiDownloadLink"))));
+        }
+        b.setWebUrl(absolute(webui(node)));
+        return b.build();
+    }
+
+    /**
+     * Maps the {@code /data-policies/metadata} response.
+     *
+     * @param node the API object
+     * @return the proto
+     */
+    public DataPolicyMetadata toDataPolicyMetadata(JsonNode node) {
+        return DataPolicyMetadata.newBuilder()
+                .setAnyContentBlocked(node.path("anyContentBlocked").asBoolean(false))
+                .build();
+    }
+
+    // ======================================================================
+    // DATABASE DATA (experimental upstream)
+    // ======================================================================
+
+    /**
+     * Maps one database field definition; the settings arm follows {@code type}.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public DatabaseField toDatabaseField(JsonNode node) {
+        DatabaseFieldType type = databaseFieldType(text(node, "type"));
+        DatabaseField.Builder b = DatabaseField.newBuilder()
+                .setId(text(node, "id"))
+                .setName(text(node, "name"))
+                .setDescription(text(node, "description"))
+                .setType(type);
+        JsonNode settings = node.path("settings");
+        switch (type) {
+            case DATABASE_FIELD_TYPE_TEXT -> b.setText(DatabaseTextFieldSettings.newBuilder()
+                    .setRichText(settings.path("richText").asBoolean(false)));
+            case DATABASE_FIELD_TYPE_AI_SUMMARY -> b.setAiSummary(DatabaseAiSummaryFieldSettings.newBuilder()
+                    .setLastAiRunUserAccountId(text(settings.path("aiRunMetadata"), "lastAiRunUserAccountId")));
+            case DATABASE_FIELD_TYPE_NUMBER -> {
+                DatabaseNumberFieldSettings.Builder number = DatabaseNumberFieldSettings.newBuilder();
+                JsonNode format = settings.path("format");
+                if (format.isObject()) {
+                    DatabaseNumberFormat.Builder fb = DatabaseNumberFormat.newBuilder()
+                            .setType(wireEnum(DatabaseNumberFormatType.class, "DATABASE_NUMBER_FORMAT_TYPE_",
+                                    text(format, "type"), DatabaseNumberFormatType.DATABASE_NUMBER_FORMAT_TYPE_UNSPECIFIED))
+                            .setPrefix(text(format, "prefix"))
+                            .setSuffix(text(format, "suffix"));
+                    if (format.path("decimalPlaces").isIntegralNumber()) {
+                        fb.setDecimalPlaces(format.path("decimalPlaces").intValue());
+                    }
+                    number.setFormat(fb);
+                }
+                b.setNumber(number);
+            }
+            case DATABASE_FIELD_TYPE_SELECT -> {
+                DatabaseSelectFieldSettings.Builder select = DatabaseSelectFieldSettings.newBuilder();
+                settings.path("options").forEach(option -> select.addOptions(toSelectOption(option)));
+                b.setSelect(select);
+            }
+            case DATABASE_FIELD_TYPE_DATE -> b.setDate(DatabaseDateFieldSettings.newBuilder()
+                    .setIncludesTime(settings.path("includesTime").asBoolean(false)));
+            case DATABASE_FIELD_TYPE_JIRA_ISSUE -> b.setJiraIssue(DatabaseJiraIssueFieldSettings.newBuilder()
+                    .setCloudId(text(settings, "cloudId"))
+                    .setServerId(text(settings, "serverId")));
+            case DATABASE_FIELD_TYPE_ENTRY_DETAILS -> b.setEntryDetails(DatabaseEntryDetailsFieldSettings.newBuilder()
+                    .setSourceFieldId(text(settings, "sourceFieldId"))
+                    .setLookupFieldId(text(settings, "lookupFieldId")));
+            case DATABASE_FIELD_TYPE_JIRA_ISSUE_DETAILS -> b.setJiraIssueDetails(
+                    DatabaseJiraIssueDetailsFieldSettings.newBuilder()
+                            .setSourceFieldId(text(settings, "sourceFieldId"))
+                            .setJiraFieldKey(text(settings, "jiraFieldKey")));
+            case DATABASE_FIELD_TYPE_PAGE_DETAILS -> b.setPageDetails(DatabasePageDetailsFieldSettings.newBuilder()
+                    .setSourceFieldId(text(settings, "sourceFieldId"))
+                    .setPagePropertyKey(text(settings, "pagePropertyKey")));
+            case DATABASE_FIELD_TYPE_PAGE_LABELS, DATABASE_FIELD_TYPE_PAGE_STATUS -> b.setSource(
+                    DatabaseSourceFieldSettings.newBuilder().setSourceFieldId(text(settings, "sourceFieldId")));
+            case DATABASE_FIELD_TYPE_BACKLINK -> b.setBacklink(DatabaseBacklinkFieldSettings.newBuilder()
+                    .setSourceDatabaseContentId(text(settings, "sourceDatabaseContentId")));
+            default -> {
+                // checkbox, hyperlink, user, attachment, pageLink, entryLink: no settings
+            }
+        }
+        return b.build();
+    }
+
+    /**
+     * Maps one database entry (row); every field value is typed by its {@code type}.
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public DatabaseEntry toDatabaseEntry(JsonNode node) {
+        DatabaseEntry.Builder b = DatabaseEntry.newBuilder()
+                .setId(text(node, "id"))
+                .setDatabaseId(text(node, "databaseId"));
+        for (Map.Entry<String, JsonNode> value : node.path("values").properties()) {
+            b.putValues(value.getKey(), toDatabaseFieldValue(value.getValue()));
+        }
+        return b.build();
+    }
+
+    private DatabaseFieldValue toDatabaseFieldValue(JsonNode node) {
+        DatabaseFieldType type = databaseFieldType(text(node, "type"));
+        DatabaseFieldValue.Builder b = DatabaseFieldValue.newBuilder().setType(type);
+        JsonNode value = node.path("value");
+        switch (type) {
+            case DATABASE_FIELD_TYPE_TEXT -> {
+                if (!node.path("plain").isNull() || !node.path("rich").isNull()) {
+                    DatabaseTextValue.Builder text = DatabaseTextValue.newBuilder()
+                            .setPlain(text(node, "plain"));
+                    if (node.path("rich").isObject()) {
+                        text.setRich(adf(node.path("rich")));
+                    }
+                    b.setText(text);
+                }
+            }
+            case DATABASE_FIELD_TYPE_AI_SUMMARY -> {
+                DatabaseAiSummaryValue.Builder summary = DatabaseAiSummaryValue.newBuilder()
+                        .setPlain(text(node, "plain"));
+                if (node.path("rich").isObject()) {
+                    summary.setRich(adf(node.path("rich")));
+                }
+                JsonNode metadata = node.path("metadata");
+                if (metadata.isObject()) {
+                    DatabaseAiSummaryValueMetadata.Builder mb = DatabaseAiSummaryValueMetadata.newBuilder()
+                            .setLastUpdatedBy(wireEnum(DatabaseAiSummaryUpdater.class,
+                                    "DATABASE_AI_SUMMARY_UPDATER_", text(metadata, "lastUpdatedBy"),
+                                    DatabaseAiSummaryUpdater.DATABASE_AI_SUMMARY_UPDATER_UNSPECIFIED))
+                            .setLastUpdatedUserAccountId(text(metadata, "lastUpdatedUserAccountId"));
+                    setTimestamp(metadata, "lastUpdatedAt", mb::setLastUpdatedAt);
+                    summary.setSummaryMetadata(mb);
+                }
+                b.setAiSummary(summary);
+            }
+            case DATABASE_FIELD_TYPE_NUMBER -> {
+                if (value.isTextual()) {
+                    b.setNumber(value.asText());
+                }
+            }
+            case DATABASE_FIELD_TYPE_CHECKBOX -> {
+                if (value.isBoolean()) {
+                    b.setCheckbox(value.asBoolean());
+                }
+            }
+            case DATABASE_FIELD_TYPE_DATE -> {
+                if (value.isTextual()) {
+                    b.setDate(value.asText());
+                }
+            }
+            case DATABASE_FIELD_TYPE_SELECT -> {
+                if (value.isArray()) {
+                    DatabaseSelectValue.Builder select = DatabaseSelectValue.newBuilder();
+                    value.forEach(option -> select.addOptions(toSelectOption(option)));
+                    b.setSelect(select);
+                }
+            }
+            case DATABASE_FIELD_TYPE_HYPERLINK -> {
+                if (value.isArray()) {
+                    DatabaseHyperlinkValue.Builder links = DatabaseHyperlinkValue.newBuilder();
+                    value.forEach(item -> links.addItems(DatabaseHyperlinkItem.newBuilder()
+                            .setUrl(text(item, "url")).setLabel(text(item, "label"))));
+                    b.setHyperlink(links);
+                }
+            }
+            case DATABASE_FIELD_TYPE_USER -> {
+                if (value.isArray()) {
+                    DatabaseUserValue.Builder users = DatabaseUserValue.newBuilder();
+                    value.forEach(item -> users.addAccountIds(text(item, "accountId")));
+                    b.setUser(users);
+                }
+            }
+            case DATABASE_FIELD_TYPE_ATTACHMENT -> {
+                if (value.isArray()) {
+                    DatabaseAttachmentValue.Builder media = DatabaseAttachmentValue.newBuilder();
+                    value.forEach(item -> media.addMediaIds(text(item, "mediaId")));
+                    b.setAttachment(media);
+                }
+            }
+            case DATABASE_FIELD_TYPE_JIRA_ISSUE -> {
+                if (value.isArray()) {
+                    DatabaseJiraIssueValue.Builder issues = DatabaseJiraIssueValue.newBuilder();
+                    value.forEach(item -> issues.addIssues(DatabaseJiraIssueRef.newBuilder()
+                            .setKey(text(item, "key"))
+                            .setCloudId(text(item, "cloudId"))
+                            .setServerId(text(item, "serverId"))));
+                    b.setJiraIssue(issues);
+                }
+            }
+            case DATABASE_FIELD_TYPE_PAGE_LINK -> {
+                if (value.isArray()) {
+                    DatabasePageLinkValue.Builder pages = DatabasePageLinkValue.newBuilder();
+                    value.forEach(item -> pages.addContentIds(text(item, "contentId")));
+                    b.setPageLink(pages);
+                }
+            }
+            case DATABASE_FIELD_TYPE_ENTRY_LINK -> {
+                if (value.isArray()) {
+                    DatabaseEntryLinkValue.Builder entries = DatabaseEntryLinkValue.newBuilder();
+                    value.forEach(item -> entries.addEntries(DatabaseEntryRef.newBuilder()
+                            .setEntryId(text(item, "entryId"))
+                            .setDatabaseContentId(text(item, "databaseContentId"))));
+                    b.setEntryLink(entries);
+                }
+            }
+            default -> {
+                // lookup fields (entryDetails, backlink, pageDetails, pageLabels,
+                // pageStatus, jiraIssueDetails) always carry a null value
+            }
+        }
+        return b.build();
+    }
+
+    /**
+     * Maps one database view ({@code /databases/{id}/views}).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public DatabaseView toDatabaseView(JsonNode node) {
+        return DatabaseView.newBuilder()
+                .setId(text(node, "id"))
+                .setName(text(node, "name"))
+                .setType(wireEnum(DatabaseViewType.class, "DATABASE_VIEW_TYPE_", text(node, "type"),
+                        DatabaseViewType.DATABASE_VIEW_TYPE_UNSPECIFIED))
+                .build();
+    }
+
+    private static DatabaseSelectOption toSelectOption(JsonNode node) {
+        return DatabaseSelectOption.newBuilder()
+                .setId(text(node, "id"))
+                .setLabel(text(node, "label"))
+                .build();
+    }
+
+    /** An ADF document is serialized content in a declared format, kept as its JSON text. */
+    private static BodyType adf(JsonNode document) {
+        return BodyType.newBuilder()
+                .setFormat(BodyFormat.BODY_FORMAT_ATLAS_DOC_FORMAT)
+                .setValue(document.toString())
+                .build();
+    }
+
+    private static DatabaseFieldType databaseFieldType(String wire) {
+        return wireEnum(DatabaseFieldType.class, "DATABASE_FIELD_TYPE_", snake(wire),
+                DatabaseFieldType.DATABASE_FIELD_TYPE_UNSPECIFIED);
+    }
+
+    // ======================================================================
+    // INCLUDE-* EXPANSIONS
+    // ======================================================================
+
+    /**
+     * Copies the {@code include-*} expansions present on a single-entity read
+     * into the matching repeated fields of the builder, by field name. A
+     * field the message does not declare is skipped, so one routine serves
+     * every content kind. Space properties land in {@code space_properties}.
+     *
+     * @param b the builder of the mapped entity
+     * @param node the API object
+     */
+    void applyIncludes(Message.Builder b, JsonNode node) {
+        Descriptors.Descriptor type = b.getDescriptorForType();
+        boolean space = type.getName().equals("Space");
+        addEach(b, "labels", node.path("labels"), IncludeExpansion.INCLUDE_EXPANSION_LABELS,
+                this::toLabel);
+        addEach(b, "operations", node.path("operations"), IncludeExpansion.INCLUDE_EXPANSION_OPERATIONS,
+                ConfluenceMapper::toOperation);
+        addEach(b, "likes", node.path("likes"), IncludeExpansion.INCLUDE_EXPANSION_LIKES,
+                like -> Like.newBuilder().setAccountId(text(like, "accountId")).build());
+        addEach(b, "versions", node.path("versions"), IncludeExpansion.INCLUDE_EXPANSION_VERSIONS,
+                this::toVersion);
+        addEach(b, "direct_children", node.path("directChildren"),
+                IncludeExpansion.INCLUDE_EXPANSION_DIRECT_CHILDREN, this::toTreeEntry);
+        if (space) {
+            addEach(b, "space_properties", node.path("properties"),
+                    IncludeExpansion.INCLUDE_EXPANSION_PROPERTIES, this::toSpaceProperty);
+            addEach(b, "permissions", node.path("permissions"),
+                    IncludeExpansion.INCLUDE_EXPANSION_PERMISSIONS, this::toSpacePermissionAssignment);
+            addEach(b, "role_assignments", node.path("roleAssignments"),
+                    IncludeExpansion.INCLUDE_EXPANSION_ROLE_ASSIGNMENTS, this::toSpaceRoleAssignment);
+        } else {
+            addEach(b, "properties", node.path("properties"),
+                    IncludeExpansion.INCLUDE_EXPANSION_PROPERTIES, this::toContentProperty);
+        }
+        Descriptors.FieldDescriptor favorited = type.findFieldByName("is_favorited_by_current_user");
+        if (favorited != null && node.path("isFavoritedByCurrentUser").isBoolean()) {
+            b.setField(favorited, node.path("isFavoritedByCurrentUser").asBoolean());
+        }
+    }
+
+    /**
+     * An include expansion is {@code {results: [...], meta: {hasMore, cursor}}};
+     * anything else is not an expansion. A preview upstream cut short
+     * ({@code meta.hasMore}) is recorded in {@code truncated_includes}; the
+     * paging cursor is transport and is dropped.
+     */
+    private static void addEach(Message.Builder b, String fieldName, JsonNode expansion,
+            IncludeExpansion kind, java.util.function.Function<JsonNode, Message> map) {
+        Descriptors.FieldDescriptor field = b.getDescriptorForType().findFieldByName(fieldName);
+        JsonNode results = expansion.path("results");
+        if (field == null || !field.isRepeated() || !results.isArray()) {
+            return;
+        }
+        results.forEach(item -> b.addRepeatedField(field, map.apply(item)));
+        Descriptors.FieldDescriptor truncated =
+                b.getDescriptorForType().findFieldByName("truncated_includes");
+        if (truncated != null && expansion.path("meta").path("hasMore").asBoolean(false)) {
+            b.addRepeatedField(truncated, kind.getValueDescriptor());
+        }
+    }
+
+    /**
+     * Maps one {@code Like} ({@code /{content-type}/{id}/likes/users} item).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public Like toLike(JsonNode node) {
+        return Like.newBuilder().setAccountId(text(node, "accountId")).build();
+    }
+
+    /**
+     * Maps a {@code DetailedVersion} ({@code /{content-type}/{id}/versions/{n}}).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public DetailedVersion toDetailedVersion(JsonNode node) {
+        DetailedVersion.Builder b = DetailedVersion.newBuilder()
+                .setNumber(node.path("number").isIntegralNumber() ? node.path("number").intValue() : 0)
+                .setAuthorId(text(node, "authorId"))
+                .setMessage(text(node, "message"))
+                .setMinorEdit(node.path("minorEdit").asBoolean(false))
+                .setContentTypeModified(node.path("contentTypeModified").asBoolean(false));
+        setTimestamp(node, "createdAt", b::setCreatedAt);
+        node.path("collaborators").forEach(collaborator -> {
+            if (collaborator.isTextual()) {
+                b.addCollaborators(collaborator.asText());
+            }
+        });
+        if (node.path("prevVersion").isIntegralNumber()) {
+            b.setPrevVersion(node.path("prevVersion").intValue());
+        }
+        if (node.path("nextVersion").isIntegralNumber()) {
+            b.setNextVersion(node.path("nextVersion").intValue());
+        }
+        return b.build();
+    }
+
+    /**
+     * Maps the operations of a {@code PermittedOperationsResponse}
+     * ({@code /{content-type}/{id}/operations}).
+     *
+     * @param node the API object
+     * @return the operations, in API order
+     */
+    public List<Operation> toOperations(JsonNode node) {
+        List<Operation> operations = new java.util.ArrayList<>();
+        node.path("operations").forEach(operation -> operations.add(toOperation(operation)));
+        return operations;
+    }
+
+    /**
+     * Maps one space permission definition ({@code /space-permissions} item).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public SpacePermission toSpacePermission(JsonNode node) {
+        SpacePermission.Builder b = SpacePermission.newBuilder()
+                .setId(text(node, "id"))
+                .setDisplayName(text(node, "displayName"))
+                .setDescription(text(node, "description"));
+        node.path("requiredPermissionIds").forEach(id -> {
+            if (id.isTextual()) {
+                b.addRequiredPermissionIds(id.asText());
+            }
+        });
+        return b.build();
+    }
+
+    /**
+     * Maps one Forge app property ({@code /app/properties} item or single read).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public AppProperty toAppProperty(JsonNode node) {
+        AppProperty.Builder b = AppProperty.newBuilder();
+        applyPropertyKey(node, b::setKey, b::setCustomKey);
+        setPropertyValue(node, b::setValue);
+        return b.build();
+    }
+
+    /**
+     * Maps the caller's admin key ({@code GET /admin-key}).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public AdminKeyResponse toAdminKey(JsonNode node) {
+        AdminKeyResponse.Builder b = AdminKeyResponse.newBuilder()
+                .setAccountId(text(node, "accountId"));
+        setTimestamp(node, "expirationTime", b::setExpirationTime);
+        return b.build();
+    }
+
+    /**
+     * Maps one unassigned permission combination
+     * ({@code /space-permissions/transition/combinations} item).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public BulkTransitionCombinationEntry toBulkTransitionCombination(JsonNode node) {
+        BulkTransitionCombinationEntry.Builder b = BulkTransitionCombinationEntry.newBuilder()
+                .setCombinationId(text(node, "combinationId"))
+                .setSpaceCount(node.path("spaceCount").asLong(0))
+                .setPrincipalCount(node.path("principalCount").asLong(0));
+        node.path("permissions").forEach(permission -> b.addPermissions(
+                BulkTransitionDecodedPermission.newBuilder()
+                        .setId(text(permission, "id"))
+                        .setDisplayName(text(permission, "displayName"))));
+        node.path("principalTypes").forEach(type -> {
+            if (type.isTextual()) {
+                b.addPrincipalTypes(type.asText());
+                b.addTypedPrincipalTypes(wireEnum(BulkTransitionPrincipalType.class,
+                        "BULK_TRANSITION_PRINCIPAL_TYPE_", type.asText(),
+                        BulkTransitionPrincipalType.BULK_TRANSITION_PRINCIPAL_TYPE_UNSPECIFIED));
+            }
+        });
+        return b.build();
+    }
+
+    /**
+     * Maps a transition task status
+     * ({@code /space-permissions/transition/tasks/{taskId}}).
+     *
+     * @param node the API object
+     * @return the proto; missing fields stay unset
+     */
+    public BulkTransitionTaskStatusResponse toBulkTransitionTaskStatus(JsonNode node) {
+        BulkTransitionTaskStatusResponse.Builder b = BulkTransitionTaskStatusResponse.newBuilder()
+                .setTaskId(text(node, "taskId"))
+                .setStatus(wireEnum(BulkTransitionTaskStatus.class, "BULK_TRANSITION_TASK_STATUS_",
+                        text(node, "status"), BulkTransitionTaskStatus.BULK_TRANSITION_TASK_STATUS_UNSPECIFIED));
+        if (node.path("errorMessage").isTextual()) {
+            b.setErrorMessage(node.path("errorMessage").asText());
+        }
+        return b.build();
+    }
+
+    static Operation toOperation(JsonNode node) {
+        return Operation.newBuilder()
+                .setOperation(text(node, "operation"))
+                .setTargetType(text(node, "targetType"))
+                .build();
+    }
+
+    /** camelCase wire values ({@code aiSummary}, {@code userProfile}) to snake_case. */
+    static String snake(String wire) {
+        if (wire == null) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder(wire.length() + 4);
+        for (int i = 0; i < wire.length(); i++) {
+            char c = wire.charAt(i);
+            if (Character.isUpperCase(c) && i > 0) {
+                out.append('_');
+            }
+            out.append(Character.toLowerCase(c));
+        }
+        return out.toString();
     }
 
     // ======================================================================
@@ -776,37 +1694,70 @@ public final class ConfluenceMapper {
         }
     }
 
-    /** Jackson tree to protobuf Struct, for property values that genuinely are structured JSON. */
-    static Struct toStruct(JsonNode node) {
-        Struct.Builder b = Struct.newBuilder();
-        for (Map.Entry<String, JsonNode> field : node.properties()) {
-            b.putFields(field.getKey(), toValue(field.getValue()));
-        }
-        return b.build();
-    }
-
-    private static Value toValue(JsonNode node) {
-        Value.Builder b = Value.newBuilder();
+    /**
+     * Converts one Jackson node, recursively, into the typed
+     * {@link PropertyValue} tree, field by field and without any JSON or
+     * {@code Struct} round-trip. Integer tokens that fit in int64 stay
+     * {@code integer_value}; larger ones keep their exact decimal digits in
+     * {@code big_integer_value}, so nothing is rounded through a double.
+     * Fractional or exponent numbers become {@code double_value} when the
+     * double's shortest decimal form equals the exact value, and otherwise
+     * {@code decimal_value} with the exact {@link BigDecimal#toString()}
+     * text; that choice needs the {@link ConfluenceClient} parser, which
+     * reads floats as {@link BigDecimal}s (a tree whose floats are already
+     * doubles maps them to {@code double_value} as parsed). Object
+     * members keep source order, and duplicate keys (when the parser
+     * retains them) stay separate entries.
+     *
+     * @param node the JSON value; {@code null} or missing maps to {@code null_value}
+     * @return the typed value
+     */
+    static PropertyValue toPropertyValue(JsonNode node) {
+        PropertyValue.Builder b = PropertyValue.newBuilder();
         if (node == null || node.isNull() || node.isMissingNode()) {
-            return b.setNullValue(com.google.protobuf.NullValue.NULL_VALUE).build();
+            return b.setNullValue(PropertyNull.getDefaultInstance()).build();
         }
         if (node.isTextual()) {
-            return b.setStringValue(node.asText()).build();
+            return b.setStringValue(node.textValue()).build();
         }
         if (node.isBoolean()) {
-            return b.setBoolValue(node.asBoolean()).build();
+            return b.setBoolValue(node.booleanValue()).build();
+        }
+        if (node.isIntegralNumber()) {
+            if (node.canConvertToLong()) {
+                return b.setIntegerValue(node.longValue()).build();
+            }
+            return b.setBigIntegerValue(node.bigIntegerValue().toString()).build();
+        }
+        if (node.isBigDecimal()) {
+            BigDecimal exact = node.decimalValue();
+            double approx = exact.doubleValue();
+            if (Double.isFinite(approx) && new BigDecimal(Double.toString(approx)).compareTo(exact) == 0) {
+                return b.setDoubleValue(approx).build();
+            }
+            return b.setDecimalValue(exact.toString()).build();
         }
         if (node.isNumber()) {
-            return b.setNumberValue(node.doubleValue()).build();
+            return b.setDoubleValue(node.doubleValue()).build();
         }
         if (node.isArray()) {
-            com.google.protobuf.ListValue.Builder list = com.google.protobuf.ListValue.newBuilder();
-            node.forEach(item -> list.addValues(toValue(item)));
-            return b.setListValue(list.build()).build();
+            PropertyList.Builder list = PropertyList.newBuilder();
+            for (JsonNode item : node) {
+                list.addValues(toPropertyValue(item));
+            }
+            return b.setListValue(list).build();
         }
         if (node.isObject()) {
-            return b.setStructValue(toStruct(node)).build();
+            PropertyObject.Builder object = PropertyObject.newBuilder();
+            for (Map.Entry<String, JsonNode> field : node.properties()) {
+                object.addEntries(PropertyEntry.newBuilder()
+                        .setKey(field.getKey())
+                        .setValue(toPropertyValue(field.getValue())));
+            }
+            return b.setObjectValue(object).build();
         }
+        // Binary, POJO and other non-JSON node kinds never come from a parsed
+        // response; keep their text rather than dropping them.
         return b.setStringValue(node.asText()).build();
     }
 
@@ -818,5 +1769,35 @@ public final class ConfluenceMapper {
     private static String text(JsonNode node, String field) {
         JsonNode value = node.path(field);
         return value.isTextual() ? value.asText() : "";
+    }
+
+    // ======================================================================
+    // VERSION HISTORY ENTRIES
+    // ======================================================================
+
+    /**
+     * Maps one {@code /{content-type}/{id}/versions} entry: the version
+     * fields plus its entity snapshot, which the API nests under the
+     * content kind's key ({@code page}, {@code blogpost}, {@code attachment},
+     * {@code comment} or {@code custom}).
+     *
+     * @param node the API object
+     * @return the proto with {@code entity} set when the API sent a snapshot
+     */
+    public Version toVersionEntry(JsonNode node) {
+        Version.Builder b = toVersion(node).toBuilder();
+        for (String key : List.of("page", "blogpost", "attachment", "comment", "custom")) {
+            JsonNode snapshot = node.path(key);
+            if (snapshot.isObject()) {
+                ai.pipestream.confluence.v1.VersionedEntity.Builder entity =
+                        ai.pipestream.confluence.v1.VersionedEntity.newBuilder()
+                                .setId(text(snapshot, "id"))
+                                .setTitle(text(snapshot, "title"));
+                setBody(snapshot, entity::setBody);
+                b.setEntity(entity.build());
+                break;
+            }
+        }
+        return b.build();
     }
 }

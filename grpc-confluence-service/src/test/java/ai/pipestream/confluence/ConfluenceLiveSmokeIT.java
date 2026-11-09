@@ -4,10 +4,11 @@ import ai.pipestream.confluence.v1.ConfluenceServiceGrpc;
 import ai.pipestream.confluence.v1.GetPageRequest;
 import ai.pipestream.confluence.v1.ListAttachmentsRequest;
 import ai.pipestream.confluence.v1.ListAttachmentsResponse;
-import ai.pipestream.confluence.v1.ListSpacesRequest;
-import ai.pipestream.confluence.v1.ListSpacesResponse;
 import ai.pipestream.confluence.v1.Page;
 import ai.pipestream.confluence.v1.Space;
+import ai.pipestream.confluence.v1.StreamSpacesRequest;
+import ai.pipestream.confluence.v1.StreamSpacesResponse;
+import com.fasterxml.jackson.databind.JsonNode;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -72,15 +74,16 @@ class ConfluenceLiveSmokeIT {
         try {
             ConfluenceServiceGrpc.ConfluenceServiceBlockingStub stub =
                     ConfluenceServiceGrpc.newBlockingStub(channel);
-            ListSpacesResponse response = stub.listSpaces(
-                    ListSpacesRequest.newBuilder().setLimit(1).build());
+            List<StreamSpacesResponse> spaces = new ArrayList<>();
+            stub.streamSpaces(StreamSpacesRequest.newBuilder().setLimit(1).build())
+                    .forEachRemaining(spaces::add);
 
-            assertThat(response.getSpacesCount()).isEqualTo(1);
-            Space space = response.getSpaces(0);
+            assertThat(spaces).hasSize(1);
+            Space space = spaces.get(0).getSpace();
             assertThat(space.getId()).isNotBlank();
             assertThat(space.getKey()).isNotBlank();
             assertThat(VALIDATOR.validate(space).violations()).isEmpty();
-            System.out.println("[ConfluenceLiveSmokeIT] ListSpaces limit=1 -> key="
+            System.out.println("[ConfluenceLiveSmokeIT] StreamSpaces limit=1 -> key="
                     + space.getKey() + " name=" + space.getName()
                     + " homepage=" + space.getHomepageId());
 
@@ -100,9 +103,40 @@ class ConfluenceLiveSmokeIT {
                     assertThat(VALIDATOR.validate(row.getAttachment()).violations()).isEmpty());
             System.out.println("[ConfluenceLiveSmokeIT] homepage " + page.getId()
                     + " attachments=" + attachments.size());
+
+            // Shape probe for include-collaborators / include-webresources:
+            // the v2 OpenAPI document declares the flags but no response
+            // schema. Prints field names and JSON node types only, never
+            // values, so the contract can be typed from a real tenant.
+            JsonNode raw = new ConfluenceClient(config).get("/api/v2/pages/" + page.getId(),
+                    Map.of("include-collaborators", "true", "include-webresources", "true"));
+            for (String field : List.of("collaborators", "webresources", "webResources")) {
+                System.out.println("[ConfluenceLiveSmokeIT] shape " + field + " = "
+                        + shape(raw.get(field), 0));
+            }
         } finally {
             channel.shutdownNow();
             server.shutdownNow();
         }
+    }
+
+    /** Field names and node types of a JSON tree, with no values. */
+    private static String shape(JsonNode node, int depth) {
+        if (node == null || node.isMissingNode()) {
+            return "<absent>";
+        }
+        if (depth > 4) {
+            return "...";
+        }
+        if (node.isObject()) {
+            StringBuilder out = new StringBuilder("{");
+            node.properties().forEach(e -> out.append(e.getKey()).append(':')
+                    .append(shape(e.getValue(), depth + 1)).append(", "));
+            return out.append('}').toString();
+        }
+        if (node.isArray()) {
+            return "[" + node.size() + "x " + (node.isEmpty() ? "?" : shape(node.get(0), depth + 1)) + "]";
+        }
+        return node.getNodeType().name().toLowerCase(java.util.Locale.ROOT);
     }
 }

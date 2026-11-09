@@ -128,6 +128,13 @@ message CustomContent {
   repeated Version versions = 16;
   // Human-facing URL of the content, for search results and UIs.
   string web_url = 17;
+  // Account IDs of the users who collaborated on this content. Present
+  // only when the read asked for collaborators (`include-collaborators`);
+  // upstream returns bare account ids, so resolve names with BatchGetUsers.
+  repeated string collaborator_account_ids = 18;
+  // Include expansions whose inline preview (at most 50 entries) was cut
+  // short upstream (`meta.hasMore`): the matching repeated field is partial.
+  repeated IncludeExpansion truncated_includes = 19;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -164,6 +171,21 @@ message Database {
   Version version = 12;
   // Human-facing URL of the content, for search results and UIs.
   string web_url = 13;
+  // The content properties of the database (include-properties).
+  repeated ContentProperty properties = 14;
+  // The operations the calling user is permitted to perform on the database
+  // (include-operations).
+  repeated Operation operations = 15;
+  // The direct children of the database in the content tree
+  // (include-direct-children).
+  repeated ContentTreeEntry direct_children = 16;
+  // Account IDs of the users who collaborated on this content. Present
+  // only when the read asked for collaborators (`include-collaborators`);
+  // upstream returns bare account ids, so resolve names with BatchGetUsers.
+  repeated string collaborator_account_ids = 17;
+  // Include expansions whose inline preview (at most 50 entries) was cut
+  // short upstream (`meta.hasMore`): the matching repeated field is partial.
+  repeated IncludeExpansion truncated_includes = 18;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -196,6 +218,21 @@ message Folder {
   Version version = 12;
   // Human-facing URL of the content, for search results and UIs.
   string web_url = 13;
+  // The content properties of the folder (include-properties).
+  repeated ContentProperty properties = 14;
+  // The operations the calling user is permitted to perform on the folder
+  // (include-operations).
+  repeated Operation operations = 15;
+  // The direct children of the folder in the content tree
+  // (include-direct-children).
+  repeated ContentTreeEntry direct_children = 16;
+  // Account IDs of the users who collaborated on this content. Present
+  // only when the read asked for collaborators (`include-collaborators`);
+  // upstream returns bare account ids, so resolve names with BatchGetUsers.
+  repeated string collaborator_account_ids = 17;
+  // Include expansions whose inline preview (at most 50 entries) was cut
+  // short upstream (`meta.hasMore`): the matching repeated field is partial.
+  repeated IncludeExpansion truncated_includes = 18;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -231,6 +268,21 @@ message SmartLink {
   Version version = 13;
   // Human-facing URL of the content, for search results and UIs.
   string web_url = 14;
+  // The content properties of the Smart Link (include-properties).
+  repeated ContentProperty properties = 15;
+  // The operations the calling user is permitted to perform on the Smart
+  // Link (include-operations).
+  repeated Operation operations = 16;
+  // The direct children of the Smart Link in the content tree
+  // (include-direct-children).
+  repeated ContentTreeEntry direct_children = 17;
+  // Account IDs of the users who collaborated on this content. Present
+  // only when the read asked for collaborators (`include-collaborators`);
+  // upstream returns bare account ids, so resolve names with BatchGetUsers.
+  repeated string collaborator_account_ids = 18;
+  // Include expansions whose inline preview (at most 50 entries) was cut
+  // short upstream (`meta.hasMore`): the matching repeated field is partial.
+  repeated IncludeExpansion truncated_includes = 19;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -263,6 +315,21 @@ message Whiteboard {
   Version version = 12;
   // Human-facing URL of the content, for search results and UIs.
   string web_url = 13;
+  // The content properties of the whiteboard (include-properties).
+  repeated ContentProperty properties = 14;
+  // The operations the calling user is permitted to perform on the
+  // whiteboard (include-operations).
+  repeated Operation operations = 15;
+  // The direct children of the whiteboard in the content tree
+  // (include-direct-children).
+  repeated ContentTreeEntry direct_children = 16;
+  // Account IDs of the users who collaborated on this content. Present
+  // only when the read asked for collaborators (`include-collaborators`);
+  // upstream returns bare account ids, so resolve names with BatchGetUsers.
+  repeated string collaborator_account_ids = 17;
+  // Include expansions whose inline preview (at most 50 entries) was cut
+  // short upstream (`meta.hasMore`): the matching repeated field is partial.
+  repeated IncludeExpansion truncated_includes = 18;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }

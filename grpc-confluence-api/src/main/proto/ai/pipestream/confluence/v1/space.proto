@@ -44,6 +44,8 @@ enum SpaceStatus {
   SPACE_STATUS_CURRENT = 1;
   // The space is archived.
   SPACE_STATUS_ARCHIVED = 2;
+  // The space has been moved to the trash.
+  SPACE_STATUS_TRASHED = 3;
 }
 
 // The icon of the space.
@@ -94,14 +96,28 @@ message Space {
   SpaceIcon icon = 12;
   // The labels attached to the space.
   repeated Label labels = 13;
-  // The properties of the space.
-  repeated ContentProperty properties = 14;
+  // Deprecated: the v2 API returns *space* properties here (the
+  // `include-properties` expansion of GET /spaces/{id}), which carry
+  // created_at/created_by and a different version block than content
+  // properties. Use `space_properties`. Kept for wire compatibility; never
+  // populated.
+  repeated ContentProperty properties = 14 [deprecated = true];
   // The operations permitted on the space.
   repeated Operation operations = 15;
   // The space permission assignments in effect for the space.
   repeated SpacePermissionAssignment permissions = 16;
   // Human-facing URL of the content, for search results and UIs.
   string web_url = 17;
+  // The space properties of the space (GET /spaces/{id}?include-properties).
+  repeated SpaceProperty space_properties = 18;
+  // The space role assignments of the space
+  // (GET /spaces/{id}?include-role-assignments; role-based-access tenants,
+  // EAP sites only upstream). At most 50 entries: a preview, not the full
+  // set; use ListSpaceRoleAssignments for that.
+  repeated SpaceRoleAssignment role_assignments = 19;
+  // Include expansions whose inline preview (at most 50 entries) was cut
+  // short upstream (`meta.hasMore`): the matching repeated field is partial.
+  repeated IncludeExpansion truncated_includes = 20;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }

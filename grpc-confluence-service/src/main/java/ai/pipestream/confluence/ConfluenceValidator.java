@@ -21,10 +21,15 @@ import ai.pipestream.confluence.v1.DataPolicy;
 import ai.pipestream.confluence.v1.Database;
 import ai.pipestream.confluence.v1.DetailedVersion;
 import ai.pipestream.confluence.v1.Folder;
+import ai.pipestream.confluence.v1.IncludeExpansion;
 import ai.pipestream.confluence.v1.Label;
 import ai.pipestream.confluence.v1.Like;
 import ai.pipestream.confluence.v1.Page;
+import ai.pipestream.confluence.v1.PropertyEntry;
 import ai.pipestream.confluence.v1.PropertyKey;
+import ai.pipestream.confluence.v1.PropertyList;
+import ai.pipestream.confluence.v1.PropertyObject;
+import ai.pipestream.confluence.v1.PropertyValue;
 import ai.pipestream.confluence.v1.Redaction;
 import ai.pipestream.confluence.v1.RedactionResponse;
 import ai.pipestream.confluence.v1.RedactionSectionResponse;
@@ -42,9 +47,10 @@ import com.google.protobuf.Message;
 import com.google.protobuf.Timestamp;
 import io.grpc.Status;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
 
 /**
  * Programmatic stand-in for the {@code validate.v1} options the Confluence
@@ -56,9 +62,9 @@ import java.util.regex.Pattern;
 public final class ConfluenceValidator {
 
     private static final ConfluenceValidator INSTANCE = new ConfluenceValidator();
-    private static final Pattern EMAIL = Pattern.compile("^[^ @]+@[^ @]+[.][^ @]+$");
-    private static final Pattern UUID = Pattern.compile(
-            "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
+
+    private static final BigInteger INT64_MIN = BigInteger.valueOf(Long.MIN_VALUE);
+    private static final BigInteger INT64_MAX = BigInteger.valueOf(Long.MAX_VALUE);
 
     private ConfluenceValidator() {
     }
@@ -160,6 +166,7 @@ public final class ConfluenceValidator {
             case ContentProperty property -> visitContentProperty(prefix, property, out);
             case SpaceProperty property -> visitSpaceProperty(prefix, property, out);
             case AppProperty property -> visitAppProperty(prefix, property, out);
+            case PropertyValue value -> visitPropertyValue(prefix, value, out);
             case AdminKeyResponse key -> required(prefix, "account_id", key.getAccountId(), out);
             case ConfluenceEntity entity -> visitEntity(prefix, entity, out);
             case ConfluenceSnapshot snapshot -> required(prefix, "snapshot_id", snapshot.getSnapshotId(), out);
@@ -217,6 +224,7 @@ public final class ConfluenceValidator {
         visitContentProperties(prefix, page.getPropertiesList(), out);
         visitLikes(prefix, page.getLikesList(), out);
         visitVersions(prefix, page.getVersionsList(), out);
+        visitTruncatedIncludes(prefix, page.getTruncatedIncludesList(), out);
     }
 
     private static void visitBlogPost(String prefix, BlogPost post, List<Violation> out) {
@@ -232,6 +240,7 @@ public final class ConfluenceValidator {
         visitContentProperties(prefix, post.getPropertiesList(), out);
         visitLikes(prefix, post.getLikesList(), out);
         visitVersions(prefix, post.getVersionsList(), out);
+        visitTruncatedIncludes(prefix, post.getTruncatedIncludesList(), out);
     }
 
     private static void visitComment(String prefix, Comment comment, List<Violation> out) {
@@ -245,6 +254,7 @@ public final class ConfluenceValidator {
         visitContentProperties(prefix, comment.getPropertiesList(), out);
         visitLikes(prefix, comment.getLikesList(), out);
         visitVersions(prefix, comment.getVersionsList(), out);
+        visitTruncatedIncludes(prefix, comment.getTruncatedIncludesList(), out);
     }
 
     private static void visitAttachment(String prefix, Attachment attachment, List<Violation> out) {
@@ -256,8 +266,12 @@ public final class ConfluenceValidator {
         visitLabels(prefix, attachment.getLabelsList(), out);
         visitContentProperties(prefix, attachment.getPropertiesList(), out);
         visitVersions(prefix, attachment.getVersionsList(), out);
+        visitTruncatedIncludes(prefix, attachment.getTruncatedIncludesList(), out);
     }
 
+    // Space.properties is deprecated in the contract but still carried on the
+    // wire for existing producers, so it is still validated.
+    @SuppressWarnings("deprecation")
     private static void visitSpace(String prefix, Space space, List<Violation> out) {
         required(prefix, "id", space.getId(), out);
         required(prefix, "key", space.getKey(), out);
@@ -266,11 +280,15 @@ public final class ConfluenceValidator {
         }
         visitLabels(prefix, space.getLabelsList(), out);
         visitContentProperties(prefix, space.getPropertiesList(), out);
+        for (int i = 0; i < space.getSpacePropertiesCount(); i++) {
+            visitSpaceProperty(child(prefix, "space_properties[" + i + "]"), space.getSpaceProperties(i), out);
+        }
+        visitTruncatedIncludes(prefix, space.getTruncatedIncludesList(), out);
     }
 
     private static void visitUser(String prefix, User user, List<Violation> out) {
         required(prefix, "account_id", user.getAccountId(), out);
-        if (!user.getEmail().isEmpty() && !EMAIL.matcher(user.getEmail()).matches()) {
+        if (!user.getEmail().isEmpty() && !Strings.isEmailShaped(user.getEmail())) {
             out.add(new Violation(child(prefix, "email"), "user.email_format",
                     "email must be empty or a valid address"));
         }
@@ -302,6 +320,7 @@ public final class ConfluenceValidator {
         visitLabels(prefix, custom.getLabelsList(), out);
         visitContentProperties(prefix, custom.getPropertiesList(), out);
         visitVersions(prefix, custom.getVersionsList(), out);
+        visitTruncatedIncludes(prefix, custom.getTruncatedIncludesList(), out);
     }
 
     private static void visitDatabase(String prefix, Database database, List<Violation> out) {
@@ -309,6 +328,7 @@ public final class ConfluenceValidator {
         if (database.hasVersion()) {
             visitVersion(child(prefix, "version"), database.getVersion(), out);
         }
+        visitTruncatedIncludes(prefix, database.getTruncatedIncludesList(), out);
     }
 
     private static void visitFolder(String prefix, Folder folder, List<Violation> out) {
@@ -316,6 +336,7 @@ public final class ConfluenceValidator {
         if (folder.hasVersion()) {
             visitVersion(child(prefix, "version"), folder.getVersion(), out);
         }
+        visitTruncatedIncludes(prefix, folder.getTruncatedIncludesList(), out);
     }
 
     private static void visitSmartLink(String prefix, SmartLink smartLink, List<Violation> out) {
@@ -323,6 +344,7 @@ public final class ConfluenceValidator {
         if (smartLink.hasVersion()) {
             visitVersion(child(prefix, "version"), smartLink.getVersion(), out);
         }
+        visitTruncatedIncludes(prefix, smartLink.getTruncatedIncludesList(), out);
     }
 
     private static void visitWhiteboard(String prefix, Whiteboard whiteboard, List<Violation> out) {
@@ -330,11 +352,26 @@ public final class ConfluenceValidator {
         if (whiteboard.hasVersion()) {
             visitVersion(child(prefix, "version"), whiteboard.getVersion(), out);
         }
+        visitTruncatedIncludes(prefix, whiteboard.getTruncatedIncludesList(), out);
+    }
+
+    /** A truncated-include marker always names a real expansion. */
+    private static void visitTruncatedIncludes(String prefix, List<IncludeExpansion> truncated,
+            List<Violation> out) {
+        for (int i = 0; i < truncated.size(); i++) {
+            if (truncated.get(i) == IncludeExpansion.INCLUDE_EXPANSION_UNSPECIFIED) {
+                out.add(new Violation(child(prefix, "truncated_includes[" + i + "]"),
+                        "enum.defined_only", "truncated_includes must name an expansion"));
+            }
+        }
     }
 
     private static void visitContentProperty(String prefix, ContentProperty property, List<Violation> out) {
         required(prefix, "id", property.getId(), out);
         customKey(prefix, property.getKey(), property.getCustomKey(), out);
+        if (property.hasValue()) {
+            visitPropertyValue(child(prefix, "value"), property.getValue(), out);
+        }
         if (property.hasVersion()) {
             visitVersion(child(prefix, "version"), property.getVersion(), out);
         }
@@ -343,6 +380,9 @@ public final class ConfluenceValidator {
     private static void visitSpaceProperty(String prefix, SpaceProperty property, List<Violation> out) {
         required(prefix, "id", property.getId(), out);
         customKey(prefix, property.getKey(), property.getCustomKey(), out);
+        if (property.hasValue()) {
+            visitPropertyValue(child(prefix, "value"), property.getValue(), out);
+        }
         if (property.hasVersion()) {
             visit(child(prefix, "version"), property.getVersion(), out);
         }
@@ -350,6 +390,105 @@ public final class ConfluenceValidator {
 
     private static void visitAppProperty(String prefix, AppProperty property, List<Violation> out) {
         customKey(prefix, property.getKey(), property.getCustomKey(), out);
+        if (property.hasValue()) {
+            visitPropertyValue(child(prefix, "value"), property.getValue(), out);
+        }
+    }
+
+    /**
+     * A property value tree: every list element and object member value
+     * must set an arm (a nested JSON null is {@code null_value}, never an
+     * unset oneof), and {@code big_integer_value} must hold canonical decimal
+     * digits outside the int64 range (inside it, {@code integer_value} is the
+     * only correct arm), and {@code decimal_value} must be canonical
+     * {@link BigDecimal#toString()} text whose value a double cannot hold
+     * exactly (otherwise {@code double_value} is the correct arm).
+     */
+    private static void visitPropertyValue(String prefix, PropertyValue value, List<Violation> out) {
+        switch (value.getValueCase()) {
+            case BIG_INTEGER_VALUE -> {
+                if (!isBigIntegerOutsideInt64(value.getBigIntegerValue())) {
+                    out.add(new Violation(child(prefix, "big_integer_value"), "property_value.big_integer",
+                            "big_integer_value must be canonical decimal digits outside the int64 range"));
+                }
+            }
+            case DECIMAL_VALUE -> {
+                if (!isInexactDecimal(value.getDecimalValue())) {
+                    out.add(new Violation(child(prefix, "decimal_value"), "property_value.decimal",
+                            "decimal_value must be BigDecimal#toString text a double cannot hold exactly"));
+                }
+            }
+            case LIST_VALUE -> {
+                PropertyList list = value.getListValue();
+                for (int i = 0; i < list.getValuesCount(); i++) {
+                    nestedPropertyValue(child(prefix, "list_value.values[" + i + "]"), list.getValues(i), out);
+                }
+            }
+            case OBJECT_VALUE -> {
+                PropertyObject object = value.getObjectValue();
+                for (int i = 0; i < object.getEntriesCount(); i++) {
+                    PropertyEntry entry = object.getEntries(i);
+                    String entryPath = child(prefix, "object_value.entries[" + i + "]");
+                    if (!entry.hasValue()) {
+                        out.add(new Violation(child(entryPath, "value"), "property_value.nested_set",
+                                "an object member must carry a value (JSON null is null_value)"));
+                    } else {
+                        nestedPropertyValue(child(entryPath, "value"), entry.getValue(), out);
+                    }
+                }
+            }
+            default -> {
+                // Scalars and null carry nothing further to check.
+            }
+        }
+    }
+
+    private static void nestedPropertyValue(String prefix, PropertyValue value, List<Violation> out) {
+        if (value.getValueCase() == PropertyValue.ValueCase.VALUE_NOT_SET) {
+            out.add(new Violation(prefix, "property_value.nested_set",
+                    "a nested property value must set an arm (JSON null is null_value)"));
+            return;
+        }
+        visitPropertyValue(prefix, value, out);
+    }
+
+    /**
+     * Canonical {@link BigDecimal#toString()} text (the constructor's
+     * output reproduces it, which rejects '+', lowercase 'e', bare '.',
+     * non-ASCII digits and other spellings) for a value whose nearest double
+     * is infinite or prints as a different decimal.
+     */
+    private static boolean isInexactDecimal(String text) {
+        BigDecimal exact;
+        try {
+            exact = new BigDecimal(text);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        if (!exact.toString().equals(text)) {
+            return false;
+        }
+        double approx = exact.doubleValue();
+        return !Double.isFinite(approx) || new BigDecimal(Double.toString(approx)).compareTo(exact) != 0;
+    }
+
+    /** Canonical base-10 integer text (optional '-', no leading zeros, no "-0") outside int64. */
+    private static boolean isBigIntegerOutsideInt64(String digits) {
+        int start = digits.startsWith("-") ? 1 : 0;
+        if (digits.length() == start) {
+            return false;
+        }
+        if (digits.charAt(start) == '0') {
+            return false;
+        }
+        for (int i = start; i < digits.length(); i++) {
+            char c = digits.charAt(i);
+            if (c < '0' || c > '9') {
+                return false;
+            }
+        }
+        BigInteger value = new BigInteger(digits);
+        return value.compareTo(INT64_MIN) < 0 || value.compareTo(INT64_MAX) > 0;
     }
 
     private static void visitEntity(String prefix, ConfluenceEntity entity, List<Violation> out) {
@@ -418,7 +557,7 @@ public final class ConfluenceValidator {
             out.add(new Violation(prefix, "redaction.range",
                     "a redaction range must not end before it starts"));
         }
-        if (!redaction.getRedactionId().isEmpty() && !UUID.matcher(redaction.getRedactionId()).matches()) {
+        if (!redaction.getRedactionId().isEmpty() && !Strings.isUuid(redaction.getRedactionId())) {
             out.add(new Violation(child(prefix, "redaction_id"), "redaction.id_uuid",
                     "redaction_id must be empty or a UUID"));
         }
@@ -511,6 +650,11 @@ public final class ConfluenceValidator {
             case SPACE_ROLE -> "space_role";
             case SPACE_PERMISSION_ASSIGNMENT -> "space_permission_assignment";
             case TREE_ENTRY -> "tree_entry";
+            case DATABASE_ENTRY -> "database_entry";
+            case DATABASE_FIELD_DEFINITION -> "database_field_definition";
+            case CONTENT_PERMISSION -> "content_permission";
+            case RESTRICTION_STATE -> "restriction_state";
+            case SPACE_ROLE_ASSIGNMENT -> "space_role_assignment";
             case ENTITY_NOT_SET -> "entity";
         };
     }
@@ -544,6 +688,11 @@ public final class ConfluenceValidator {
             case SPACE_ROLE -> entity.getSpaceRole();
             case SPACE_PERMISSION_ASSIGNMENT -> entity.getSpacePermissionAssignment();
             case TREE_ENTRY -> entity.getTreeEntry();
+            case DATABASE_ENTRY -> entity.getDatabaseEntry();
+            case DATABASE_FIELD_DEFINITION -> entity.getDatabaseFieldDefinition();
+            case CONTENT_PERMISSION -> entity.getContentPermission();
+            case RESTRICTION_STATE -> entity.getRestrictionState();
+            case SPACE_ROLE_ASSIGNMENT -> entity.getSpaceRoleAssignment();
             case ENTITY_NOT_SET -> entity;
         };
     }

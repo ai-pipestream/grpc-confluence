@@ -68,8 +68,7 @@ class McpHttpServerTest {
             assertThat(client.listTools().tools())
                     .extracting(McpSchema.Tool::name)
                     .contains("sync_table_get_asset", "sync_table_list_assets");
-            McpSchema.CallToolResult result = client.callTool(McpSchema.CallToolRequest.builder()
-                    .name("sync_table_list_assets")
+            McpSchema.CallToolResult result = client.callTool(McpSchema.CallToolRequest.builder("sync_table_list_assets")
                     .arguments(Map.of("attachmentsOnly", true))
                     .build());
             assertThat(result.isError()).isFalse();

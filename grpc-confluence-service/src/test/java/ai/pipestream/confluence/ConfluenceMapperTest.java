@@ -1,6 +1,14 @@
 package ai.pipestream.confluence;
 
 import ai.pipestream.confluence.v1.Attachment;
+import ai.pipestream.confluence.v1.ContentPermission;
+import ai.pipestream.confluence.v1.ContentType;
+import ai.pipestream.confluence.v1.DatabaseView;
+import ai.pipestream.confluence.v1.DatabaseViewType;
+import ai.pipestream.confluence.v1.IncludeExpansion;
+import ai.pipestream.confluence.v1.ResolvedContentType;
+import ai.pipestream.confluence.v1.RestrictionState;
+import ai.pipestream.confluence.v1.SmartLink;
 import ai.pipestream.confluence.v1.BlogPost;
 import ai.pipestream.confluence.v1.BlogPostContentStatus;
 import ai.pipestream.confluence.v1.BodyFormat;
@@ -15,7 +23,10 @@ import ai.pipestream.confluence.v1.Folder;
 import ai.pipestream.confluence.v1.InlineCommentResolutionStatus;
 import ai.pipestream.confluence.v1.Label;
 import ai.pipestream.confluence.v1.Page;
+import ai.pipestream.confluence.v1.PropertyEntry;
 import ai.pipestream.confluence.v1.PropertyKey;
+import ai.pipestream.confluence.v1.PropertyList;
+import ai.pipestream.confluence.v1.PropertyObject;
 import ai.pipestream.confluence.v1.PropertyValue;
 import ai.pipestream.confluence.v1.Space;
 import ai.pipestream.confluence.v1.SpaceProperty;
@@ -28,6 +39,8 @@ import ai.pipestream.confluence.v1.Version;
 import ai.pipestream.confluence.v1.Whiteboard;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,7 +52,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class ConfluenceMapperTest {
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    /** The client's own response parser, so trees match production (floats as BigDecimal). */
+    private static final ObjectMapper JSON = ConfluenceClient.responseJson();
     private static final String BASE = "https://pipestreamai.atlassian.net/wiki";
 
     private final ConfluenceMapper mapper = new ConfluenceMapper(BASE);
@@ -279,16 +293,17 @@ class ConfluenceMapperTest {
                 ConfluenceFixtures.propertyJson("p5", "my-plugin-ratio", "1.5")));
         assertThat(ratio.getValue().getDoubleValue()).isEqualTo(1.5d);
 
-        // Objects and arrays land in json_value, the schema's only Struct.
+        // Objects land in object_value, the schema's own typed tree.
         ContentProperty structured = mapper.toContentProperty(tree(
                 ConfluenceFixtures.propertyJson("p6", "my-plugin-config",
                         "{\"mode\": \"fast\", \"retries\": 3}")));
         assertThat(structured.getValue().getValueCase())
-                .isEqualTo(PropertyValue.ValueCase.JSON_VALUE);
-        assertThat(structured.getValue().getJsonValue().getFieldsOrThrow("mode").getStringValue())
-                .isEqualTo("fast");
-        assertThat(structured.getValue().getJsonValue().getFieldsOrThrow("retries")
-                .getNumberValue()).isEqualTo(3d);
+                .isEqualTo(PropertyValue.ValueCase.OBJECT_VALUE);
+        PropertyObject config = structured.getValue().getObjectValue();
+        assertThat(config.getEntries(0).getKey()).isEqualTo("mode");
+        assertThat(config.getEntries(0).getValue().getStringValue()).isEqualTo("fast");
+        assertThat(config.getEntries(1).getKey()).isEqualTo("retries");
+        assertThat(config.getEntries(1).getValue().getIntegerValue()).isEqualTo(3L);
     }
 
     @Test
@@ -359,5 +374,311 @@ class ConfluenceMapperTest {
         assertThat(ConfluenceMapper.bodyFormat("wiki")).isEqualTo(BodyFormat.BODY_FORMAT_WIKI);
         assertThat(ConfluenceMapper.bodyFormat("raw")).isEqualTo(BodyFormat.BODY_FORMAT_RAW);
         assertThat(ConfluenceMapper.bodyFormat("plain")).isEqualTo(BodyFormat.BODY_FORMAT_PLAIN_TEXT);
+    }
+
+    // ------------------------------------------------------------------
+    // Field fidelity (docs/contracts/confluence-fidelity.md)
+    // ------------------------------------------------------------------
+
+    @Test
+    void includePreviewsCutShortUpstreamAreFlaggedTruncated() throws Exception {
+        Page page = mapper.toPage(tree("""
+                {"id": "1", "status": "current", "title": "t", "spaceId": "9",
+                 "labels": {"results": [{"id": "l1", "name": "a", "prefix": "global"}],
+                            "meta": {"hasMore": true, "cursor": "next-labels"},
+                            "_links": {"self": "/wiki/api/v2/pages/1/labels"}},
+                 "properties": {"results": [], "meta": {"hasMore": false}},
+                 "operations": {"results": [{"operation": "read", "targetType": "page"}],
+                                "meta": {"hasMore": true}},
+                 "likes": {"results": [{"accountId": "acc-1"}], "meta": {"hasMore": true}},
+                 "versions": {"results": [{"number": 1}], "meta": {"hasMore": true}},
+                 "directChildren": {"results": [{"id": "c1", "status": "current", "type": "page"}],
+                                    "meta": {"hasMore": true}}}
+                """));
+        assertThat(page.getLabelsList()).extracting(Label::getName).containsExactly("a");
+        assertThat(page.getOperations(0).getTargetType()).isEqualTo("page");
+        assertThat(page.getTruncatedIncludesList()).containsExactly(
+                IncludeExpansion.INCLUDE_EXPANSION_LABELS,
+                IncludeExpansion.INCLUDE_EXPANSION_OPERATIONS,
+                IncludeExpansion.INCLUDE_EXPANSION_LIKES,
+                IncludeExpansion.INCLUDE_EXPANSION_VERSIONS,
+                IncludeExpansion.INCLUDE_EXPANSION_DIRECT_CHILDREN);
+
+        Space space = mapper.toSpace(tree("""
+                {"id": "9", "key": "ENG", "name": "Eng",
+                 "properties": {"results": [{"id": "sp", "key": "k", "value": "v"}],
+                                "meta": {"hasMore": true}},
+                 "permissions": {"results": [{"id": "p1", "principal": {"type": "group", "id": "g"},
+                                  "operation": {"key": "read", "targetType": "space"}}],
+                                 "meta": {"hasMore": true}},
+                 "roleAssignments": {"results": [], "meta": {"hasMore": true}},
+                 "labels": {"results": [], "meta": {"hasMore": false}}}
+                """));
+        assertThat(space.getSpacePropertiesCount()).isEqualTo(1);
+        assertThat(space.getTruncatedIncludesList()).containsExactly(
+                IncludeExpansion.INCLUDE_EXPANSION_PROPERTIES,
+                IncludeExpansion.INCLUDE_EXPANSION_PERMISSIONS,
+                IncludeExpansion.INCLUDE_EXPANSION_ROLE_ASSIGNMENTS);
+
+        SmartLink link = mapper.toSmartLink(tree("""
+                {"id": "e1", "type": "embed", "status": "current",
+                 "properties": {"results": [], "meta": {"hasMore": true}}}
+                """));
+        assertThat(link.getTruncatedIncludesList())
+                .containsExactly(IncludeExpansion.INCLUDE_EXPANSION_PROPERTIES);
+
+        Comment comment = mapper.toComment(tree("""
+                {"id": "c1", "status": "current",
+                 "likes": {"results": [], "meta": {"hasMore": true}}}
+                """));
+        assertThat(comment.getTruncatedIncludesList())
+                .containsExactly(IncludeExpansion.INCLUDE_EXPANSION_LIKES);
+
+        // No meta (or hasMore false) means the preview is complete.
+        Page complete = mapper.toPage(tree("""
+                {"id": "1", "labels": {"results": [{"name": "a"}]}}
+                """));
+        assertThat(complete.getTruncatedIncludesList()).isEmpty();
+    }
+
+    @Test
+    void mapsVersionHistorySnapshotOfEveryContentKind() throws Exception {
+        for (String kind : List.of("page", "blogpost", "attachment", "custom", "comment")) {
+            Version version = mapper.toVersion(tree("""
+                    {"createdAt": "2024-02-13T10:00:00.000Z", "message": "m", "number": 4,
+                     "minorEdit": false, "authorId": "acc-3",
+                     "%s": {"id": "42", "title": "Snapshot",
+                            "body": {"storage": {"representation": "storage", "value": "<p>old</p>"},
+                                     "atlas_doc_format": {"representation": "atlas_doc_format",
+                                                          "value": "{\\"type\\":\\"doc\\"}"}}}}
+                    """.formatted(kind)));
+            assertThat(version.getNumber()).as(kind).isEqualTo(4);
+            assertThat(version.getEntity().getId()).as(kind).isEqualTo("42");
+            assertThat(version.getEntity().getTitle()).as(kind).isEqualTo("Snapshot");
+            assertThat(version.getEntity().getBody().getStorage().getValue()).as(kind)
+                    .isEqualTo("<p>old</p>");
+            assertThat(version.getEntity().getBody().getAtlasDocFormat().getFormat()).as(kind)
+                    .isEqualTo(BodyFormat.BODY_FORMAT_ATLAS_DOC_FORMAT);
+        }
+        assertThat(mapper.toVersion(tree("{\"number\": 1}")).hasEntity()).isFalse();
+    }
+
+    @Test
+    void arrayPropertyValuesKeepEveryElement() throws Exception {
+        ContentProperty list = mapper.toContentProperty(tree(
+                ConfluenceFixtures.propertyJson("p7", "my-plugin-tags",
+                        "[\"a\", 2, true, {\"k\": \"v\"}]")));
+        assertThat(list.getValue().getValueCase())
+                .isEqualTo(PropertyValue.ValueCase.LIST_VALUE);
+        PropertyList values = list.getValue().getListValue();
+        assertThat(values.getValuesCount()).isEqualTo(4);
+        assertThat(values.getValues(0).getStringValue()).isEqualTo("a");
+        assertThat(values.getValues(1).getValueCase()).isEqualTo(PropertyValue.ValueCase.INTEGER_VALUE);
+        assertThat(values.getValues(1).getIntegerValue()).isEqualTo(2L);
+        assertThat(values.getValues(2).getBoolValue()).isTrue();
+        assertThat(values.getValues(3).getObjectValue().getEntries(0).getKey()).isEqualTo("k");
+        assertThat(values.getValues(3).getObjectValue().getEntries(0).getValue().getStringValue())
+                .isEqualTo("v");
+
+        SpaceProperty spaceList = mapper.toSpaceProperty(tree("""
+                {"id": "sp2", "key": "theme-stack", "value": ["dark", "compact"]}
+                """));
+        assertThat(spaceList.getValue().getListValue().getValuesCount()).isEqualTo(2);
+    }
+
+    @Test
+    void nestedObjectsAndArraysOfObjectsMapRecursively() throws Exception {
+        PropertyValue value = ConfluenceMapper.toPropertyValue(tree("""
+                {"outer": {"inner": {"deep": [1, {"x": null}]}},
+                 "rows": [{"id": 1, "tags": ["a"]}, {"id": 2, "tags": []}]}
+                """));
+        PropertyObject root = value.getObjectValue();
+        PropertyValue deep = root.getEntries(0).getValue().getObjectValue()
+                .getEntries(0).getValue().getObjectValue().getEntries(0).getValue();
+        assertThat(root.getEntries(0).getValue().getObjectValue().getEntries(0).getKey())
+                .isEqualTo("inner");
+        assertThat(deep.getListValue().getValues(0).getIntegerValue()).isEqualTo(1L);
+        PropertyEntry x = deep.getListValue().getValues(1).getObjectValue().getEntries(0);
+        assertThat(x.getKey()).isEqualTo("x");
+        assertThat(x.getValue().getValueCase()).isEqualTo(PropertyValue.ValueCase.NULL_VALUE);
+
+        PropertyList rows = root.getEntries(1).getValue().getListValue();
+        assertThat(rows.getValuesCount()).isEqualTo(2);
+        PropertyObject second = rows.getValues(1).getObjectValue();
+        assertThat(second.getEntries(0).getKey()).isEqualTo("id");
+        assertThat(second.getEntries(0).getValue().getIntegerValue()).isEqualTo(2L);
+        assertThat(second.getEntries(1).getValue().getValueCase())
+                .isEqualTo(PropertyValue.ValueCase.LIST_VALUE);
+        assertThat(second.getEntries(1).getValue().getListValue().getValuesCount()).isZero();
+        assertThat(rows.getValues(0).getObjectValue().getEntries(1).getValue().getListValue()
+                .getValues(0).getStringValue()).isEqualTo("a");
+    }
+
+    @Test
+    void integersStayIntegersAndOnlyFractionsBecomeDoubles() throws Exception {
+        PropertyList values = ConfluenceMapper.toPropertyValue(tree(
+                "[0, -7, 9223372036854775807, -9223372036854775808, 1.0, 2.5, 1e3, -0.0]"))
+                .getListValue();
+        assertThat(values.getValues(0).getValueCase()).isEqualTo(PropertyValue.ValueCase.INTEGER_VALUE);
+        assertThat(values.getValues(0).getIntegerValue()).isZero();
+        assertThat(values.getValues(1).getIntegerValue()).isEqualTo(-7L);
+        assertThat(values.getValues(2).getIntegerValue()).isEqualTo(Long.MAX_VALUE);
+        assertThat(values.getValues(3).getIntegerValue()).isEqualTo(Long.MIN_VALUE);
+        for (int i = 4; i < 8; i++) {
+            assertThat(values.getValues(i).getValueCase()).as("element %d", i)
+                    .isEqualTo(PropertyValue.ValueCase.DOUBLE_VALUE);
+        }
+        assertThat(values.getValues(4).getDoubleValue()).isEqualTo(1.0d);
+        assertThat(values.getValues(5).getDoubleValue()).isEqualTo(2.5d);
+        assertThat(values.getValues(6).getDoubleValue()).isEqualTo(1000d);
+    }
+
+    @Test
+    void integersBeyondInt64KeepTheirExactDigits() throws Exception {
+        PropertyList values = ConfluenceMapper.toPropertyValue(tree(
+                "[9223372036854775808, -9223372036854775809, 123456789012345678901234567890]"))
+                .getListValue();
+        assertThat(values.getValuesList()).allSatisfy(v -> assertThat(v.getValueCase())
+                .isEqualTo(PropertyValue.ValueCase.BIG_INTEGER_VALUE));
+        assertThat(values.getValues(0).getBigIntegerValue()).isEqualTo("9223372036854775808");
+        assertThat(values.getValues(1).getBigIntegerValue()).isEqualTo("-9223372036854775809");
+        assertThat(values.getValues(2).getBigIntegerValue())
+                .isEqualTo("123456789012345678901234567890");
+
+        ContentProperty top = mapper.toContentProperty(tree(
+                ConfluenceFixtures.propertyJson("p8", "my-plugin-huge", "18446744073709551616")));
+        assertThat(top.getValue().getBigIntegerValue()).isEqualTo("18446744073709551616");
+        assertThat(ConfluenceValidator.create().validate(top).isValid()).isTrue();
+    }
+
+    @Test
+    void decimalsADoubleCannotHoldKeepTheirExactText() throws Exception {
+        PropertyList values = ConfluenceMapper.toPropertyValue(tree(
+                "[0.1, 1.00000000000000000001, 1e400, -1e-400, 0.30000000000000004, "
+                        + "3.14159265358979323846264338327950288, 1.50, 1.000000000000000000010]"))
+                .getListValue();
+        assertThat(values.getValues(0).getValueCase()).isEqualTo(PropertyValue.ValueCase.DOUBLE_VALUE);
+        assertThat(values.getValues(0).getDoubleValue()).isEqualTo(0.1d);
+        assertThat(values.getValues(1).getValueCase()).isEqualTo(PropertyValue.ValueCase.DECIMAL_VALUE);
+        assertThat(values.getValues(1).getDecimalValue()).isEqualTo("1.00000000000000000001");
+        assertThat(values.getValues(2).getDecimalValue()).isEqualTo("1E+400");
+        assertThat(values.getValues(3).getDecimalValue()).isEqualTo("-1E-400");
+        assertThat(values.getValues(4).getDoubleValue()).isEqualTo(0.30000000000000004d);
+        assertThat(values.getValues(5).getDecimalValue())
+                .isEqualTo("3.14159265358979323846264338327950288");
+        // Equal in value to the double 1.5, so the double holds it.
+        assertThat(values.getValues(6).getDoubleValue()).isEqualTo(1.5d);
+        // Trailing zeros of an inexact decimal keep the parsed scale.
+        assertThat(values.getValues(7).getDecimalValue()).isEqualTo("1.000000000000000000010");
+
+        ContentProperty top = mapper.toContentProperty(tree(
+                ConfluenceFixtures.propertyJson("p11", "my-plugin-precise", "1.00000000000000000001")));
+        assertThat(top.getValue().getDecimalValue()).isEqualTo("1.00000000000000000001");
+        assertThat(ConfluenceValidator.create().validate(top).isValid()).isTrue();
+    }
+
+    @Test
+    void bigDecimalParsingLeavesOtherNumericReadsUnchanged() throws Exception {
+        ObjectMapper plain = new ObjectMapper();
+        String json = "{\"a\": 1.5, \"b\": -2.75, \"c\": 1e3, \"d\": 7, \"e\": 0.1, \"f\": 123.999}";
+        JsonNode exact = tree(json);
+        JsonNode doubles = plain.readTree(json);
+        for (String field : List.of("a", "b", "c", "d", "e", "f")) {
+            assertThat(exact.path(field).doubleValue()).as(field).isEqualTo(doubles.path(field).doubleValue());
+            assertThat(exact.path(field).asDouble()).as(field).isEqualTo(doubles.path(field).asDouble());
+            assertThat(exact.path(field).longValue()).as(field).isEqualTo(doubles.path(field).longValue());
+            assertThat(exact.path(field).intValue()).as(field).isEqualTo(doubles.path(field).intValue());
+            assertThat(exact.path(field).asLong()).as(field).isEqualTo(doubles.path(field).asLong());
+            assertThat(exact.path(field).isNumber()).as(field).isTrue();
+            assertThat(exact.path(field).isIntegralNumber()).as(field)
+                    .isEqualTo(doubles.path(field).isIntegralNumber());
+        }
+    }
+
+    @Test
+    void nullAndEmptyContainersAreExplicit() throws Exception {
+        ContentProperty explicitNull = mapper.toContentProperty(tree(
+                ConfluenceFixtures.propertyJson("p9", "my-plugin-none", "null")));
+        assertThat(explicitNull.getValue().getValueCase()).isEqualTo(PropertyValue.ValueCase.NULL_VALUE);
+
+        ContentProperty missing = mapper.toContentProperty(tree(
+                "{\"id\": \"p10\", \"key\": \"my-plugin-absent\"}"));
+        assertThat(missing.hasValue()).isFalse();
+
+        PropertyValue emptyObject = ConfluenceMapper.toPropertyValue(tree("{}"));
+        assertThat(emptyObject.getValueCase()).isEqualTo(PropertyValue.ValueCase.OBJECT_VALUE);
+        assertThat(emptyObject.getObjectValue().getEntriesCount()).isZero();
+
+        PropertyValue emptyList = ConfluenceMapper.toPropertyValue(tree("[]"));
+        assertThat(emptyList.getValueCase()).isEqualTo(PropertyValue.ValueCase.LIST_VALUE);
+        assertThat(emptyList.getListValue().getValuesCount()).isZero();
+
+        assertThat(ConfluenceMapper.toPropertyValue(tree("\"\"")).getValueCase())
+                .isEqualTo(PropertyValue.ValueCase.STRING_VALUE);
+    }
+
+    @Test
+    void objectMembersKeepSourceOrder() throws Exception {
+        PropertyObject object = ConfluenceMapper.toPropertyValue(tree(
+                "{\"zeta\": 1, \"alpha\": 2, \"mid\": 3, \"Alpha\": 4}")).getObjectValue();
+        assertThat(object.getEntriesList()).extracting(PropertyEntry::getKey)
+                .containsExactly("zeta", "alpha", "mid", "Alpha");
+        assertThat(object.getEntriesList()).extracting(e -> e.getValue().getIntegerValue())
+                .containsExactly(1L, 2L, 3L, 4L);
+    }
+
+    @Test
+    void createdByWinsOverItsDeprecatedAlias() throws Exception {
+        RestrictionState both = mapper.toRestrictionState(tree("""
+                {"state": "VIEW_RESTRICTED", "createdAt": "2026-10-01T00:00:00Z",
+                 "createdBy": "acc-new", "createdByAaid": "acc-old"}
+                """));
+        assertThat(both.getCreatedBy()).isEqualTo("acc-new");
+        RestrictionState aliasOnly = mapper.toRestrictionState(tree("""
+                {"state": "EDIT_RESTRICTED", "createdByAaid": "acc-old"}
+                """));
+        assertThat(aliasOnly.getCreatedBy()).isEqualTo("acc-old");
+        RestrictionState open = mapper.toRestrictionState(tree("{\"state\": \"OPEN\"}"));
+        assertThat(open.hasCreatedBy()).isFalse();
+        assertThat(open.hasCreatedAt()).isFalse();
+
+        ContentPermission permission = mapper.toContentPermission(tree("""
+                {"operation": "update", "principal": {"principalType": "group", "principalId": "g1"},
+                 "createdAt": "2026-10-01T00:00:00Z", "createdBy": "acc-new",
+                 "createdByAaid": "acc-old"}
+                """));
+        assertThat(permission.getCreatedBy()).isEqualTo("acc-new");
+        assertThat(permission.getPrincipal().getPrincipalId()).isEqualTo("g1");
+        assertThat(permission.getCreatedAt().getSeconds()).isGreaterThan(0);
+    }
+
+    @Test
+    void mapsConvertIdsToTypesIntoTypedKinds() throws Exception {
+        List<ResolvedContentType> resolved = mapper.toResolvedContentTypes(tree("""
+                {"results": {"1": "page", "2": "blogpost", "3": "attachment",
+                             "4": "footer-comment", "5": "inline-comment",
+                             "6": "ac:com.example:poll"}}
+                """));
+        assertThat(resolved).extracting(ResolvedContentType::getId)
+                .containsExactly("1", "2", "3", "4", "5", "6");
+        assertThat(resolved).extracting(ResolvedContentType::getType).containsExactly(
+                ContentType.CONTENT_TYPE_PAGE,
+                ContentType.CONTENT_TYPE_BLOG_POST,
+                ContentType.CONTENT_TYPE_ATTACHMENT,
+                ContentType.CONTENT_TYPE_FOOTER_COMMENT,
+                ContentType.CONTENT_TYPE_INLINE_COMMENT,
+                ContentType.CONTENT_TYPE_UNSPECIFIED);
+        assertThat(resolved.get(5).getCustomType()).isEqualTo("ac:com.example:poll");
+        assertThat(resolved.get(0).getCustomType()).isEmpty();
+    }
+
+    @Test
+    void mapsDatabaseView() throws Exception {
+        DatabaseView view = mapper.toDatabaseView(tree("""
+                {"id": "v1", "name": "Board", "type": "board"}
+                """));
+        assertThat(view.getId()).isEqualTo("v1");
+        assertThat(view.getName()).isEqualTo("Board");
+        assertThat(view.getType()).isEqualTo(DatabaseViewType.DATABASE_VIEW_TYPE_BOARD);
     }
 }

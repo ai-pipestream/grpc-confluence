@@ -104,7 +104,9 @@ class ConfluenceSyncTableWireTest {
         ConfluenceClient client = new ConfluenceClient(config.baseUrl(), config.email(),
                 config.apiToken(), Duration.ZERO);
         confluenceServer = InProcessServerBuilder.forName(confluenceName)
-                .directExecutor()
+                // The service blocks on outbound flow control, as in production:
+                // a direct executor would run it on the client thread and stall.
+                .executor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor())
                 .addService(new ConfluenceGrpcService(config, client,
                         ConfluenceGrpcService.DEFAULT_ATTACHMENT_MAX_BYTES,
                         new SyncTableChangeSink(syncChannel)))
@@ -191,7 +193,9 @@ class ConfluenceSyncTableWireTest {
                 config.apiToken(), Duration.ZERO);
         // Production wiring: the sync table is the ledgerSink parameter.
         confluenceServer = InProcessServerBuilder.forName(confluenceName)
-                .directExecutor()
+                // The service blocks on outbound flow control, as in production:
+                // a direct executor would run it on the client thread and stall.
+                .executor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor())
                 .addService(new ConfluenceGrpcService(config, client,
                         ConfluenceGrpcService.DEFAULT_ATTACHMENT_MAX_BYTES,
                         null, null, new SyncTableChangeSink(syncChannel)))

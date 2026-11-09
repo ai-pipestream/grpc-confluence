@@ -2,12 +2,24 @@ syntax = "proto3";
 
 package ai.pipestream.confluence.v1;
 
+import "ai/pipestream/confluence/v1/admin_key.proto";
 import "ai/pipestream/confluence/v1/attachment.proto";
 import "ai/pipestream/confluence/v1/blogpost.proto";
+import "ai/pipestream/confluence/v1/classification.proto";
+import "ai/pipestream/confluence/v1/comment.proto";
 import "ai/pipestream/confluence/v1/common.proto";
+import "ai/pipestream/confluence/v1/content.proto";
+import "ai/pipestream/confluence/v1/database.proto";
 import "ai/pipestream/confluence/v1/events.proto";
+import "ai/pipestream/confluence/v1/operation.proto";
+import "ai/pipestream/confluence/v1/label.proto";
 import "ai/pipestream/confluence/v1/page.proto";
+import "ai/pipestream/confluence/v1/permission.proto";
+import "ai/pipestream/confluence/v1/property.proto";
 import "ai/pipestream/confluence/v1/space.proto";
+import "ai/pipestream/confluence/v1/task.proto";
+import "ai/pipestream/confluence/v1/user.proto";
+import "google/protobuf/timestamp.proto";
 
 option java_multiple_files = true;
 option java_package = "ai.pipestream.confluence.v1";
@@ -22,44 +34,397 @@ option java_package = "ai.pipestream.confluence.v1";
 // pagination is transport and stays hidden: list rpcs stream, and Sync emits
 // the crawler's change envelopes plus a resume cursor for the next pass.
 //
+// Scope: the READ surface of Confluence Cloud REST API v2 (one rpc per v2
+// read route family; the v2 route is named on each rpc). Writes (create /
+// update / delete, redactions, admin keys, permission mutation, space
+// permission transition tasks) are deliberately absent: this is an indexer's
+// proxy. Permission *reads* are in scope because search security trimming
+// needs them, and so is every other v2 read route (likes, version details,
+// operations, the space permission catalogue and transition reads, the
+// caller's admin key, Forge app properties, the email access check): the
+// contract covers the whole v2 read surface.
+//
 // Streaming responses carry one entity per message in a per-rpc wrapper
 // (ListPagesResponse, SyncResponse, ...) rather than the bare domain message:
 // buf STANDARD's RPC_RESPONSE_STANDARD_NAME / RPC_REQUEST_RESPONSE_UNIQUE
 // require it, and the wrapper leaves room for stream-level fields later
 // without a wire break.
+//
+// Per-content sub-resources (properties, versions, likes, permissions,
+// children, ...) take a ContentRef {type, id} that maps to the v2
+// `{content-type}/{id}` path segment; the server answers INVALID_ARGUMENT
+// when the API has no such route for that content kind.
+//
+// Bulk bytes: there is no fixed payload cap anywhere in this contract.
+// DownloadAttachment streams chunks; a caller that wants a ceiling sets an
+// optional per-request limit (0 = no cap). Any default beyond that is server
+// configuration, never a contract constant.
 // ============================================================================
 
 // The Confluence read proxy. Server reflection and the gRPC health service
 // are always registered alongside it, so the surface is discoverable with
 // grpcurl-style tooling or any descriptor-driven client.
 service ConfluenceService {
-  // Every space the credentials can see, or only the requested keys.
-  rpc ListSpaces(ListSpacesRequest) returns (ListSpacesResponse);
+  // -------------------------------------------------------------- spaces --
 
-  // One page by id, with its body in the requested format.
+  // Every space the credentials can see, or only the requested keys/ids,
+  // optionally filtered by type, status and labels.
+  // v2: GET /spaces.
+  // Deprecated: use StreamSpaces. Kept unary for wire compatibility.
+  rpc ListSpaces(ListSpacesRequest) returns (ListSpacesResponse) {
+    option deprecated = true;
+  }
+
+  // Every space the credentials can see, or only the requested keys/ids,
+  // optionally filtered by type, status and labels, as a stream; the stream
+  // hides the REST cursor pagination. Supersedes the unary ListSpaces.
+  // v2: GET /spaces.
+  rpc StreamSpaces(StreamSpacesRequest) returns (stream StreamSpacesResponse);
+
+  // One space by id (or by key, resolved through GET /spaces?keys=), with the
+  // requested expansions (icon, operations, space properties, permissions,
+  // role assignments, labels).
+  // v2: GET /spaces/{id}.
+  rpc GetSpace(GetSpaceRequest) returns (GetSpaceResponse);
+
+  // ------------------------------------------------ pages and blog posts --
+
+  // One page by id, with its body in the requested format, optionally a
+  // historical version or the draft, and the requested expansions.
+  // v2: GET /pages/{id}.
   rpc GetPage(GetPageRequest) returns (GetPageResponse);
 
-  // One blog post by id, with its body in the requested format.
+  // One blog post by id, with its body in the requested format, optionally a
+  // historical version or the draft, and the requested expansions.
+  // v2: GET /blogposts/{id}.
   rpc GetBlogPost(GetBlogPostRequest) returns (GetBlogPostResponse);
 
-  // All pages of a space (or of the workspace) as a stream; the stream hides
-  // the REST cursor pagination.
+  // Pages of a space, of the workspace, or carrying a label, as a stream; the
+  // stream hides the REST cursor pagination.
+  // v2: GET /pages, GET /spaces/{id}/pages, GET /labels/{id}/pages.
   rpc ListPages(ListPagesRequest) returns (stream ListPagesResponse);
 
-  // All blog posts of a space (or of the workspace) as a stream; the stream
-  // hides the REST cursor pagination.
+  // Blog posts of a space, of the workspace, or carrying a label, as a
+  // stream; the stream hides the REST cursor pagination.
+  // v2: GET /blogposts, GET /spaces/{id}/blogposts, GET /labels/{id}/blogposts.
   rpc ListBlogPosts(ListBlogPostsRequest) returns (stream ListBlogPostsResponse);
 
-  // One attachment's metadata, plus its bytes when requested (size-capped).
+  // --------------------------------------------------------- attachments --
+
+  // One attachment's metadata, plus its bytes inlined when requested. For
+  // large binaries prefer DownloadAttachment, which streams.
+  // v2: GET /attachments/{id} (+ the download link it names).
   rpc GetAttachment(GetAttachmentRequest) returns (GetAttachmentResponse);
 
-  // Attachments of a page or blog post as a stream.
+  // Attachments of a page, blog post, custom content, or label, or every
+  // attachment of the workspace, as a stream of metadata.
+  // v2: GET /attachments, GET /pages/{id}/attachments,
+  // GET /blogposts/{id}/attachments, GET /custom-content/{id}/attachments,
+  // GET /labels/{id}/attachments.
   rpc ListAttachments(ListAttachmentsRequest) returns (stream ListAttachmentsResponse);
+
+  // The binary of one attachment as a stream: the metadata first, then the
+  // bytes in chunks. No fixed size cap; the caller may set one per request.
+  // v2: GET /attachments/{id} then the download link (media CDN redirect
+  // followed server-side).
+  rpc DownloadAttachment(DownloadAttachmentRequest) returns (stream DownloadAttachmentResponse);
+
+  // The rendered thumbnail of one attachment as a stream: a descriptor
+  // first (media type and, when the media host declares it, the size), then
+  // the bytes in chunks. Same framing and ceiling rules as
+  // DownloadAttachment: no fixed size cap, the caller may set one.
+  // v2: GET /attachments/{id}/thumbnail/download (302 to the media CDN,
+  // followed server-side).
+  rpc DownloadAttachmentThumbnail(DownloadAttachmentThumbnailRequest) returns (stream DownloadAttachmentThumbnailResponse);
+
+  // ------------------------------------------------------------ comments --
+
+  // Footer and/or inline comments of a page, blog post, attachment or custom
+  // content; the replies of one comment; or every comment of the workspace,
+  // as a stream.
+  // v2: GET /{content-type}/{id}/footer-comments,
+  // GET /{pages|blogposts}/{id}/inline-comments,
+  // GET /{footer|inline}-comments/{id}/children, GET /footer-comments,
+  // GET /inline-comments.
+  rpc ListComments(ListCommentsRequest) returns (stream ListCommentsResponse);
+
+  // One footer or inline comment by id, with its body in the requested
+  // format and the requested expansions.
+  // v2: GET /footer-comments/{id}, GET /inline-comments/{id}.
+  rpc GetComment(GetCommentRequest) returns (GetCommentResponse);
+
+  // ------------------------------------------------------ custom content --
+
+  // Custom content of one type, across the workspace or within a space, page
+  // or blog post, as a stream.
+  // v2: GET /custom-content, GET /spaces/{id}/custom-content,
+  // GET /pages/{id}/custom-content, GET /blogposts/{id}/custom-content.
+  rpc ListCustomContent(ListCustomContentRequest) returns (stream ListCustomContentResponse);
+
+  // One piece of custom content by id.
+  // v2: GET /custom-content/{id}.
+  rpc GetCustomContent(GetCustomContentRequest) returns (GetCustomContentResponse);
+
+  // ----------------------------------- whiteboards, databases, folders, --
+  // ----------------------------------- smart links and the content tree --
+
+  // One whiteboard by id. v2: GET /whiteboards/{id}.
+  rpc GetWhiteboard(GetWhiteboardRequest) returns (GetWhiteboardResponse);
+
+  // One database (the container) by id. v2: GET /databases/{id}.
+  rpc GetDatabase(GetDatabaseRequest) returns (GetDatabaseResponse);
+
+  // One folder by id. v2: GET /folders/{id}.
+  rpc GetFolder(GetFolderRequest) returns (GetFolderResponse);
+
+  // One Smart Link in the content tree by id. v2: GET /embeds/{id}.
+  rpc GetSmartLink(GetSmartLinkRequest) returns (GetSmartLinkResponse);
+
+  // The direct children of a page, whiteboard, database, folder, Smart Link
+  // or custom content in the content tree, as a stream.
+  // v2: GET /{content-type}/{id}/direct-children,
+  // GET /custom-content/{id}/children.
+  rpc ListChildren(ListChildrenRequest) returns (stream ListChildrenResponse);
+
+  // The descendants of a page, whiteboard, database, folder or Smart Link,
+  // top-down to the requested depth, as a stream.
+  // v2: GET /{content-type}/{id}/descendants.
+  rpc ListDescendants(ListDescendantsRequest) returns (stream ListDescendantsResponse);
+
+  // The ancestors of a page, whiteboard, database, folder or Smart Link,
+  // top-down (highest first), as a stream; the server follows the API's
+  // walk-up pagination.
+  // v2: GET /{content-type}/{id}/ancestors.
+  rpc ListAncestors(ListAncestorsRequest) returns (stream ListAncestorsResponse);
+
+  // ------------------------------------------------------ database data --
+
+  // The field (column) definitions of a database, in column order, as a
+  // stream. Upstream marks this experimental.
+  // v2: GET /databases/{id}/fields.
+  rpc ListDatabaseFields(ListDatabaseFieldsRequest) returns (stream ListDatabaseFieldsResponse);
+
+  // The entries (rows) of a database, optionally filtered and sorted, as a
+  // stream. Upstream marks this experimental and its pagination best-effort
+  // while the database is changing.
+  // v2: GET /databases/{id}/entries.
+  rpc ListDatabaseEntries(ListDatabaseEntriesRequest) returns (stream ListDatabaseEntriesResponse);
+
+  // One entry (row) of a database. Upstream marks this experimental.
+  // v2: GET /databases/{id}/entries/{entryId}.
+  rpc GetDatabaseEntry(GetDatabaseEntryRequest) returns (GetDatabaseEntryResponse);
+
+  // The views defined on a database (id, name and layout type only; the
+  // API does not expose view configuration), as a stream. Upstream marks
+  // this experimental. Entry reads are not view-scoped upstream, so a view
+  // is descriptive metadata, not a filter for ListDatabaseEntries.
+  // v2: GET /databases/{id}/views.
+  rpc ListDatabaseViews(ListDatabaseViewsRequest) returns (stream ListDatabaseViewsResponse);
+
+  // -------------------------------------------------------------- labels --
+
+  // Labels of the workspace, of a space, of a space's content, or of one
+  // piece of content, as a stream.
+  // v2: GET /labels, GET /spaces/{id}/labels, GET /spaces/{id}/content/labels,
+  // GET /{content-type}/{id}/labels.
+  rpc ListLabels(ListLabelsRequest) returns (stream ListLabelsResponse);
+
+  // ------------------------------------------------------------ versions --
+
+  // The version history of a page, blog post, attachment, comment or custom
+  // content, each entry carrying its snapshot of the entity, as a stream.
+  // v2: GET /{content-type}/{id}/versions.
+  rpc ListVersions(ListVersionsRequest) returns (stream ListVersionsResponse);
+
+  // The change-set detail of one version of a page, blog post, attachment,
+  // comment or custom content (collaborators, previous and next version
+  // numbers, whether the content type changed).
+  // v2: GET /{content-type}/{id}/versions/{version-number}.
+  rpc GetVersion(GetVersionRequest) returns (GetVersionResponse);
+
+  // --------------------------------------------------------------- likes --
+
+  // The accounts that liked a page, blog post or comment, as a stream.
+  // v2: GET /{pages|blogposts|footer-comments|inline-comments}/{id}/likes/users.
+  rpc ListLikes(ListLikesRequest) returns (stream ListLikesResponse);
+
+  // The number of likes of a page, blog post or comment.
+  // v2: GET /{pages|blogposts|footer-comments|inline-comments}/{id}/likes/count.
+  rpc GetLikeCount(GetLikeCountRequest) returns (GetLikeCountResponse);
+
+  // ---------------------------------------------------------- operations --
+
+  // Every operation the calling user may perform on one content item or
+  // space. Unlike the include.operations preview on the Get rpcs (capped
+  // upstream at 50 entries) this is the full, unpaginated list.
+  // v2: GET /{content-type}/{id}/operations, GET /spaces/{id}/operations.
+  rpc ListOperations(ListOperationsRequest) returns (ListOperationsResponse);
+
+  // --------------------------------------------------------------- tasks --
+
+  // Inline tasks of the workspace, filtered by status, container, people and
+  // date ranges, as a stream.
+  // v2: GET /tasks.
+  rpc ListTasks(ListTasksRequest) returns (stream ListTasksResponse);
+
+  // One inline task by id. v2: GET /tasks/{id}.
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+
+  // --------------------------------------------------------------- users --
+
+  // User profiles for a set of account ids (the only v2 user lookup). The
+  // server chunks the request to the API's per-call maximum (250 ids, the
+  // request body's maxItems). The route declares no cursor or limit, so a
+  // response is complete for its chunk; its `_links` schema is the shared
+  // MultiEntityLinks, whose `next` is never followed here (a relative GET
+  // URL cannot continue a POST). Should the API ever send one, the rpc
+  // fails with INTERNAL rather than return a silently partial result.
+  // v2: POST /users-bulk (a read; the body is just the id list).
+  rpc BatchGetUsers(BatchGetUsersRequest) returns (BatchGetUsersResponse);
+
+  // Which of the given email addresses have no access to the site, and
+  // which are not valid addresses. The server chunks the request to the
+  // API's per-call maximum (100 emails).
+  // v2: POST /user/access/check-access-by-email (a read; the body is just
+  // the email list).
+  rpc CheckAccessByEmail(CheckAccessByEmailRequest) returns (CheckAccessByEmailResponse);
+
+  // ------------------------------------------------------ classification --
+
+  // The classification levels defined for the site.
+  // v2: GET /classification-levels.
+  rpc ListClassificationLevels(ListClassificationLevelsRequest) returns (ListClassificationLevelsResponse);
+
+  // The classification level applied to a page, blog post, database or
+  // whiteboard, or a space's default classification level.
+  // v2: GET /{content-type}/{id}/classification-level,
+  // GET /spaces/{id}/classification-level/default.
+  rpc GetClassificationLevel(GetClassificationLevelRequest) returns (GetClassificationLevelResponse);
+
+  // The data-policy view of spaces (whether content is blocked for the
+  // calling app), as a stream. Both data-policy rpcs are served upstream to
+  // app (Connect/Forge) credentials only; with API-token auth they fail
+  // with PERMISSION_DENIED. Kept so the contract tracks the upstream API.
+  // v2: GET /data-policies/spaces.
+  rpc ListDataPolicySpaces(ListDataPolicySpacesRequest) returns (stream ListDataPolicySpacesResponse);
+
+  // Workspace-level data-policy metadata.
+  // v2: GET /data-policies/metadata.
+  rpc GetDataPolicyMetadata(GetDataPolicyMetadataRequest) returns (GetDataPolicyMetadataResponse);
+
+  // ---------------------------------------------------------- properties --
+
+  // Content properties of a page, blog post, attachment, comment, custom
+  // content, whiteboard, database, folder or Smart Link, as a stream (one
+  // property by key via the request's `key` filter).
+  // v2: GET /{content-type}/{id}/properties (comments of either kind:
+  // GET /comments/{id}/properties).
+  rpc ListContentProperties(ListContentPropertiesRequest) returns (stream ListContentPropertiesResponse);
+
+  // Space properties of a space, as a stream (one property by key via the
+  // request's `key` filter).
+  // v2: GET /spaces/{id}/properties.
+  rpc ListSpaceProperties(ListSpacePropertiesRequest) returns (stream ListSpacePropertiesResponse);
+
+  // One content property by its id (not its key; filter
+  // ListContentProperties by `key` for that).
+  // v2: GET /{content-type}/{id}/properties/{property-id} (comments of
+  // either kind: GET /comments/{id}/properties/{property-id}).
+  rpc GetContentProperty(GetContentPropertyRequest) returns (GetContentPropertyResponse);
+
+  // One space property by its id.
+  // v2: GET /spaces/{id}/properties/{property-id}.
+  rpc GetSpaceProperty(GetSpacePropertyRequest) returns (GetSpacePropertyResponse);
+
+  // The Forge app properties of the calling app, as a stream. Upstream
+  // serves the app-properties routes to Forge app (asApp) credentials
+  // only; with API-token auth they fail (PERMISSION_DENIED or NOT_FOUND).
+  // Kept so the contract tracks the upstream API.
+  // v2: GET /app/properties.
+  rpc ListAppProperties(ListAppPropertiesRequest) returns (stream ListAppPropertiesResponse);
+
+  // One Forge app property by key. Forge app credentials only, like
+  // ListAppProperties.
+  // v2: GET /app/properties/{propertyKey}.
+  rpc GetAppProperty(GetAppPropertyRequest) returns (GetAppPropertyResponse);
+
+  // ----------------------------------------- permissions (read side only) --
+
+  // The direct restriction state of a page, blog post, database, whiteboard
+  // or folder.
+  // v2: GET /{content-type}/{id}/restriction-state.
+  rpc GetRestrictionState(GetRestrictionStateRequest) returns (GetRestrictionStateResponse);
+
+  // The direct user/group permission entries of a page, blog post, database,
+  // whiteboard or folder, as a stream.
+  // v2: GET /{content-type}/{id}/permissions.
+  rpc ListContentPermissions(ListContentPermissionsRequest) returns (stream ListContentPermissionsResponse);
+
+  // The space permission assignments of one space, as a stream.
+  // v2: GET /spaces/{id}/permissions.
+  rpc ListSpacePermissionAssignments(ListSpacePermissionAssignmentsRequest) returns (stream ListSpacePermissionAssignmentsResponse);
+
+  // The space roles available on the tenant (or for one space / principal),
+  // as a stream. Role-based-access tenants only.
+  // v2: GET /space-roles.
+  rpc ListSpaceRoles(ListSpaceRolesRequest) returns (stream ListSpaceRolesResponse);
+
+  // One space role by id. Role-based-access tenants only.
+  // v2: GET /space-roles/{id}.
+  rpc GetSpaceRole(GetSpaceRoleRequest) returns (GetSpaceRoleResponse);
+
+  // The tenant's catalogue of space permission definitions (id, display
+  // name, description, prerequisites), as a stream.
+  // v2: GET /space-permissions.
+  rpc ListSpacePermissions(ListSpacePermissionsRequest) returns (stream ListSpacePermissionsResponse);
+
+  // The unassigned space permission combinations found by the last
+  // transition audit, as a stream (admin tooling for the move to space
+  // roles; Confluence administrators only).
+  // v2: GET /space-permissions/transition/combinations.
+  rpc ListSpacePermissionTransitionCombinations(ListSpacePermissionTransitionCombinationsRequest) returns (stream ListSpacePermissionTransitionCombinationsResponse);
+
+  // The status of one submitted space permission transition task.
+  // v2: GET /space-permissions/transition/tasks/{taskId}.
+  rpc GetSpacePermissionTransitionTask(GetSpacePermissionTransitionTaskRequest) returns (GetSpacePermissionTransitionTaskResponse);
+
+  // The role assignments of one space, as a stream. Role-based-access
+  // tenants only.
+  // v2: GET /spaces/{id}/role-assignments.
+  rpc ListSpaceRoleAssignments(ListSpaceRoleAssignmentsRequest) returns (stream ListSpaceRoleAssignmentsResponse);
+
+  // Whether the tenant uses classic space permissions, roles, or is in
+  // transition. v2: GET /space-role-mode.
+  rpc GetSpaceRoleMode(GetSpaceRoleModeRequest) returns (GetSpaceRoleModeResponse);
+
+  // ----------------------------------------------------------- admin key --
+
+  // The calling user's active admin key, if any (NOT_FOUND when none is
+  // enabled). Reading it never enables, extends or disables one.
+  // v2: GET /admin-key.
+  rpc GetAdminKey(GetAdminKeyRequest) returns (GetAdminKeyResponse);
+
+  // -------------------------------------------------------------- content --
+
+  // The content kind of each given content id (for ids stored without their
+  // type, e.g. from a webhook or a v1 migration).
+  // v2: POST /content/convert-ids-to-types (a read; the body is the id list).
+  rpc ResolveContentTypes(ResolveContentTypesRequest) returns (ResolveContentTypesResponse);
+
+  // ------------------------------------------------------- sync and probe --
 
   // One bounded sync pass as a stream of ConfluenceChanges, closing with the
   // resume cursor for the next pass. Deliberately bounded (the resume-token
   // idiom): a continuously-tailing Watch rpc is a possible additive later,
   // not part of this surface.
+  //
+  // Security-trimming data fails closed: every access-control owner
+  // (space, page, blog post, whiteboard, database, folder) and its
+  // per-run restriction_state record carry
+  // ConfluenceEntity.security_completeness; consumers should deny access
+  // unless it is COMPLETE. The stream is flow-controlled: the server pages
+  // the REST API only as fast as the client reads, and stops paging when
+  // the client cancels.
   rpc Sync(SyncRequest) returns (stream SyncResponse);
 
   // Hit ListSpaces with a catalog connection (or inline credentials) and
@@ -67,6 +432,127 @@ service ConfluenceService {
   // connection". Does not start a crawl.
   rpc ProbeConnection(ProbeConnectionRequest) returns (ProbeConnectionResponse);
 }
+
+// ============================================================================
+// SHARED REQUEST VOCABULARY
+// ============================================================================
+
+// A field a list may be sorted by. The v2 API defines one sort enum per
+// entity kind; this is their union, and the server answers INVALID_ARGUMENT
+// when the chosen field is not sortable on that route.
+enum SortField {
+  // Zero value; the API's default order for the route.
+  SORT_FIELD_UNSPECIFIED = 0;
+  // By id.
+  SORT_FIELD_ID = 1;
+  // By creation date.
+  SORT_FIELD_CREATED_DATE = 2;
+  // By last modification date.
+  SORT_FIELD_MODIFIED_DATE = 3;
+  // By title.
+  SORT_FIELD_TITLE = 4;
+  // By position among siblings in the content tree.
+  SORT_FIELD_CHILD_POSITION = 5;
+  // By key (spaces, content properties).
+  SORT_FIELD_KEY = 6;
+  // By name (spaces, labels).
+  SORT_FIELD_NAME = 7;
+}
+
+// The order of a list: a field and a direction (the API's `sort=[-]field`).
+message SortOrder {
+  // The field to sort by.
+  SortField field = 1;
+  // True for descending order; false (default) for ascending.
+  bool descending = 2;
+}
+
+// The expansions a single-entity read may ask for (the API's `include-*`
+// query flags). Flags the API does not offer for the requested content kind
+// are ignored. The current version is always included. Upstream caps every
+// expansion at 50 entries; the inlined lists are therefore a preview, never
+// a complete set. Use the dedicated list rpc (ListLabels,
+// ListContentProperties, ListVersions, ListChildren) for the full set.
+message ContentIncludes {
+  // Include the labels attached to the content.
+  bool labels = 1;
+  // Include the content properties attached to the content.
+  bool properties = 2;
+  // Include the operations the calling user may perform on the content.
+  bool operations = 3;
+  // Include the likes on the content.
+  bool likes = 4;
+  // Include the version history of the content.
+  bool versions = 5;
+  // Include whether the calling user has favorited the content.
+  bool favorited_by_current_user = 6;
+  // Include the direct children of the content in the content tree.
+  bool direct_children = 7;
+  // Include the account ids of the content's collaborators
+  // (`include-collaborators`).
+  bool collaborators = 8;
+  // Include the web resources needed to render the body
+  // (`include-webresources`; pages and blog posts only).
+  bool web_resources = 9;
+}
+
+// The expansions a space read may ask for (GET /spaces/{id} `include-*`).
+// Upstream caps every expansion at 50 entries, so the inlined lists are a
+// preview: security trimming must use ListSpacePermissionAssignments and
+// ListSpaceRoleAssignments, which page through the full set.
+message SpaceIncludes {
+  // Include the space icon.
+  bool icon = 1;
+  // Include the operations the calling user may perform on the space.
+  bool operations = 2;
+  // Include the space properties.
+  bool properties = 3;
+  // Include the space permission assignments.
+  bool permissions = 4;
+  // Include the space role assignments (role-based-access tenants; upstream
+  // accepts this flag on EAP sites only).
+  bool role_assignments = 5;
+  // Include the labels attached to the space.
+  bool labels = 6;
+}
+
+// The representation of a space description to fetch.
+enum SpaceDescriptionFormat {
+  // Zero value; no description is requested.
+  SPACE_DESCRIPTION_FORMAT_UNSPECIFIED = 0;
+  // The plain-text representation.
+  SPACE_DESCRIPTION_FORMAT_PLAIN = 1;
+  // The rendered view representation.
+  SPACE_DESCRIPTION_FORMAT_VIEW = 2;
+}
+
+// The subtype of a page (GET /pages `subtype` filter).
+enum PageSubtype {
+  // Zero value; no subtype filter.
+  PAGE_SUBTYPE_UNSPECIFIED = 0;
+  // A live doc.
+  PAGE_SUBTYPE_LIVE = 1;
+  // A classic published page.
+  PAGE_SUBTYPE_PAGE = 2;
+}
+
+// A label prefix (namespace).
+enum LabelPrefix {
+  // Zero value; no prefix filter.
+  LABEL_PREFIX_UNSPECIFIED = 0;
+  // A personal label.
+  LABEL_PREFIX_MY = 1;
+  // A team label.
+  LABEL_PREFIX_TEAM = 2;
+  // A global label.
+  LABEL_PREFIX_GLOBAL = 3;
+  // A system label.
+  LABEL_PREFIX_SYSTEM = 4;
+}
+
+// ============================================================================
+// SPACES
+// ============================================================================
 
 // Request to list spaces.
 message ListSpacesRequest {
@@ -76,6 +562,24 @@ message ListSpacesRequest {
   int32 limit = 2;
   // Catalog connection to use. Empty = the process-default (env) connection.
   string connection_id = 3;
+  // Space ids to include; combined with `keys` as the API combines them.
+  repeated string ids = 4;
+  // Only spaces of this type; UNSPECIFIED = any type.
+  SpaceType type = 5;
+  // Only spaces in this status; UNSPECIFIED = the API default (current).
+  SpaceStatus status = 6;
+  // Only spaces carrying all of these labels.
+  repeated string labels = 7;
+  // Only spaces favorited by this account id.
+  string favorited_by = 8;
+  // Only spaces NOT favorited by this account id.
+  string not_favorited_by = 9;
+  // Sort order; unset = the API default (id ascending).
+  SortOrder sort = 10;
+  // The description representation to fetch; UNSPECIFIED = none.
+  SpaceDescriptionFormat description_format = 11;
+  // Include each space's icon.
+  bool include_icon = 12;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -88,6 +592,71 @@ message ListSpacesResponse {
   map<string, string> metadata = 99;
 }
 
+// Request to stream spaces (same filters as ListSpacesRequest).
+message StreamSpacesRequest {
+  // Space keys to include; empty = every space the credentials can see.
+  repeated string keys = 1;
+  // Maximum number of spaces to return; 0 = no cap.
+  int32 limit = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Space ids to include; combined with `keys` as the API combines them.
+  repeated string ids = 4;
+  // Only spaces of this type; UNSPECIFIED = any type.
+  SpaceType type = 5;
+  // Only spaces in this status; UNSPECIFIED = the API default (current).
+  SpaceStatus status = 6;
+  // Only spaces carrying all of these labels.
+  repeated string labels = 7;
+  // Only spaces favorited by this account id.
+  string favorited_by = 8;
+  // Only spaces NOT favorited by this account id.
+  string not_favorited_by = 9;
+  // Sort order; unset = the API default (id ascending).
+  SortOrder sort = 10;
+  // The description representation to fetch; UNSPECIFIED = none.
+  SpaceDescriptionFormat description_format = 11;
+  // Include each space's icon.
+  bool include_icon = 12;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed space.
+message StreamSpacesResponse {
+  // The streamed space.
+  Space space = 1;
+}
+
+// Request to read one space.
+message GetSpaceRequest {
+  // ID of the space. Either `id` or `key` is required; `id` wins when both
+  // are set.
+  string id = 1;
+  // Key of the space, when the id is not known.
+  string key = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // The description representation to fetch; UNSPECIFIED = none.
+  SpaceDescriptionFormat description_format = 4;
+  // The expansions to include.
+  SpaceIncludes include = 5;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested space.
+message GetSpaceResponse {
+  // The requested space.
+  Space space = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// ============================================================================
+// PAGES AND BLOG POSTS
+// ============================================================================
+
 // Request to read one page.
 message GetPageRequest {
   // ID of the page.
@@ -97,6 +666,16 @@ message GetPageRequest {
   BodyFormat body_format = 2;
   // Catalog connection to use. Empty = the process-default (env) connection.
   string connection_id = 3;
+  // A previously published version number to retrieve instead of the current
+  // version.
+  optional int32 version = 4;
+  // Retrieve the draft version of the page.
+  bool get_draft = 5;
+  // Only return the page if it is in one of these statuses; empty = the API
+  // default.
+  repeated ContentStatus statuses = 6;
+  // The expansions to include.
+  ContentIncludes include = 7;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -118,6 +697,16 @@ message GetBlogPostRequest {
   BodyFormat body_format = 2;
   // Catalog connection to use. Empty = the process-default (env) connection.
   string connection_id = 3;
+  // A previously published version number to retrieve instead of the current
+  // version.
+  optional int32 version = 4;
+  // Retrieve the draft version of the blog post.
+  bool get_draft = 5;
+  // Only return the blog post if it is in one of these statuses; empty = the
+  // API default.
+  repeated BlogPostContentStatus statuses = 6;
+  // The expansions to include.
+  ContentIncludes include = 7;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -130,9 +719,10 @@ message GetBlogPostResponse {
   map<string, string> metadata = 99;
 }
 
-// Request to stream the pages of a space.
+// Request to stream the pages of a space, of the workspace, or of a label.
 message ListPagesRequest {
-  // ID of the space to list; empty = every space the credentials can see.
+  // ID of the space to list; empty = every space the credentials can see
+  // (or the spaces in `space_ids`).
   string space_id = 1;
   // The body representation to fetch per page. UNSPECIFIED = metadata-only
   // listing: no body-format is requested from the API and bodies stay unset,
@@ -140,6 +730,25 @@ message ListPagesRequest {
   BodyFormat body_format = 2;
   // Catalog connection to use. Empty = the process-default (env) connection.
   string connection_id = 3;
+  // Only these page ids.
+  repeated string ids = 4;
+  // Only pages in these statuses; empty = the API default (current and
+  // archived).
+  repeated ContentStatus statuses = 5;
+  // Only pages with this exact title.
+  string title = 6;
+  // Sort order; unset = the API default.
+  SortOrder sort = 7;
+  // Only pages of this subtype (live doc or classic page).
+  PageSubtype subtype = 8;
+  // Only pages carrying this label (routes through GET /labels/{id}/pages).
+  string label_id = 9;
+  // Additional space ids to list when `space_id` is empty (GET /pages
+  // accepts several).
+  repeated string space_ids = 10;
+  // When listing one space, only its root-level pages (the API's
+  // `depth=root`).
+  bool root_only = 11;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -150,15 +759,30 @@ message ListPagesResponse {
   Page page = 1;
 }
 
-// Request to stream the blog posts of a space.
+// Request to stream the blog posts of a space, of the workspace, or of a
+// label.
 message ListBlogPostsRequest {
-  // ID of the space to list; empty = every space the credentials can see.
+  // ID of the space to list; empty = every space the credentials can see
+  // (or the spaces in `space_ids`).
   string space_id = 1;
   // The body representation to fetch per blog post. UNSPECIFIED =
   // metadata-only listing: no body-format is requested and bodies stay unset.
   BodyFormat body_format = 2;
   // Catalog connection to use. Empty = the process-default (env) connection.
   string connection_id = 3;
+  // Only these blog post ids.
+  repeated string ids = 4;
+  // Only blog posts in these statuses; empty = the API default (current).
+  repeated BlogPostContentStatus statuses = 5;
+  // Only blog posts with this exact title.
+  string title = 6;
+  // Sort order; unset = the API default.
+  SortOrder sort = 7;
+  // Only blog posts carrying this label (routes through
+  // GET /labels/{id}/blogposts).
+  string label_id = 8;
+  // Additional space ids to list when `space_id` is empty.
+  repeated string space_ids = 9;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -169,39 +793,35 @@ message ListBlogPostsResponse {
   BlogPost blog_post = 1;
 }
 
+// ============================================================================
+// ATTACHMENTS
+// ============================================================================
+
 // Request to read one attachment.
 message GetAttachmentRequest {
   // ID of the attachment.
   string id = 1;
   // When true, the binary is downloaded through the client's download path
-  // and inlined as Attachment.content. No size cap by default; when the
-  // operator sets CONFLUENCE_ATTACHMENT_MAX_BYTES, larger attachments are
-  // refused with FAILED_PRECONDITION. Clients must allow inbound messages
-  // as large as the attachments they request.
+  // and inlined as Attachment.content. No size cap by default: the limit is
+  // the tighter of `max_content_bytes` (when the caller sets one) and
+  // CONFLUENCE_ATTACHMENT_MAX_BYTES (when the operator sets one); above it
+  // the rpc fails with FAILED_PRECONDITION. Clients must allow inbound
+  // messages as large as the attachments they request. Bulk bytes are better
+  // served by DownloadAttachment, which streams.
   bool include_content = 2;
   // Catalog connection to use. Empty = the process-default (env) connection.
   string connection_id = 3;
+  // Optional ceiling for an inlined binary; 0 = no cap. When set and the
+  // attachment's file_size exceeds it, the rpc fails with FAILED_PRECONDITION
+  // and the caller should use DownloadAttachment instead.
+  int64 max_content_bytes = 4;
+  // A previously published version number to retrieve instead of the current
+  // version.
+  optional int32 version = 5;
+  // The expansions to include (labels, properties, operations, versions).
+  ContentIncludes include = 6;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
-}
-
-// Attachments of one container (page or blog post).
-message ListAttachmentsRequest {
-  // Page id to list; mutually exclusive with blog_post_id when both set
-  // (page wins).
-  string page_id = 1;
-  // Blog post id to list when page_id is empty.
-  string blog_post_id = 2;
-  // Catalog connection to use. Empty = the process-default (env) connection.
-  string connection_id = 3;
-  // Extensible key-value metadata (extension-metadata map - see convention).
-  map<string, string> metadata = 99;
-}
-
-// One streamed attachment of the requested page or blog post.
-message ListAttachmentsResponse {
-  // The streamed attachment (metadata; bytes are not inlined on this rpc).
-  Attachment attachment = 1;
 }
 
 // The requested attachment (metadata always; bytes when include_content).
@@ -212,6 +832,966 @@ message GetAttachmentResponse {
   map<string, string> metadata = 99;
 }
 
+// Attachments of one container (page, blog post, custom content, or label),
+// or of the whole workspace when no container is set.
+message ListAttachmentsRequest {
+  // Page id to list. Exactly one of page_id, blog_post_id,
+  // custom_content_id, label_id selects the container; when several are set
+  // the first in that order wins; none = every attachment (GET /attachments).
+  string page_id = 1;
+  // Blog post id to list when page_id is empty.
+  string blog_post_id = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Custom content id to list when page_id and blog_post_id are empty.
+  string custom_content_id = 4;
+  // Label id to list (GET /labels/{id}/attachments) when no content
+  // container is set.
+  string label_id = 5;
+  // Only attachments in these statuses; empty = the API default (current and
+  // archived).
+  repeated ContentStatus statuses = 6;
+  // Only attachments of this media type.
+  string media_type = 7;
+  // Only attachments with this file name.
+  string filename = 8;
+  // Sort order; unset = the API default.
+  SortOrder sort = 9;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed attachment of the requested container.
+message ListAttachmentsResponse {
+  // The streamed attachment (metadata; bytes are not inlined on this rpc).
+  Attachment attachment = 1;
+}
+
+// Request to stream one attachment's binary.
+message DownloadAttachmentRequest {
+  // ID of the attachment.
+  string id = 1;
+  // A previously published version number to download instead of the
+  // current version.
+  optional int32 version = 2;
+  // Preferred size in bytes of each streamed chunk (one gRPC message of the
+  // download stream). This is gRPC framing, not a Confluence parameter:
+  // the server reads the file from Confluence and re-chunks it.
+  // 0 = the server implementation default. Unrelated to max_bytes.
+  int32 chunk_bytes = 3;
+  // Optional ceiling on the total file size, across all chunks; 0 = no cap. When set and
+  // the attachment's file_size exceeds it, the rpc fails with
+  // FAILED_PRECONDITION before any chunk is sent.
+  int64 max_bytes = 4;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 5;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One message of an attachment download stream: the first message carries
+// the metadata, every following message carries a chunk of the binary, in
+// order. Concatenating the chunks yields the file.
+message DownloadAttachmentResponse {
+  // The streamed part: metadata first, then chunks.
+  oneof part {
+    // The attachment metadata (content unset); always the first message.
+    Attachment attachment = 1;
+    // One chunk of the binary.
+    bytes data = 2;
+  }
+}
+
+// Request to stream one attachment's rendered thumbnail.
+message DownloadAttachmentThumbnailRequest {
+  // ID of the attachment.
+  string id = 1;
+  // A previously published version number whose thumbnail to download
+  // instead of the current version's.
+  optional int32 version = 2;
+  // Requested thumbnail width in pixels; 0 = the API default. Negative is
+  // INVALID_ARGUMENT.
+  int32 width = 3;
+  // Requested thumbnail height in pixels; 0 = the API default. Negative is
+  // INVALID_ARGUMENT.
+  int32 height = 4;
+  // Preferred size in bytes of each streamed chunk (gRPC framing, not a
+  // Confluence parameter); 0 = the server implementation default.
+  // Unrelated to max_bytes.
+  int32 chunk_bytes = 5;
+  // Optional ceiling on the total thumbnail size, across all chunks;
+  // 0 = no cap. When the media host declares a larger Content-Length the
+  // rpc fails with FAILED_PRECONDITION before any message is sent; when
+  // the bytes outgrow it mid-stream the rpc fails with FAILED_PRECONDITION.
+  int64 max_bytes = 6;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 7;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// What the thumbnail download resolved to, sent before the bytes. The
+// route is a redirect with no JSON body, so this carries only what the
+// final HTTP response declares.
+message AttachmentThumbnail {
+  // ID of the attachment the thumbnail belongs to (echoed from the request).
+  string attachment_id = 1;
+  // The thumbnail's media type, from the media host's Content-Type; empty
+  // when it sent none.
+  string media_type = 2;
+  // The thumbnail's size in bytes, from the media host's Content-Length;
+  // 0 when it did not declare one (chunked transfer).
+  int64 size_bytes = 3;
+}
+
+// One message of a thumbnail download stream: the first message carries
+// the descriptor, every following message carries a chunk of the binary,
+// in order. Concatenating the chunks yields the image.
+message DownloadAttachmentThumbnailResponse {
+  // The streamed part: descriptor first, then chunks.
+  oneof part {
+    // What the download resolved to; always the first message.
+    AttachmentThumbnail thumbnail = 1;
+    // One chunk of the binary.
+    bytes data = 2;
+  }
+}
+
+// ============================================================================
+// COMMENTS
+// ============================================================================
+
+// Request to stream comments. Scope resolution, in order: `parent_comment_id`
+// set = the replies of that comment; else `container` set = the root
+// comments of that page, blog post, attachment or custom content; else every
+// comment of the workspace.
+// `version` applies to an attachment container only.
+message ListCommentsRequest {
+  // The content whose root comments to list (page, blog post, attachment,
+  // custom content). Inline comments exist on pages and blog posts only.
+  ContentRef container = 1;
+  // The comment whose replies to list.
+  string parent_comment_id = 2;
+  // Footer, inline, or both.
+  CommentKind kind = 3;
+  // The body representation to fetch per comment. UNSPECIFIED = metadata-only
+  // listing.
+  BodyFormat body_format = 4;
+  // Only comments in these statuses; empty = the API default.
+  repeated ContentStatus statuses = 5;
+  // Only inline comments in these resolution statuses; empty = any.
+  repeated InlineCommentResolutionStatus resolution_statuses = 6;
+  // Sort order; unset = the API default.
+  SortOrder sort = 7;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 8;
+  // The attachment version whose footer comments to list. Only
+  // GET /attachments/{id}/footer-comments accepts it (int64 per the spec);
+  // with any other scope it is INVALID_ARGUMENT. Unset = the current
+  // version.
+  optional int64 version = 9;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed comment.
+message ListCommentsResponse {
+  // The streamed comment.
+  Comment comment = 1;
+}
+
+// Request to read one comment.
+message GetCommentRequest {
+  // ID of the comment.
+  string id = 1;
+  // Footer or inline (the two live on different routes). UNSPECIFIED = the
+  // server tries footer, then inline.
+  CommentKind kind = 2;
+  // The body representation to fetch. UNSPECIFIED = BODY_FORMAT_STORAGE_XHTML.
+  BodyFormat body_format = 3;
+  // A previously published version number to retrieve instead of the current
+  // version.
+  optional int32 version = 4;
+  // The expansions to include (properties, operations, likes, versions).
+  ContentIncludes include = 5;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 6;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested comment.
+message GetCommentResponse {
+  // The requested comment.
+  Comment comment = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// ============================================================================
+// CUSTOM CONTENT
+// ============================================================================
+
+// Request to stream custom content of one type.
+message ListCustomContentRequest {
+  // The custom content type (required by every v2 custom-content list
+  // route).
+  string type = 1;
+  // Optional content container: a page or blog post
+  // (GET /{pages|blogposts}/{id}/custom-content). A space is named by
+  // `space_id` instead, because ContentType has no space kind. Unset (and
+  // space_id empty) = the whole workspace (GET /custom-content).
+  ContentRef container = 2;
+  // Only these custom content ids (workspace scope only).
+  repeated string ids = 3;
+  // Only custom content in these spaces (workspace scope only; a filter on
+  // GET /custom-content, unlike `space_id`, which selects the space route).
+  repeated string space_ids = 4;
+  // The body representation to fetch. UNSPECIFIED = metadata-only listing.
+  BodyFormat body_format = 5;
+  // Sort order; unset = the API default. GET /spaces/{id}/custom-content
+  // takes no sort, so a sort with `space_id` is INVALID_ARGUMENT.
+  SortOrder sort = 6;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 7;
+  // Space whose custom content to list (GET /spaces/{id}/custom-content).
+  // Mutually exclusive with `container`; setting both is INVALID_ARGUMENT,
+  // and `ids` / `space_ids` / `sort` are not accepted by this route.
+  string space_id = 8;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed piece of custom content.
+message ListCustomContentResponse {
+  // The streamed custom content.
+  CustomContent custom_content = 1;
+}
+
+// Request to read one piece of custom content.
+message GetCustomContentRequest {
+  // ID of the custom content.
+  string id = 1;
+  // The body representation to fetch. UNSPECIFIED = BODY_FORMAT_STORAGE_XHTML.
+  BodyFormat body_format = 2;
+  // A previously published version number to retrieve instead of the current
+  // version.
+  optional int32 version = 3;
+  // The expansions to include (labels, properties, operations, versions).
+  ContentIncludes include = 4;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 5;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested custom content.
+message GetCustomContentResponse {
+  // The requested custom content.
+  CustomContent custom_content = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// ============================================================================
+// WHITEBOARDS, DATABASES, FOLDERS, SMART LINKS, CONTENT TREE
+// ============================================================================
+
+// Request to read one whiteboard.
+message GetWhiteboardRequest {
+  // ID of the whiteboard.
+  string id = 1;
+  // The expansions to include (properties, operations, direct children).
+  ContentIncludes include = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested whiteboard.
+message GetWhiteboardResponse {
+  // The requested whiteboard.
+  Whiteboard whiteboard = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to read one database (the container, not its rows).
+message GetDatabaseRequest {
+  // ID of the database.
+  string id = 1;
+  // The expansions to include (properties, operations, direct children).
+  ContentIncludes include = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested database.
+message GetDatabaseResponse {
+  // The requested database.
+  Database database = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to read one folder.
+message GetFolderRequest {
+  // ID of the folder.
+  string id = 1;
+  // The expansions to include (properties, operations, direct children).
+  ContentIncludes include = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested folder.
+message GetFolderResponse {
+  // The requested folder.
+  Folder folder = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to read one Smart Link in the content tree.
+message GetSmartLinkRequest {
+  // ID of the Smart Link.
+  string id = 1;
+  // The expansions to include (properties, operations, direct children).
+  ContentIncludes include = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested Smart Link.
+message GetSmartLinkResponse {
+  // The requested Smart Link.
+  SmartLink smart_link = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to stream the direct children of a content item.
+message ListChildrenRequest {
+  // The parent: a page, whiteboard, database, folder, Smart Link or custom
+  // content.
+  ContentRef parent = 1;
+  // Sort order; unset = the API default (child position).
+  SortOrder sort = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed child.
+message ListChildrenResponse {
+  // The streamed child entry.
+  ContentTreeEntry entry = 1;
+}
+
+// Request to stream the descendants of a content item.
+message ListDescendantsRequest {
+  // The root: a page, whiteboard, database, folder or Smart Link.
+  ContentRef root = 1;
+  // Maximum depth below the root; 0 = the API default (2). The API caps the
+  // depth; the server passes the request value through.
+  int32 depth = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed descendant.
+message ListDescendantsResponse {
+  // The streamed descendant entry (with parent_id and depth set).
+  ContentTreeEntry entry = 1;
+}
+
+// Request to stream the ancestors of a content item.
+message ListAncestorsRequest {
+  // The content: a page, whiteboard, database, folder or Smart Link.
+  ContentRef content = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed ancestor, highest first.
+message ListAncestorsResponse {
+  // The streamed ancestor.
+  Ancestor ancestor = 1;
+}
+
+// ============================================================================
+// DATABASE DATA
+// ============================================================================
+
+// A comparison operator of a database entry filter.
+enum DatabaseEntryFilterOperator {
+  // Zero value; treated as EQUALS.
+  DATABASE_ENTRY_FILTER_OPERATOR_UNSPECIFIED = 0;
+  // Equals the single value (`eq:`).
+  DATABASE_ENTRY_FILTER_OPERATOR_EQUALS = 1;
+  // Equals any of the values (`in:`).
+  DATABASE_ENTRY_FILTER_OPERATOR_IN = 2;
+  // The cell is empty (`$empty`); takes no values.
+  DATABASE_ENTRY_FILTER_OPERATOR_EMPTY = 3;
+  // Greater than the single value (date and number fields).
+  DATABASE_ENTRY_FILTER_OPERATOR_GREATER_THAN = 4;
+  // Greater than or equal to the single value (date and number fields).
+  DATABASE_ENTRY_FILTER_OPERATOR_GREATER_THAN_OR_EQUAL = 5;
+  // Less than the single value (date and number fields).
+  DATABASE_ENTRY_FILTER_OPERATOR_LESS_THAN = 6;
+  // Less than or equal to the single value (date and number fields).
+  DATABASE_ENTRY_FILTER_OPERATOR_LESS_THAN_OR_EQUAL = 7;
+}
+
+// One filter on database entries (the API's `filter[fieldId]=...`). Filters
+// combine with AND. Which operators a field supports depends on its type;
+// the API rejects unsupported combinations.
+message DatabaseEntryFilter {
+  // ID of the field to filter on.
+  string field_id = 1;
+  // The comparison operator.
+  DatabaseEntryFilterOperator operator = 2;
+  // The comparison values, in the field's canonical string form (one value
+  // for every operator but IN, which takes several; none for EMPTY).
+  repeated string values = 3;
+}
+
+// Sort of database entries by one field.
+message DatabaseEntrySort {
+  // ID of the field to sort by.
+  string field_id = 1;
+  // True for descending order; false (default) for ascending.
+  bool descending = 2;
+}
+
+// Request to stream the field definitions of a database.
+message ListDatabaseFieldsRequest {
+  // Content ID of the database.
+  string database_id = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed field definition, in column order.
+message ListDatabaseFieldsResponse {
+  // The streamed field.
+  DatabaseField field = 1;
+}
+
+// Request to stream the entries of a database.
+message ListDatabaseEntriesRequest {
+  // Content ID of the database.
+  string database_id = 1;
+  // Filters to apply (AND).
+  repeated DatabaseEntryFilter filters = 2;
+  // Sort order; unset = the API default.
+  DatabaseEntrySort sort = 3;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 4;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed entry.
+message ListDatabaseEntriesResponse {
+  // The streamed entry.
+  DatabaseEntry entry = 1;
+}
+
+// Request to read one database entry.
+message GetDatabaseEntryRequest {
+  // Content ID of the database.
+  string database_id = 1;
+  // ID of the entry.
+  string entry_id = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested entry.
+message GetDatabaseEntryResponse {
+  // The requested entry.
+  DatabaseEntry entry = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to stream the views of a database.
+message ListDatabaseViewsRequest {
+  // Content ID of the database.
+  string database_id = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed database view.
+message ListDatabaseViewsResponse {
+  // The streamed view.
+  DatabaseView view = 1;
+}
+
+// ============================================================================
+// LABELS
+// ============================================================================
+
+// Request to stream labels. Scope: exactly one of the scope arms, or none
+// for every label of the workspace (GET /labels).
+message ListLabelsRequest {
+  // The scope of the listing; unset = the whole workspace.
+  oneof scope {
+    // Labels attached to this space (GET /spaces/{id}/labels).
+    string space_id = 1;
+    // Labels attached to the content of this space
+    // (GET /spaces/{id}/content/labels).
+    string content_space_id = 2;
+    // Labels attached to this page, blog post, attachment or custom content
+    // (GET /{content-type}/{id}/labels).
+    ContentRef content = 3;
+  }
+  // Only these label ids (workspace scope only).
+  repeated string label_ids = 4;
+  // Only labels with these prefixes; empty = the API default for the route.
+  // GET /labels takes the list in one call. The scoped routes
+  // (space, space content, one content item) take a single `prefix`, so
+  // with several prefixes the server walks the route once per distinct
+  // prefix, in request order, and concatenates the streams. A label has
+  // exactly one prefix, so the union has no duplicates; `sort` then
+  // orders within each prefix's run, not across the whole stream.
+  repeated LabelPrefix prefixes = 5;
+  // Sort order; unset = the API default.
+  SortOrder sort = 6;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 7;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed label.
+message ListLabelsResponse {
+  // The streamed label.
+  Label label = 1;
+}
+
+// ============================================================================
+// VERSIONS
+// ============================================================================
+
+// Request to stream the version history of a content item.
+message ListVersionsRequest {
+  // The content: a page, blog post, attachment, footer comment, inline
+  // comment or custom content.
+  ContentRef content = 1;
+  // The body representation to fetch in each version's entity snapshot.
+  // UNSPECIFIED = no body.
+  BodyFormat body_format = 2;
+  // Sort order; unset = the API default. Only MODIFIED_DATE is sortable.
+  SortOrder sort = 3;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 4;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed version-history entry.
+message ListVersionsResponse {
+  // The streamed version, with its entity snapshot.
+  Version version = 1;
+}
+
+// ============================================================================
+// TASKS
+// ============================================================================
+
+// Request to stream inline tasks. Every filter is optional and they combine
+// with AND; repeated filters match any of their values.
+message ListTasksRequest {
+  // The body representation to fetch per task. UNSPECIFIED = no body.
+  BodyFormat body_format = 1;
+  // Exclude tasks with an empty body (the API includes them by default).
+  bool exclude_blank_tasks = 2;
+  // Only tasks in this status; UNSPECIFIED = any.
+  TaskStatus status = 3;
+  // Only these task ids.
+  repeated string task_ids = 4;
+  // Only tasks in these spaces.
+  repeated string space_ids = 5;
+  // Only tasks on these pages.
+  repeated string page_ids = 6;
+  // Only tasks on these blog posts.
+  repeated string blog_post_ids = 7;
+  // Only tasks created by these account ids.
+  repeated string created_by = 8;
+  // Only tasks assigned to these account ids.
+  repeated string assigned_to = 9;
+  // Only tasks completed by these account ids.
+  repeated string completed_by = 10;
+  // Only tasks created at or after this instant.
+  google.protobuf.Timestamp created_at_from = 11;
+  // Only tasks created at or before this instant.
+  google.protobuf.Timestamp created_at_to = 12;
+  // Only tasks due at or after this instant.
+  google.protobuf.Timestamp due_at_from = 13;
+  // Only tasks due at or before this instant.
+  google.protobuf.Timestamp due_at_to = 14;
+  // Only tasks completed at or after this instant.
+  google.protobuf.Timestamp completed_at_from = 15;
+  // Only tasks completed at or before this instant.
+  google.protobuf.Timestamp completed_at_to = 16;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 17;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed task.
+message ListTasksResponse {
+  // The streamed task.
+  Task task = 1;
+}
+
+// Request to read one task.
+message GetTaskRequest {
+  // ID of the task.
+  string id = 1;
+  // The body representation to fetch. UNSPECIFIED = BODY_FORMAT_STORAGE_XHTML.
+  BodyFormat body_format = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested task.
+message GetTaskResponse {
+  // The requested task.
+  Task task = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// ============================================================================
+// USERS
+// ============================================================================
+
+// Request to look up users by account id.
+message BatchGetUsersRequest {
+  // The account ids to look up. Any number; the server chunks to the API's
+  // per-call maximum.
+  repeated string account_ids = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The users found. Unknown ids are simply absent.
+message BatchGetUsersResponse {
+  // The users found, in no particular order.
+  repeated User users = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// ============================================================================
+// CLASSIFICATION
+// ============================================================================
+
+// Request to list the site's classification levels.
+message ListClassificationLevelsRequest {
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The site's classification levels (the API returns them unpaginated).
+message ListClassificationLevelsResponse {
+  // The classification levels.
+  repeated ClassificationLevel levels = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to read the classification level of a content item or a space's
+// default.
+message GetClassificationLevelRequest {
+  // What to read the classification level of.
+  oneof target {
+    // A page, blog post, database or whiteboard.
+    ContentRef content = 1;
+    // A space, for its default classification level.
+    string space_id = 2;
+  }
+  // For pages: the page status to read the level from (current, draft or
+  // archived); UNSPECIFIED = current.
+  ContentStatus status = 3;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 4;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The classification level in effect. NOT_FOUND when none is applied.
+message GetClassificationLevelResponse {
+  // The classification level.
+  ClassificationLevel level = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to stream the data-policy view of spaces.
+message ListDataPolicySpacesRequest {
+  // Only these space ids.
+  repeated string ids = 1;
+  // Only these space keys.
+  repeated string keys = 2;
+  // Sort order; unset = the API default (id ascending).
+  SortOrder sort = 3;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 4;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed data-policy space view.
+message ListDataPolicySpacesResponse {
+  // The streamed data-policy view of a space.
+  DataPolicy data_policy = 1;
+}
+
+// Request to read workspace data-policy metadata.
+message GetDataPolicyMetadataRequest {
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The workspace data-policy metadata.
+message GetDataPolicyMetadataResponse {
+  // The data-policy metadata.
+  DataPolicyMetadata data_policy_metadata = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// ============================================================================
+// PROPERTIES
+// ============================================================================
+
+// Request to stream the content properties of a content item.
+message ListContentPropertiesRequest {
+  // The content: a page, blog post, attachment, footer comment, inline
+  // comment, custom content, whiteboard, database, folder or Smart Link.
+  ContentRef content = 1;
+  // Only the property with this key (case sensitive).
+  string key = 2;
+  // Sort order; unset = the API default. Only KEY is sortable.
+  SortOrder sort = 3;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 4;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed content property.
+message ListContentPropertiesResponse {
+  // The streamed property.
+  ContentProperty property = 1;
+}
+
+// Request to stream the properties of a space.
+message ListSpacePropertiesRequest {
+  // ID of the space.
+  string space_id = 1;
+  // Only the property with this key.
+  string key = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed space property.
+message ListSpacePropertiesResponse {
+  // The streamed property.
+  SpaceProperty property = 1;
+}
+
+// ============================================================================
+// PERMISSIONS (READ SIDE)
+// ============================================================================
+
+// Request to read the direct restriction state of a content item.
+message GetRestrictionStateRequest {
+  // The content: a page, blog post, database, whiteboard or folder.
+  ContentRef content = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The direct restriction state.
+message GetRestrictionStateResponse {
+  // The restriction state.
+  RestrictionState restriction_state = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to stream the direct permission entries of a content item.
+message ListContentPermissionsRequest {
+  // The content: a page, blog post, database, whiteboard or folder.
+  ContentRef content = 1;
+  // Only entries granting this operation; UNSPECIFIED = any.
+  ContentPermissionOperation operation = 2;
+  // Only entries for this principal kind; UNSPECIFIED = any.
+  ContentPermissionPrincipalType principal_type = 3;
+  // Only entries for this principal id (requires principal_type).
+  string principal_id = 4;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 5;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed direct permission entry.
+message ListContentPermissionsResponse {
+  // The streamed permission entry.
+  ContentPermission permission = 1;
+}
+
+// Request to stream the space permission assignments of a space.
+message ListSpacePermissionAssignmentsRequest {
+  // ID of the space.
+  string space_id = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed space permission assignment.
+message ListSpacePermissionAssignmentsResponse {
+  // The streamed assignment.
+  SpacePermissionAssignment assignment = 1;
+}
+
+// Request to stream the space roles available on the tenant.
+message ListSpaceRolesRequest {
+  // Only roles available for this space; empty = every role of the tenant.
+  string space_id = 1;
+  // Only roles of this type; UNSPECIFIED = any.
+  RoleType role_type = 2;
+  // Only roles held by this principal (type and id both required when set).
+  Principal principal = 3;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 4;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed space role.
+message ListSpaceRolesResponse {
+  // The streamed role.
+  SpaceRole role = 1;
+}
+
+// Request to stream the role assignments of a space.
+message ListSpaceRoleAssignmentsRequest {
+  // ID of the space.
+  string space_id = 1;
+  // Only assignments of this role id.
+  string role_id = 2;
+  // Only assignments of roles of this type; UNSPECIFIED = any.
+  RoleType role_type = 3;
+  // Only assignments to this principal (type and id both required when set).
+  Principal principal = 4;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 5;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed space role assignment.
+message ListSpaceRoleAssignmentsResponse {
+  // The streamed assignment.
+  SpaceRoleAssignment assignment = 1;
+}
+
+// Request to read the tenant's space role mode.
+message GetSpaceRoleModeRequest {
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The tenant's space role mode.
+message GetSpaceRoleModeResponse {
+  // The mode.
+  SpaceRoleMode mode = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// ============================================================================
+// CONTENT
+// ============================================================================
+
+// Request to resolve the content kind of content ids.
+message ResolveContentTypesRequest {
+  // The content ids to resolve. Any number; the server chunks to the API's
+  // per-call maximum.
+  repeated string ids = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The resolved kind of one content id.
+message ResolvedContentType {
+  // The content id.
+  string id = 1;
+  // The built-in content kind. UNSPECIFIED when the id is custom content,
+  // in which case `custom_type` names its type.
+  ContentType type = 2;
+  // The custom content type when `type` is UNSPECIFIED.
+  string custom_type = 3;
+}
+
+// The resolved kinds. Ids the API did not resolve are absent.
+message ResolveContentTypesResponse {
+  // One entry per resolved id (duplicates in the request collapse to one).
+  repeated ResolvedContentType results = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// ============================================================================
+// SYNC AND PROBE
+// ============================================================================
+
 // Request to run one bounded sync pass.
 message SyncRequest {
   // Space keys to sync; empty = the server's configured allowlist, or every
@@ -219,7 +1799,19 @@ message SyncRequest {
   repeated string space_keys = 1;
   // The resume cursor a previous Sync ended with (an RFC3339 timestamp).
   // Empty = full crawl; set = incremental pass emitting only content modified
-  // after the cursor.
+  // after the cursor. Restriction and permission changes do not bump a
+  // content version, so an incremental pass still re-reads the security
+  // data of every in-scope owner. Its cost on top of the changed content:
+  // per space, the space permission and role assignment lists, and one
+  // metadata-only (no body) list walk each of pages and blog posts; per
+  // unchanged page or blog post, GET restriction-state plus the
+  // permissions pages (emitted as permission entries and the owner's
+  // restriction_state marker); per unchanged page, a direct-children walk,
+  // and per whiteboard, database, folder or Smart Link below it one GET
+  // plus its two security reads. Such a node is re-emitted, and a
+  // database's fields and entries re-read, only when its version is newer
+  // than the cursor. Bodies, comments, attachments, labels and properties of
+  // unchanged content are not re-read.
   string since_cursor = 2;
   // When false, page, blog post, and comment bodies are stripped from the
   // streamed changes (metadata-only sync; the crawl still runs the same
@@ -276,4 +1868,270 @@ message SyncResponse {
     // the pass observed nothing).
     string resume_cursor = 3;
   }
+}
+
+// ============================================================================
+// FULL READ SURFACE: version details, likes, operations, properties by id,
+// app properties, space permission catalogue and transitions, admin key,
+// email access check
+// ============================================================================
+
+// Request to read one version's change-set detail.
+message GetVersionRequest {
+  // The content: a page, blog post, attachment, footer comment, inline
+  // comment or custom content.
+  ContentRef content = 1;
+  // The version number (int64 per the spec's path parameter); must be
+  // positive.
+  int64 number = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested version's change-set detail.
+message GetVersionResponse {
+  // The version.
+  DetailedVersion version = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to stream the accounts that liked one content item.
+message ListLikesRequest {
+  // The content: a page, blog post, footer comment or inline comment.
+  ContentRef content = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed like.
+message ListLikesResponse {
+  // The streamed like (the liking account).
+  Like like = 1;
+}
+
+// Request to count the likes of one content item.
+message GetLikeCountRequest {
+  // The content: a page, blog post, footer comment or inline comment.
+  ContentRef content = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The like count.
+message GetLikeCountResponse {
+  // The number of likes (int64 per the spec).
+  int64 count = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to list the operations permitted on one content item or space.
+message ListOperationsRequest {
+  // The target; exactly one is required.
+  oneof target {
+    // A page, blog post, attachment, custom content, footer comment, inline
+    // comment, whiteboard, database, folder or Smart Link.
+    ContentRef content = 1;
+    // A space (GET /spaces/{id}/operations).
+    string space_id = 2;
+  }
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The operations permitted on the target (the route is unpaginated, so this
+// is the complete list).
+message ListOperationsResponse {
+  // The permitted operations, in API order.
+  repeated Operation operations = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to read one content property by id.
+message GetContentPropertyRequest {
+  // The content: a page, blog post, attachment, custom content, footer or
+  // inline comment, whiteboard, database, folder or Smart Link.
+  ContentRef content = 1;
+  // ID of the property.
+  string property_id = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested content property.
+message GetContentPropertyResponse {
+  // The property.
+  ContentProperty property = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to read one space property by id.
+message GetSpacePropertyRequest {
+  // ID of the space.
+  string space_id = 1;
+  // ID of the property.
+  string property_id = 2;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested space property.
+message GetSpacePropertyResponse {
+  // The property.
+  SpaceProperty property = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to stream the calling Forge app's properties.
+message ListAppPropertiesRequest {
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed app property.
+message ListAppPropertiesResponse {
+  // The streamed property.
+  AppProperty property = 1;
+}
+
+// Request to read one Forge app property by key.
+message GetAppPropertyRequest {
+  // The property key.
+  string key = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested app property.
+message GetAppPropertyResponse {
+  // The property.
+  AppProperty property = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to read one space role by id.
+message GetSpaceRoleRequest {
+  // ID of the space role.
+  string id = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested space role.
+message GetSpaceRoleResponse {
+  // The role.
+  SpaceRole role = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to stream the tenant's space permission definitions.
+message ListSpacePermissionsRequest {
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed space permission definition.
+message ListSpacePermissionsResponse {
+  // The streamed permission definition.
+  SpacePermission permission = 1;
+}
+
+// Request to stream the unassigned space permission combinations.
+message ListSpacePermissionTransitionCombinationsRequest {
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One streamed permission combination. (Named after the rpc; the domain
+// message ListSpacePermissionCombinationsResponse models one raw API page.)
+message ListSpacePermissionTransitionCombinationsResponse {
+  // The streamed combination.
+  BulkTransitionCombinationEntry combination = 1;
+  // When the last audit run populated the combinations table, as reported
+  // on the API page this entry came from. Absent if the audit task has
+  // never run on this tenant.
+  optional google.protobuf.Timestamp generated_at = 2;
+}
+
+// Request to read one space permission transition task's status.
+message GetSpacePermissionTransitionTaskRequest {
+  // ID of the task.
+  string task_id = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The requested task status.
+message GetSpacePermissionTransitionTaskResponse {
+  // The task status.
+  BulkTransitionTaskStatusResponse task = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to read the calling user's admin key.
+message GetAdminKeyRequest {
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The calling user's active admin key.
+message GetAdminKeyResponse {
+  // The admin key (account and expiry).
+  AdminKeyResponse admin_key = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request to check site access for email addresses.
+message CheckAccessByEmailRequest {
+  // The email addresses to check. Any number; the server chunks to the
+  // API's per-call maximum (100). Blanks and duplicates are dropped.
+  repeated string emails = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The result of the email access check, merged across chunks.
+message CheckAccessByEmailResponse {
+  // The valid addresses that have no access to the site.
+  repeated string emails_without_access = 1;
+  // The addresses the API rejected as invalid.
+  repeated string invalid_emails = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
 }

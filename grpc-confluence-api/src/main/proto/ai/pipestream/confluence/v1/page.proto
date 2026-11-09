@@ -3,6 +3,7 @@ syntax = "proto3";
 package ai.pipestream.confluence.v1;
 
 import "ai/pipestream/confluence/v1/common.proto";
+import "ai/pipestream/confluence/v1/content.proto";
 import "ai/pipestream/confluence/v1/label.proto";
 import "ai/pipestream/confluence/v1/operation.proto";
 import "ai/pipestream/confluence/v1/property.proto";
@@ -62,6 +63,20 @@ message Page {
   bool is_favorited_by_current_user = 20;
   // Human-facing URL of the content, for search results and UIs.
   string web_url = 21;
+  // The direct children of the page in the content tree
+  // (GET /pages/{id}?include-direct-children).
+  repeated ContentTreeEntry direct_children = 22;
+  // Account IDs of the users who collaborated on this content. Present
+  // only when the read asked for collaborators (`include-collaborators`);
+  // upstream returns bare account ids, so resolve names with BatchGetUsers.
+  repeated string collaborator_account_ids = 23;
+  // Web resources (script and stylesheet tags) the Confluence UI needs to
+  // render the body. Present only when the read asked for them
+  // (`include-webresources`; the response field is `webResources`).
+  WebResources web_resources = 24;
+  // Include expansions whose inline preview (at most 50 entries) was cut
+  // short upstream (`meta.hasMore`): the matching repeated field is partial.
+  repeated IncludeExpansion truncated_includes = 25;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }

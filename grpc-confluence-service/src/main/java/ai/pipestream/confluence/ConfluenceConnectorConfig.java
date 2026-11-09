@@ -67,7 +67,7 @@ public record ConfluenceConnectorConfig(
             throw new IllegalArgumentException(ENV_BASE_URL + " is required"
                     + " (e.g. https://example.atlassian.net/wiki)");
         }
-        baseUrl = baseUrl.trim().replaceAll("/+$", "");
+        baseUrl = Strings.stripTrailingSlashes(baseUrl.trim());
         if (email == null || email.isBlank()) {
             throw new IllegalArgumentException(ENV_EMAIL + " is required");
         }
@@ -166,7 +166,7 @@ public record ConfluenceConnectorConfig(
         if (value == null || value.isBlank()) {
             return List.of();
         }
-        return java.util.Arrays.stream(value.split(","))
+        return Strings.split(value, ',').stream()
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .toList();

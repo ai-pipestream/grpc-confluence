@@ -87,7 +87,9 @@ class ConnectionSetupMcpTest {
                 ConfluenceGrpcService.DEFAULT_ATTACHMENT_MAX_BYTES, null, connections,
                 new SyncTableChangeSink(channel, "unused"));
         Server confluenceServer = InProcessServerBuilder.forName(name + "-cf")
-                .directExecutor()
+                // The service blocks on outbound flow control, as in production:
+                // a direct executor would run it on the client thread and stall.
+                .executor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor())
                 .addService(confluence)
                 .build()
                 .start();
@@ -238,7 +240,7 @@ class ConnectionSetupMcpTest {
     }
 
     private static McpSchema.CallToolRequest tool(String name, Map<String, Object> args) {
-        return McpSchema.CallToolRequest.builder().name(name).arguments(args).build();
+        return McpSchema.CallToolRequest.builder(name).arguments(args).build();
     }
 
     private static String text(McpSchema.CallToolResult result) {
