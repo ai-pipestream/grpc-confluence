@@ -7,10 +7,6 @@ import ai.pipestream.confluence.v1.Page;
 import ai.pipestream.confluence.v1.Space;
 import ai.pipestream.confluence.v1.StreamSpacesRequest;
 import ai.pipestream.confluence.v1.StreamSpacesResponse;
-import ai.pipestream.microsoft.v1.GetMeRequest;
-import ai.pipestream.microsoft.v1.GetMeResponse;
-import ai.pipestream.microsoft.v1.GraphUser;
-import ai.pipestream.microsoft.v1.MicrosoftServiceGrpc;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
@@ -29,7 +25,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class ConnectorMcpToolsTest {
+class ConfluenceMcpToolsTest {
 
     private Server grpc;
     private McpHttpServer mcp;
@@ -45,7 +41,19 @@ class ConnectorMcpToolsTest {
     }
 
     @Test
-    void confluenceAndMicrosoftToolsCallStreamingStubs() throws Exception {
+    void providerIsRegisteredForTheCombinedServer() {
+        assertThat(McpToolProviders.load())
+                .filteredOn(provider -> provider instanceof ConfluenceMcpToolProvider)
+                .singleElement()
+                .satisfies(provider -> {
+                    assertThat(provider.name()).isEqualTo("confluence");
+                    assertThat(provider.targetEnvironmentVariable()).isEqualTo("CONFLUENCE_GRPC_TARGET");
+                    assertThat(provider.defaultTarget()).isEqualTo("localhost:9095");
+                });
+    }
+
+    @Test
+    void confluenceToolsCallStreamingStubs() throws Exception {
         String name = InProcessServerBuilder.generateName();
         grpc = InProcessServerBuilder.forName(name)
                 .directExecutor()
@@ -75,28 +83,13 @@ class ConnectorMcpToolsTest {
                         observer.onCompleted();
                     }
                 })
-                .addService(new MicrosoftServiceGrpc.MicrosoftServiceImplBase() {
-                    @Override
-                    public void getMe(GetMeRequest request, StreamObserver<GetMeResponse> observer) {
-                        observer.onNext(GetMeResponse.newBuilder()
-                                .setUser(GraphUser.newBuilder()
-                                        .setId("user-1")
-                                        .setDisplayName("Bot")
-                                        .setUserPrincipalName("bot@contoso.com"))
-                                .build());
-                        observer.onCompleted();
-                    }
-                })
                 .build()
                 .start();
         var confluence = ConfluenceServiceGrpc.newBlockingStub(
                 InProcessChannelBuilder.forName(name).directExecutor().build());
-        var microsoft = MicrosoftServiceGrpc.newBlockingStub(
-                InProcessChannelBuilder.forName(name).directExecutor().build());
         List<io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification> tools =
                 new ArrayList<>();
         tools.addAll(ConfluenceMcpTools.of(confluence));
-        tools.addAll(MicrosoftMcpTools.of(microsoft));
         mcp = McpHttpServer.start(0, "test-mcp", tools);
 
         HttpClientStreamableHttpTransport transport = HttpClientStreamableHttpTransport
@@ -110,7 +103,7 @@ class ConnectorMcpToolsTest {
             assertThat(client.listTools().tools())
                     .extracting(McpSchema.Tool::name)
                     .contains("confluence_list_spaces", "confluence_get_page",
-                            "microsoft_get_me", "microsoft_sync");
+                            "confluence_list_attachments", "confluence_sync", "connection_test");
 
             McpSchema.CallToolResult spaces = client.callTool(McpSchema.CallToolRequest.builder("confluence_list_spaces")
                     .arguments(Map.of("limit", 1))
@@ -123,12 +116,6 @@ class ConnectorMcpToolsTest {
                     .build());
             assertThat(page.isError()).isFalse();
             assertThat(page.content().get(0).toString()).contains("Design");
-
-            McpSchema.CallToolResult me = client.callTool(McpSchema.CallToolRequest.builder("microsoft_get_me")
-                    .arguments(Map.of())
-                    .build());
-            assertThat(me.isError()).isFalse();
-            assertThat(me.content().get(0).toString()).contains("bot@contoso.com");
         }
     }
 }

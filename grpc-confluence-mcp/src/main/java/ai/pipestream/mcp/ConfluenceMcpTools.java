@@ -5,6 +5,7 @@ import ai.pipestream.confluence.v1.GetAttachmentRequest;
 import ai.pipestream.confluence.v1.GetPageRequest;
 import ai.pipestream.confluence.v1.ListAttachmentsRequest;
 import ai.pipestream.confluence.v1.ListAttachmentsResponse;
+import ai.pipestream.confluence.v1.ProbeConnectionRequest;
 import ai.pipestream.confluence.v1.StreamSpacesRequest;
 import ai.pipestream.confluence.v1.SyncRequest;
 import ai.pipestream.confluence.v1.SyncResponse;
@@ -24,14 +25,17 @@ public final class ConfluenceMcpTools {
     }
 
     /**
-     * Confluence list/get/sync tools.
+     * Confluence list/get/sync tools plus {@code connection_test}, which
+     * probes a catalog (or inline) connection through
+     * {@code ConfluenceService.ProbeConnection}.
      *
      * @param stub {@code ConfluenceService} stub
      * @return tool specs
      */
     public static List<McpServerFeatures.SyncToolSpecification> of(
             ConfluenceServiceGrpc.ConfluenceServiceBlockingStub stub) {
-        return List.of(spaces(stub), page(stub), attachments(stub), sync(stub));
+        return List.of(spaces(stub), page(stub), attachments(stub), sync(stub),
+                connectionTest(stub));
     }
 
     private static McpServerFeatures.SyncToolSpecification spaces(
@@ -158,6 +162,34 @@ public final class ConfluenceMcpTools {
                             "snapshots", snapshots,
                             "resumeCursor", resume,
                             "sample", events)));
+                });
+    }
+
+    private static McpServerFeatures.SyncToolSpecification connectionTest(
+            ConfluenceServiceGrpc.ConfluenceServiceBlockingStub confluence) {
+        return tool("connection_test",
+                "Probe a Confluence connection via ConfluenceService.ProbeConnection",
+                McpJson.objectSchema(Map.of(
+                        "connectionId", McpJson.stringProp("Catalog id"),
+                        "baseUrl", McpJson.stringProp("Inline URL for an unsaved probe"),
+                        "email", McpJson.stringProp("Inline email"),
+                        "token", McpJson.stringProp("Inline token"),
+                        "limit", McpJson.intProp("Max spaces to return as evidence")),
+                        List.of()),
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
+                    var response = confluence.probeConnection(ProbeConnectionRequest.newBuilder()
+                            .setConnectionId(McpJson.argString(args, "connectionId", ""))
+                            .setBaseUrl(McpJson.argString(args, "baseUrl", ""))
+                            .setEmail(McpJson.argString(args, "email", ""))
+                            .setToken(McpJson.argString(args, "token", ""))
+                            .setLimit(McpJson.argInt(args, "limit", 5))
+                            .build());
+                    return text(McpJson.write(Map.of(
+                            "ok", response.getOk(),
+                            "connectionId", response.getConnectionId(),
+                            "spaceKeys", response.getSpaceKeysList(),
+                            "errorMessage", response.getErrorMessage())));
                 });
     }
 

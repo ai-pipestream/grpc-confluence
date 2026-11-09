@@ -23,7 +23,7 @@ export CONFLUENCE_BASE_URL=https://example.atlassian.net/wiki
 export CONFLUENCE_EMAIL=bot@example.com      # alias: CONFLUENCE_USER
 export CONFLUENCE_API_TOKEN=...              # alias: CONFLUENCE_TOKEN
 ./gradlew :grpc-confluence-service:run       # gRPC on :9095
-./gradlew :grpc-mcp:run                      # MCP on :8090 (optional)
+./gradlew :grpc-confluence-mcp:run           # MCP on :8090 (optional)
 ```
 
 Every example takes the target from `CONFLUENCE_GRPC_TARGET`
