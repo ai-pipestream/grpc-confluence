@@ -31,11 +31,12 @@ application {
     mainClass = "ai.pipestream.confluence.ConfluenceServer"
 }
 
-// The live smoke and coverage tests hit the real workspace, so they never run
+// The live smoke, coverage and write tests hit the real workspace, so they never run
 // in the default test task (and are assumption-gated on credentials as a second guard).
 tasks.named<Test>("test") {
     exclude("**/ConfluenceLiveSmokeIT.class")
     exclude("**/ConfluenceLiveCoverageIT.class")
+    exclude("**/ConfluenceLiveWriteIT.class")
 }
 
 tasks.register<Test>("liveSmokeTest") {
@@ -57,6 +58,22 @@ tasks.register<Test>("liveCoverageTest") {
         includeTestsMatching("ai.pipestream.confluence.ConfluenceLiveCoverageIT")
     }
     systemProperty("liveCoverage.report", layout.buildDirectory.file("live-coverage.md").get().asFile.path)
+    // A live run is never up to date, and the report goes to stdout too.
+    outputs.upToDateWhen { false }
+    testLogging {
+        showStandardStreams = true
+    }
+}
+
+tasks.register<Test>("liveWriteTest") {
+    description = "Runs the write rpcs against the real Confluence workspace under a fresh parent page and writes build/live-write.md; needs the liveSmokeTest credentials and CONFLUENCE_LIVE_WRITE=1, optional CONFLUENCE_SPACE_KEY (default CLAUDEGRPC) and CONFLUENCE_LIVE_WRITE_ADMIN=1, skips otherwise"
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    filter {
+        includeTestsMatching("ai.pipestream.confluence.ConfluenceLiveWriteIT")
+    }
+    systemProperty("liveWrite.report", layout.buildDirectory.file("live-write.md").get().asFile.path)
     // A live run is never up to date, and the report goes to stdout too.
     outputs.upToDateWhen { false }
     testLogging {

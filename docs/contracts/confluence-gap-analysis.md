@@ -14,6 +14,34 @@ Date: 2026-11-08. Scope: `grpc-confluence-api/src/main/proto/ai/pipestream/confl
 
 Nothing below is inferred from memory; where the spec is silent (e.g. the shape of `include-collaborators`), it is called out as unknown rather than modeled.
 
+## 1a. Writes are in (2026-11-10)
+
+The scope below was reversed: `ConfluenceService` now also writes. All 100 v2
+write operations of the vendored document (the 104 `POST`/`PUT`/`DELETE`
+operations minus the four read `POST`s `convert-ids-to-types`,
+`check-access-by-email`, `users-bulk` and
+`space-permissions/transition/combinations`) are served by 54 unary rpcs;
+`ConfluenceWriteRpcTest` asserts the 100 of 100 against the document and
+calls each route. Three more rpcs use REST API v1, whose document is not
+vendored, so their routes are unverified: `UploadAttachment`
+(`POST`/`PUT /rest/api/content/{id}/child/attachment`), `AddLabels` and
+`RemoveLabel` (`POST`/`DELETE /rest/api/content/{id}/label`). `Mutate`
+streams any of the 56 unary writes.
+
+| v2 group | Operations | Rpcs |
+|---|---|---|
+| Content (pages, blog posts, comments, custom content, databases, folders, whiteboards, Smart Links, attachment delete, space create, page title, task update) | 27 | 27 |
+| Properties (content, space, app) | 32 | 8 |
+| Content permissions and restriction state | 20 | 4 |
+| Classification | 10 | 4 |
+| Space roles, role assignments, permission transitions, invitations | 7 | 7 |
+| Redaction | 2 | 2 |
+| Admin key | 2 | 2 |
+
+Bodies are written as a typed `ContentBody` (an `AdfDocument` modelling every
+node and mark of the vendored ADF schema, storage XHTML, wiki markup, or raw
+custom content); property values as the typed `PropertyValue` tree.
+
 ## 1. Read scope (and why writes are out)
 
 `ConfluenceService` is the read proxy for an indexer. Every v2 **read** route family gets one rpc. Writes are out: create/update/delete of content, comments, properties, classification, redactions (`POST …/redact`), admin key enable/disable, permission mutation (`POST/PUT/DELETE …/permissions`, `PUT …/restriction-state`), space-permission transition tasks, role/assignment mutation. Permission **reads** are in scope because search security trimming needs the direct restriction state, the direct user/group grants, the space permission assignments and the space role assignments to compute effective visibility.

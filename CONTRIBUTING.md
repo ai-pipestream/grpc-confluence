@@ -40,7 +40,9 @@ https://buf.build or use the version CI pins (`1.54.0`).
   design; the servers run them on virtual threads. Do not introduce a
   platform-thread pool for I/O.
 - **Live tests are read-only.** No full `Sync` crawl in CI. The smoke is
-  `ListSpaces` / homepage / attachments.
+  `ListSpaces` / homepage / attachments. The one exception is
+  `liveWriteTest`, which only runs with `CONFLUENCE_LIVE_WRITE=1` and keeps
+  its writes under a parent page it creates and purges.
 
 ## Layout
 

@@ -35,8 +35,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
- * Calls every rpc of {@code ConfluenceService} once against the real
- * Confluence workspace and writes a coverage report
+ * Calls every read rpc of {@code ConfluenceService} once against the real
+ * Confluence workspace (write rpcs are reported SKIPPED; see
+ * {@link ConfluenceLiveWriteIT}) and writes a coverage report
  * ({@code build/live-coverage.md}, also printed to stdout).
  *
  * <p>Gated on the same credentials as {@link ConfluenceLiveSmokeIT}
