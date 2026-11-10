@@ -99,7 +99,7 @@ class ConnectionSetupMcpTest {
 
         List<io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification> tools =
                 new ArrayList<>();
-        tools.addAll(ConnectionMcpTools.of(connections, confluenceStub));
+        tools.addAll(ConnectionMcpTools.of(connections));
         tools.addAll(AppMcpTools.of(connections));
         tools.addAll(ConfluenceMcpTools.of(confluenceStub));
         tools.addAll(SyncTableMcpTools.of(syncTable));

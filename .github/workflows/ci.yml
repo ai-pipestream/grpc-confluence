@@ -6,21 +6,46 @@ on:
   pull_request:
   workflow_dispatch:
 
+# The shared core (ai-pipestream/grpc-integration) is checked out next to
+# this repo and included as a Gradle composite build (-PintegrationDir), so
+# CI never needs the Forgejo registry. Both checkouts live under the
+# workspace: actions/checkout cannot write outside it.
+env:
+  INTEGRATION_REF: main
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+        with:
+          path: grpc-confluence
+      - id: core
+        name: Pick the grpc-integration ref (same branch if it exists, else main)
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git ls-remote --exit-code --heads https://github.com/ai-pipestream/grpc-integration "$BRANCH" >/dev/null; then
+            echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=$INTEGRATION_REF" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v5
+        with:
+          repository: ai-pipestream/grpc-integration
+          ref: ${{ steps.core.outputs.ref }}
+          path: grpc-integration
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "25"
-      - run: ./gradlew --no-daemon build
+      - run: ./gradlew --no-daemon build -PintegrationDir=../grpc-integration
+        working-directory: grpc-confluence
 
   buf:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: bufbuild/buf-setup-action@v1
         with:
           version: "1.54.0"
@@ -38,12 +63,30 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+        with:
+          path: grpc-confluence
+      - id: core
+        name: Pick the grpc-integration ref (same branch if it exists, else main)
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git ls-remote --exit-code --heads https://github.com/ai-pipestream/grpc-integration "$BRANCH" >/dev/null; then
+            echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=$INTEGRATION_REF" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v5
+        with:
+          repository: ai-pipestream/grpc-integration
+          ref: ${{ steps.core.outputs.ref }}
+          path: grpc-integration
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "25"
       - name: Live Confluence smoke
+        working-directory: grpc-confluence
         env:
           CONFLUENCE_BASE_URL: ${{ secrets.CONFLUENCE_BASE_URL }}
           CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
@@ -54,28 +97,4 @@ jobs:
             echo "Confluence secrets not configured; skipping live smoke"
             exit 0
           fi
-          ./gradlew --no-daemon :grpc-confluence-service:liveSmokeTest
-
-  live-microsoft:
-    needs: build
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "25"
-      - name: Live Microsoft Graph smoke
-        env:
-          MICROSOFT_TENANT_ID: ${{ secrets.MICROSOFT_TENANT_ID }}
-          MICROSOFT_CLIENT_ID: ${{ secrets.MICROSOFT_CLIENT_ID }}
-          MICROSOFT_CLIENT_SECRET: ${{ secrets.MICROSOFT_CLIENT_SECRET }}
-          MICROSOFT_SITE_ID: ${{ secrets.MICROSOFT_SITE_ID }}
-          MICROSOFT_DRIVE_IDS: ${{ secrets.MICROSOFT_DRIVE_IDS }}
-        run: |
-          if [ -z "${MICROSOFT_TENANT_ID}" ] || [ -z "${MICROSOFT_CLIENT_ID}" ] || [ -z "${MICROSOFT_CLIENT_SECRET}" ]; then
-            echo "Microsoft secrets not configured; skipping live smoke"
-            exit 0
-          fi
-          ./gradlew --no-daemon :grpc-microsoft-service:liveSmokeTest
+          ./gradlew --no-daemon -PintegrationDir=../grpc-integration :grpc-confluence-service:liveSmokeTest
