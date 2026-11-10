@@ -1,0 +1,853 @@
+syntax = "proto3";
+
+package ai.pipestream.confluence.v1;
+
+import "ai/pipestream/confluence/v1/property.proto";
+
+option java_multiple_files = true;
+option java_package = "ai.pipestream.confluence.v1";
+
+// ============================================================================
+// ATLASSIAN DOCUMENT FORMAT (ADF)
+//
+// A typed model of the nodes and marks of the ADF JSON schema
+// (docs/upstream/atlassian/adf-schema-full.json).
+// ============================================================================
+
+// An ADF document: the root `doc` node.
+message AdfDocument {
+  // The ADF version; 0 means 1.
+  int32 version = 1;
+  // The top-level block nodes, in order.
+  repeated AdfNode content = 2;
+}
+
+// The kind of an ADF node.
+enum AdfNodeType {
+  // Not set.
+  ADF_NODE_TYPE_UNSPECIFIED = 0;
+  // A Smart Link shown as a card. Wire value `blockCard`.
+  ADF_NODE_TYPE_BLOCK_CARD = 1;
+  // A block quote. Wire value `blockquote`.
+  ADF_NODE_TYPE_BLOCKQUOTE = 2;
+  // A task item holding block content. Wire value `blockTaskItem`.
+  ADF_NODE_TYPE_BLOCK_TASK_ITEM = 3;
+  // An extension (macro) with a rich-text body. Wire value `bodiedExtension`.
+  ADF_NODE_TYPE_BODIED_EXTENSION = 4;
+  // A synced block that holds its source content. Wire value `bodiedSyncBlock`.
+  ADF_NODE_TYPE_BODIED_SYNC_BLOCK = 5;
+  // A bullet list. Wire value `bulletList`.
+  ADF_NODE_TYPE_BULLET_LIST = 6;
+  // The caption of a single media item. Wire value `caption`.
+  ADF_NODE_TYPE_CAPTION = 7;
+  // A code block. Wire value `codeBlock`.
+  ADF_NODE_TYPE_CODE_BLOCK = 8;
+  // An inline date. Wire value `date`.
+  ADF_NODE_TYPE_DATE = 9;
+  // One decision of a decision list. Wire value `decisionItem`.
+  ADF_NODE_TYPE_DECISION_ITEM = 10;
+  // A list of decisions. Wire value `decisionList`.
+  ADF_NODE_TYPE_DECISION_LIST = 11;
+  // A Smart Link shown as an embedded frame. Wire value `embedCard`.
+  ADF_NODE_TYPE_EMBED_CARD = 12;
+  // An inline emoji. Wire value `emoji`.
+  ADF_NODE_TYPE_EMOJI = 13;
+  // An expandable section. Wire value `expand`.
+  ADF_NODE_TYPE_EXPAND = 14;
+  // A block extension (macro) without a body. Wire value `extension`.
+  ADF_NODE_TYPE_EXTENSION = 15;
+  // A line break inside a text block. Wire value `hardBreak`.
+  ADF_NODE_TYPE_HARD_BREAK = 16;
+  // A heading. Wire value `heading`.
+  ADF_NODE_TYPE_HEADING = 17;
+  // A Smart Link shown inline. Wire value `inlineCard`.
+  ADF_NODE_TYPE_INLINE_CARD = 18;
+  // An inline extension (macro). Wire value `inlineExtension`.
+  ADF_NODE_TYPE_INLINE_EXTENSION = 19;
+  // One column of a layout section. Wire value `layoutColumn`.
+  ADF_NODE_TYPE_LAYOUT_COLUMN = 20;
+  // A multi-column layout section. Wire value `layoutSection`.
+  ADF_NODE_TYPE_LAYOUT_SECTION = 21;
+  // One item of a bullet or ordered list. Wire value `listItem`.
+  ADF_NODE_TYPE_LIST_ITEM = 22;
+  // One media item (file, link or external image). Wire value `media`.
+  ADF_NODE_TYPE_MEDIA = 23;
+  // A group of media items. Wire value `mediaGroup`.
+  ADF_NODE_TYPE_MEDIA_GROUP = 24;
+  // A media item shown inline. Wire value `mediaInline`.
+  ADF_NODE_TYPE_MEDIA_INLINE = 25;
+  // A single media item with layout. Wire value `mediaSingle`.
+  ADF_NODE_TYPE_MEDIA_SINGLE = 26;
+  // A user mention. Wire value `mention`.
+  ADF_NODE_TYPE_MENTION = 27;
+  // An expandable section nested in a table cell or expand. Wire value `nestedExpand`.
+  ADF_NODE_TYPE_NESTED_EXPAND = 28;
+  // An ordered list. Wire value `orderedList`.
+  ADF_NODE_TYPE_ORDERED_LIST = 29;
+  // A coloured panel. Wire value `panel`.
+  ADF_NODE_TYPE_PANEL = 30;
+  // A paragraph. Wire value `paragraph`.
+  ADF_NODE_TYPE_PARAGRAPH = 31;
+  // Placeholder text of a template. Wire value `placeholder`.
+  ADF_NODE_TYPE_PLACEHOLDER = 32;
+  // A horizontal rule. Wire value `rule`.
+  ADF_NODE_TYPE_RULE = 33;
+  // A status lozenge. Wire value `status`.
+  ADF_NODE_TYPE_STATUS = 34;
+  // A reference to a synced block. Wire value `syncBlock`.
+  ADF_NODE_TYPE_SYNC_BLOCK = 35;
+  // A table. Wire value `table`.
+  ADF_NODE_TYPE_TABLE = 36;
+  // A table cell. Wire value `tableCell`.
+  ADF_NODE_TYPE_TABLE_CELL = 37;
+  // A table header cell. Wire value `tableHeader`.
+  ADF_NODE_TYPE_TABLE_HEADER = 38;
+  // A table row. Wire value `tableRow`.
+  ADF_NODE_TYPE_TABLE_ROW = 39;
+  // One task of a task list. Wire value `taskItem`.
+  ADF_NODE_TYPE_TASK_ITEM = 40;
+  // A list of tasks. Wire value `taskList`.
+  ADF_NODE_TYPE_TASK_LIST = 41;
+  // A run of text. Wire value `text`.
+  ADF_NODE_TYPE_TEXT = 42;
+}
+
+// One ADF node.
+message AdfNode {
+  // The node kind.
+  AdfNodeType type = 1;
+  // The child nodes, in order.
+  repeated AdfNode content = 2;
+  // The text of a text node.
+  string text = 3;
+  // The marks applied to the node, in order.
+  repeated AdfMark marks = 4;
+  // The node's attributes; the arm must match `type`.
+  oneof attrs {
+    // Attributes of a `blockCard` node.
+    AdfBlockCardAttrs block_card = 10;
+    // Attributes of a `blockquote` node.
+    AdfLocalIdAttrs blockquote = 11;
+    // Attributes of a `blockTaskItem` node.
+    AdfTaskItemAttrs block_task_item = 12;
+    // Attributes of a `bodiedExtension` node.
+    AdfExtensionAttrs bodied_extension = 13;
+    // Attributes of a `bodiedSyncBlock` node.
+    AdfSyncBlockAttrs bodied_sync_block = 14;
+    // Attributes of a `bulletList` node.
+    AdfLocalIdAttrs bullet_list = 15;
+    // Attributes of a `caption` node.
+    AdfLocalIdAttrs caption = 16;
+    // Attributes of a `codeBlock` node.
+    AdfCodeBlockAttrs code_block = 17;
+    // Attributes of a `date` node.
+    AdfDateAttrs date = 18;
+    // Attributes of a `decisionItem` node.
+    AdfDecisionItemAttrs decision_item = 19;
+    // Attributes of a `decisionList` node.
+    AdfLocalIdAttrs decision_list = 20;
+    // Attributes of a `embedCard` node.
+    AdfEmbedCardAttrs embed_card = 21;
+    // Attributes of a `emoji` node.
+    AdfEmojiAttrs emoji = 22;
+    // Attributes of a `expand` node.
+    AdfExpandAttrs expand = 23;
+    // Attributes of a `extension` node.
+    AdfExtensionAttrs extension = 24;
+    // Attributes of a `hardBreak` node.
+    AdfHardBreakAttrs hard_break = 25;
+    // Attributes of a `heading` node.
+    AdfHeadingAttrs heading = 26;
+    // Attributes of a `inlineCard` node.
+    AdfInlineCardAttrs inline_card = 27;
+    // Attributes of a `inlineExtension` node.
+    AdfExtensionAttrs inline_extension = 28;
+    // Attributes of a `layoutColumn` node.
+    AdfLayoutColumnAttrs layout_column = 29;
+    // Attributes of a `layoutSection` node.
+    AdfLocalIdAttrs layout_section = 30;
+    // Attributes of a `listItem` node.
+    AdfLocalIdAttrs list_item = 31;
+    // Attributes of a `media` node.
+    AdfMediaAttrs media = 32;
+    // Attributes of a `mediaInline` node.
+    AdfMediaAttrs media_inline = 34;
+    // Attributes of a `mediaSingle` node.
+    AdfMediaSingleAttrs media_single = 35;
+    // Attributes of a `mention` node.
+    AdfMentionAttrs mention = 36;
+    // Attributes of a `nestedExpand` node.
+    AdfExpandAttrs nested_expand = 37;
+    // Attributes of a `orderedList` node.
+    AdfOrderedListAttrs ordered_list = 38;
+    // Attributes of a `panel` node.
+    AdfPanelAttrs panel = 39;
+    // Attributes of a `paragraph` node.
+    AdfLocalIdAttrs paragraph = 40;
+    // Attributes of a `placeholder` node.
+    AdfPlaceholderAttrs placeholder = 41;
+    // Attributes of a `rule` node.
+    AdfLocalIdAttrs rule = 42;
+    // Attributes of a `status` node.
+    AdfStatusAttrs status = 43;
+    // Attributes of a `syncBlock` node.
+    AdfSyncBlockAttrs sync_block = 44;
+    // Attributes of a `table` node.
+    AdfTableAttrs table = 45;
+    // Attributes of a `tableCell` node.
+    AdfTableCellAttrs table_cell = 46;
+    // Attributes of a `tableHeader` node.
+    AdfTableCellAttrs table_header = 47;
+    // Attributes of a `tableRow` node.
+    AdfLocalIdAttrs table_row = 48;
+    // Attributes of a `taskItem` node.
+    AdfTaskItemAttrs task_item = 49;
+    // Attributes of a `taskList` node.
+    AdfLocalIdAttrs task_list = 50;
+  }
+}
+
+// The kind of an ADF mark.
+enum AdfMarkType {
+  // Not set.
+  ADF_MARK_TYPE_UNSPECIFIED = 0;
+  // Aligns a paragraph or heading. Wire value `alignment`.
+  ADF_MARK_TYPE_ALIGNMENT = 1;
+  // Anchors an annotation such as an inline comment. Wire value `annotation`.
+  ADF_MARK_TYPE_ANNOTATION = 2;
+  // Highlights text with a background colour. Wire value `backgroundColor`.
+  ADF_MARK_TYPE_BACKGROUND_COLOR = 3;
+  // Draws a border around media. Wire value `border`.
+  ADF_MARK_TYPE_BORDER = 4;
+  // Widens a block beyond the content column. Wire value `breakout`.
+  ADF_MARK_TYPE_BREAKOUT = 5;
+  // Inline code. Wire value `code`.
+  ADF_MARK_TYPE_CODE = 6;
+  // Names the data sources an extension consumes. Wire value `dataConsumer`.
+  ADF_MARK_TYPE_DATA_CONSUMER = 7;
+  // Emphasis (italic). Wire value `em`.
+  ADF_MARK_TYPE_EM = 8;
+  // Sets the font size of a paragraph. Wire value `fontSize`.
+  ADF_MARK_TYPE_FONT_SIZE = 9;
+  // Names a block so other nodes can refer to it. Wire value `fragment`.
+  ADF_MARK_TYPE_FRAGMENT = 10;
+  // Indents a paragraph or heading. Wire value `indentation`.
+  ADF_MARK_TYPE_INDENTATION = 11;
+  // A hyperlink. Wire value `link`.
+  ADF_MARK_TYPE_LINK = 12;
+  // Strikethrough. Wire value `strike`.
+  ADF_MARK_TYPE_STRIKE = 13;
+  // Strong (bold). Wire value `strong`.
+  ADF_MARK_TYPE_STRONG = 14;
+  // Subscript or superscript. Wire value `subsup`.
+  ADF_MARK_TYPE_SUBSUP = 15;
+  // Colours text. Wire value `textColor`.
+  ADF_MARK_TYPE_TEXT_COLOR = 16;
+  // Underline. Wire value `underline`.
+  ADF_MARK_TYPE_UNDERLINE = 17;
+}
+
+// One ADF mark.
+message AdfMark {
+  // The mark kind.
+  AdfMarkType type = 1;
+  // The mark's attributes; the arm must match `type`.
+  oneof attrs {
+    // Attributes of a `alignment` mark.
+    AdfAlignmentAttrs alignment = 10;
+    // Attributes of a `annotation` mark.
+    AdfAnnotationAttrs annotation = 11;
+    // Attributes of a `backgroundColor` mark.
+    AdfColorAttrs background_color = 12;
+    // Attributes of a `border` mark.
+    AdfBorderAttrs border = 13;
+    // Attributes of a `breakout` mark.
+    AdfBreakoutAttrs breakout = 14;
+    // Attributes of a `dataConsumer` mark.
+    AdfDataConsumerAttrs data_consumer = 16;
+    // Attributes of a `fontSize` mark.
+    AdfFontSizeAttrs font_size = 18;
+    // Attributes of a `fragment` mark.
+    AdfFragmentAttrs fragment = 19;
+    // Attributes of a `indentation` mark.
+    AdfIndentationAttrs indentation = 20;
+    // Attributes of a `link` mark.
+    AdfLinkAttrs link = 21;
+    // Attributes of a `subsup` mark.
+    AdfSubsupAttrs subsup = 24;
+    // Attributes of a `textColor` mark.
+    AdfColorAttrs text_color = 25;
+  }
+}
+
+// ============================================================================
+// NODE ATTRIBUTES
+// ============================================================================
+
+// The layout of a card or media item.
+enum AdfCardLayout {
+  // Not set.
+  ADF_CARD_LAYOUT_UNSPECIFIED = 0;
+  // `wide`.
+  ADF_CARD_LAYOUT_WIDE = 1;
+  // `full-width`.
+  ADF_CARD_LAYOUT_FULL_WIDTH = 2;
+  // `center`.
+  ADF_CARD_LAYOUT_CENTER = 3;
+  // `wrap-right`.
+  ADF_CARD_LAYOUT_WRAP_RIGHT = 4;
+  // `wrap-left`.
+  ADF_CARD_LAYOUT_WRAP_LEFT = 5;
+  // `align-end`.
+  ADF_CARD_LAYOUT_ALIGN_END = 6;
+  // `align-start`.
+  ADF_CARD_LAYOUT_ALIGN_START = 7;
+}
+
+// The layout of an extension.
+enum AdfExtensionLayout {
+  // Not set.
+  ADF_EXTENSION_LAYOUT_UNSPECIFIED = 0;
+  // `wide`.
+  ADF_EXTENSION_LAYOUT_WIDE = 1;
+  // `full-width`.
+  ADF_EXTENSION_LAYOUT_FULL_WIDTH = 2;
+  // `default`.
+  ADF_EXTENSION_LAYOUT_DEFAULT = 3;
+}
+
+// The layout of a table.
+enum AdfTableLayout {
+  // Not set.
+  ADF_TABLE_LAYOUT_UNSPECIFIED = 0;
+  // `wide`.
+  ADF_TABLE_LAYOUT_WIDE = 1;
+  // `full-width`.
+  ADF_TABLE_LAYOUT_FULL_WIDTH = 2;
+  // `center`.
+  ADF_TABLE_LAYOUT_CENTER = 3;
+  // `align-end`.
+  ADF_TABLE_LAYOUT_ALIGN_END = 4;
+  // `align-start`.
+  ADF_TABLE_LAYOUT_ALIGN_START = 5;
+  // `default`.
+  ADF_TABLE_LAYOUT_DEFAULT = 6;
+}
+
+// How a table sizes to its container.
+enum AdfTableDisplayMode {
+  // Not set.
+  ADF_TABLE_DISPLAY_MODE_UNSPECIFIED = 0;
+  // `default`.
+  ADF_TABLE_DISPLAY_MODE_DEFAULT = 1;
+  // `fixed`.
+  ADF_TABLE_DISPLAY_MODE_FIXED = 2;
+}
+
+// Vertical alignment of cell or column content.
+enum AdfVerticalAlign {
+  // Not set.
+  ADF_VERTICAL_ALIGN_UNSPECIFIED = 0;
+  // `top`.
+  ADF_VERTICAL_ALIGN_TOP = 1;
+  // `middle`.
+  ADF_VERTICAL_ALIGN_MIDDLE = 2;
+  // `bottom`.
+  ADF_VERTICAL_ALIGN_BOTTOM = 3;
+}
+
+// The kind of a panel.
+enum AdfPanelType {
+  // Not set.
+  ADF_PANEL_TYPE_UNSPECIFIED = 0;
+  // `info`.
+  ADF_PANEL_TYPE_INFO = 1;
+  // `note`.
+  ADF_PANEL_TYPE_NOTE = 2;
+  // `tip`.
+  ADF_PANEL_TYPE_TIP = 3;
+  // `warning`.
+  ADF_PANEL_TYPE_WARNING = 4;
+  // `error`.
+  ADF_PANEL_TYPE_ERROR = 5;
+  // `success`.
+  ADF_PANEL_TYPE_SUCCESS = 6;
+  // `custom`.
+  ADF_PANEL_TYPE_CUSTOM = 7;
+}
+
+// The state of a task item.
+enum AdfTaskState {
+  // Not set.
+  ADF_TASK_STATE_UNSPECIFIED = 0;
+  // `TODO`.
+  ADF_TASK_STATE_TODO = 1;
+  // `DONE`.
+  ADF_TASK_STATE_DONE = 2;
+}
+
+// The kind of user a mention names.
+enum AdfMentionUserType {
+  // Not set.
+  ADF_MENTION_USER_TYPE_UNSPECIFIED = 0;
+  // `DEFAULT`.
+  ADF_MENTION_USER_TYPE_DEFAULT = 1;
+  // `SPECIAL`.
+  ADF_MENTION_USER_TYPE_SPECIAL = 2;
+  // `APP`.
+  ADF_MENTION_USER_TYPE_APP = 3;
+}
+
+// The kind of a media item.
+enum AdfMediaType {
+  // Not set.
+  ADF_MEDIA_TYPE_UNSPECIFIED = 0;
+  // `link`.
+  ADF_MEDIA_TYPE_LINK = 1;
+  // `file`.
+  ADF_MEDIA_TYPE_FILE = 2;
+  // `external`.
+  ADF_MEDIA_TYPE_EXTERNAL = 3;
+  // `image`.
+  ADF_MEDIA_TYPE_IMAGE = 4;
+}
+
+// The unit of a single media width.
+enum AdfMediaWidthType {
+  // Not set.
+  ADF_MEDIA_WIDTH_TYPE_UNSPECIFIED = 0;
+  // `percentage`.
+  ADF_MEDIA_WIDTH_TYPE_PERCENTAGE = 1;
+  // `pixel`.
+  ADF_MEDIA_WIDTH_TYPE_PIXEL = 2;
+}
+
+// Attributes of a node that carries only a local id.
+message AdfLocalIdAttrs {
+  // Editor-assigned id of the node.
+  optional string local_id = 1;
+}
+
+// One view of a card datasource.
+message AdfDatasourceView {
+  // The view type.
+  string type = 1;
+  // The view properties.
+  PropertyValue properties = 2;
+}
+
+// The datasource of a block card.
+message AdfDatasource {
+  // ID of the datasource.
+  string id = 1;
+  // The datasource parameters.
+  PropertyValue parameters = 2;
+  // The views of the datasource.
+  repeated AdfDatasourceView views = 3;
+}
+
+// Attributes of a block card.
+message AdfBlockCardAttrs {
+  // The linked URL.
+  optional string url = 1;
+  // Editor-assigned id of the node.
+  optional string local_id = 2;
+  // The datasource the card lists.
+  AdfDatasource datasource = 3;
+  // Width of the card.
+  optional double width = 4;
+  // Layout of the card.
+  optional AdfCardLayout layout = 5;
+  // The linked resource as JSON-LD, in place of a URL.
+  PropertyValue data = 6;
+}
+
+// Attributes of a task item.
+message AdfTaskItemAttrs {
+  // Editor-assigned id of the task.
+  string local_id = 1;
+  // State of the task.
+  AdfTaskState state = 2;
+}
+
+// Attributes of an extension, bodied extension or inline extension.
+message AdfExtensionAttrs {
+  // Key of the extension.
+  string extension_key = 1;
+  // Type (namespace) of the extension.
+  string extension_type = 2;
+  // The extension parameters.
+  PropertyValue parameters = 3;
+  // Fallback text of the extension.
+  optional string text = 4;
+  // Layout of the extension; not used by inline extensions.
+  optional AdfExtensionLayout layout = 5;
+  // Editor-assigned id of the node.
+  optional string local_id = 6;
+}
+
+// Attributes of a synced block.
+message AdfSyncBlockAttrs {
+  // ID of the synced resource.
+  string resource_id = 1;
+  // Editor-assigned id of the node.
+  string local_id = 2;
+}
+
+// Attributes of a code block.
+message AdfCodeBlockAttrs {
+  // The programming language.
+  optional string language = 1;
+  // Unique id of the code block.
+  optional string unique_id = 2;
+  // Editor-assigned id of the node.
+  optional string local_id = 3;
+  // Whether long lines wrap.
+  optional bool wrap = 4;
+  // Whether line numbers are hidden.
+  optional bool hide_line_numbers = 5;
+}
+
+// Attributes of a date.
+message AdfDateAttrs {
+  // The date as epoch milliseconds, in decimal digits.
+  string timestamp = 1;
+  // Editor-assigned id of the node.
+  optional string local_id = 2;
+}
+
+// Attributes of a decision item.
+message AdfDecisionItemAttrs {
+  // Editor-assigned id of the decision.
+  string local_id = 1;
+  // State of the decision.
+  string state = 2;
+}
+
+// Attributes of an embed card.
+message AdfEmbedCardAttrs {
+  // The embedded URL.
+  string url = 1;
+  // Layout of the embed.
+  AdfCardLayout layout = 2;
+  // Width as a percentage, 0 to 100.
+  optional double width = 3;
+  // Original height of the embedded content.
+  optional double original_height = 4;
+  // Original width of the embedded content.
+  optional double original_width = 5;
+  // Editor-assigned id of the node.
+  optional string local_id = 6;
+}
+
+// Attributes of an emoji.
+message AdfEmojiAttrs {
+  // Short name of the emoji, such as `:smile:`.
+  string short_name = 1;
+  // ID of the emoji.
+  optional string id = 2;
+  // Fallback text of the emoji.
+  optional string text = 3;
+  // Editor-assigned id of the node.
+  optional string local_id = 4;
+}
+
+// Attributes of an expand or nested expand.
+message AdfExpandAttrs {
+  // Title of the expand.
+  optional string title = 1;
+  // Editor-assigned id of the node.
+  optional string local_id = 2;
+}
+
+// Attributes of a hard break.
+message AdfHardBreakAttrs {
+  // The break text; a line feed.
+  optional string text = 1;
+  // Editor-assigned id of the node.
+  optional string local_id = 2;
+}
+
+// Attributes of a heading.
+message AdfHeadingAttrs {
+  // Heading level, 1 to 6.
+  int32 level = 1;
+  // Editor-assigned id of the node.
+  optional string local_id = 2;
+}
+
+// Attributes of an inline card.
+message AdfInlineCardAttrs {
+  // The linked URL.
+  optional string url = 1;
+  // The linked resource as JSON-LD, in place of a URL.
+  PropertyValue data = 2;
+  // Editor-assigned id of the node.
+  optional string local_id = 3;
+}
+
+// Attributes of a layout column.
+message AdfLayoutColumnAttrs {
+  // Width as a percentage, 0 to 100.
+  double width = 1;
+  // Editor-assigned id of the node.
+  optional string local_id = 2;
+  // Vertical alignment of the column content.
+  optional AdfVerticalAlign valign = 3;
+}
+
+// Attributes of a media or inline media item.
+message AdfMediaAttrs {
+  // Kind of media.
+  optional AdfMediaType type = 1;
+  // Editor-assigned id of the node.
+  optional string local_id = 2;
+  // Media services id of the file.
+  optional string id = 3;
+  // Alternative text.
+  optional string alt = 4;
+  // Media services collection of the file.
+  optional string collection = 5;
+  // Display height in pixels.
+  optional double height = 6;
+  // Display width in pixels.
+  optional double width = 7;
+  // Occurrence key of the file in its collection.
+  optional string occurrence_key = 8;
+  // URL of external media.
+  optional string url = 9;
+  // Extra data of inline media.
+  PropertyValue data = 10;
+}
+
+// Attributes of a single media item.
+message AdfMediaSingleAttrs {
+  // Editor-assigned id of the node.
+  optional string local_id = 1;
+  // Width in the unit named by `width_type`.
+  optional double width = 2;
+  // Layout of the media.
+  AdfCardLayout layout = 3;
+  // Unit of `width`.
+  optional AdfMediaWidthType width_type = 4;
+}
+
+// Attributes of a mention.
+message AdfMentionAttrs {
+  // Account id of the mentioned user.
+  string id = 1;
+  // Editor-assigned id of the node.
+  optional string local_id = 2;
+  // Display text of the mention.
+  optional string text = 3;
+  // Access level of the mentioned user.
+  optional string access_level = 4;
+  // Kind of user mentioned.
+  optional AdfMentionUserType user_type = 5;
+}
+
+// Attributes of an ordered list.
+message AdfOrderedListAttrs {
+  // Number of the first item.
+  optional int32 order = 1;
+  // Editor-assigned id of the node.
+  optional string local_id = 2;
+}
+
+// Attributes of a panel.
+message AdfPanelAttrs {
+  // Kind of panel.
+  AdfPanelType panel_type = 1;
+  // Icon of a custom panel.
+  optional string panel_icon = 2;
+  // ID of the icon of a custom panel.
+  optional string panel_icon_id = 3;
+  // Text of the icon of a custom panel.
+  optional string panel_icon_text = 4;
+  // Colour of a custom panel.
+  optional string panel_color = 5;
+  // Editor-assigned id of the node.
+  optional string local_id = 6;
+}
+
+// Attributes of a placeholder.
+message AdfPlaceholderAttrs {
+  // The placeholder text.
+  string text = 1;
+  // Editor-assigned id of the node.
+  optional string local_id = 2;
+}
+
+// Attributes of a status.
+message AdfStatusAttrs {
+  // Text of the status.
+  string text = 1;
+  // Colour of the status: a name such as `green` or a `#rrggbb` value.
+  string color = 2;
+  // Editor-assigned id of the node.
+  optional string local_id = 3;
+  // Style of the status.
+  optional string style = 4;
+}
+
+// Attributes of a table.
+message AdfTableAttrs {
+  // How the table sizes to its container.
+  optional AdfTableDisplayMode display_mode = 1;
+  // Whether rows are numbered.
+  optional bool is_number_column_enabled = 2;
+  // Layout of the table.
+  optional AdfTableLayout layout = 3;
+  // Editor-assigned id of the node.
+  optional string local_id = 4;
+  // Width of the table in pixels.
+  optional double width = 5;
+}
+
+// Attributes of a table cell or header cell.
+message AdfTableCellAttrs {
+  // Number of columns the cell spans.
+  optional int32 colspan = 1;
+  // Number of rows the cell spans.
+  optional int32 rowspan = 2;
+  // Width in pixels of each spanned column.
+  repeated double colwidth = 3;
+  // Background colour of the cell.
+  optional string background = 4;
+  // Editor-assigned id of the node.
+  optional string local_id = 5;
+  // Vertical alignment of the cell content.
+  optional AdfVerticalAlign valign = 6;
+}
+
+// ============================================================================
+// MARK ATTRIBUTES
+// ============================================================================
+
+// A text alignment.
+enum AdfAlignment {
+  // Not set.
+  ADF_ALIGNMENT_UNSPECIFIED = 0;
+  // `center`.
+  ADF_ALIGNMENT_CENTER = 1;
+  // `end`.
+  ADF_ALIGNMENT_END = 2;
+}
+
+// The kind of an annotation.
+enum AdfAnnotationType {
+  // Not set.
+  ADF_ANNOTATION_TYPE_UNSPECIFIED = 0;
+  // `inlineComment`.
+  ADF_ANNOTATION_TYPE_INLINE_COMMENT = 1;
+}
+
+// The width of a breakout.
+enum AdfBreakoutMode {
+  // Not set.
+  ADF_BREAKOUT_MODE_UNSPECIFIED = 0;
+  // `wide`.
+  ADF_BREAKOUT_MODE_WIDE = 1;
+  // `full-width`.
+  ADF_BREAKOUT_MODE_FULL_WIDTH = 2;
+}
+
+// A font size.
+enum AdfFontSize {
+  // Not set.
+  ADF_FONT_SIZE_UNSPECIFIED = 0;
+  // `small`.
+  ADF_FONT_SIZE_SMALL = 1;
+}
+
+// Subscript or superscript.
+enum AdfSubsupType {
+  // Not set.
+  ADF_SUBSUP_TYPE_UNSPECIFIED = 0;
+  // `sub`.
+  ADF_SUBSUP_TYPE_SUB = 1;
+  // `sup`.
+  ADF_SUBSUP_TYPE_SUP = 2;
+}
+
+// Attributes of an alignment mark.
+message AdfAlignmentAttrs {
+  // The alignment.
+  AdfAlignment align = 1;
+}
+
+// Attributes of an annotation mark.
+message AdfAnnotationAttrs {
+  // ID of the annotation.
+  string id = 1;
+  // Kind of annotation.
+  AdfAnnotationType annotation_type = 2;
+}
+
+// Attributes of a text colour or background colour mark.
+message AdfColorAttrs {
+  // The colour as `#rrggbb`.
+  string color = 1;
+}
+
+// Attributes of a border mark.
+message AdfBorderAttrs {
+  // Border width, 1 to 3.
+  int32 size = 1;
+  // The colour as `#rrggbb` or `#rrggbbaa`.
+  string color = 2;
+}
+
+// Attributes of a breakout mark.
+message AdfBreakoutAttrs {
+  // Width of the breakout.
+  AdfBreakoutMode mode = 1;
+  // Width in pixels.
+  optional double width = 2;
+}
+
+// Attributes of a data consumer mark.
+message AdfDataConsumerAttrs {
+  // Local ids of the source nodes.
+  repeated string sources = 1;
+}
+
+// Attributes of a font size mark.
+message AdfFontSizeAttrs {
+  // The font size.
+  AdfFontSize font_size = 1;
+}
+
+// Attributes of a fragment mark.
+message AdfFragmentAttrs {
+  // Id of the fragment.
+  string local_id = 1;
+  // Name of the fragment.
+  optional string name = 2;
+}
+
+// Attributes of an indentation mark.
+message AdfIndentationAttrs {
+  // Indentation level, 1 to 6.
+  int32 level = 1;
+}
+
+// Attributes of a link mark.
+message AdfLinkAttrs {
+  // Target of the link.
+  string href = 1;
+  // Title of the link.
+  optional string title = 2;
+  // ID of the linked resource.
+  optional string id = 3;
+  // Collection of the linked resource.
+  optional string collection = 4;
+  // Occurrence key of the linked resource.
+  optional string occurrence_key = 5;
+}
+
+// Attributes of a subsup mark.
+message AdfSubsupAttrs {
+  // Subscript or superscript.
+  AdfSubsupType type = 1;
+}

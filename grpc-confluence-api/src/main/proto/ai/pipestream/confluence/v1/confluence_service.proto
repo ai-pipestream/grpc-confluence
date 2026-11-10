@@ -9,6 +9,7 @@ import "ai/pipestream/confluence/v1/classification.proto";
 import "ai/pipestream/confluence/v1/comment.proto";
 import "ai/pipestream/confluence/v1/common.proto";
 import "ai/pipestream/confluence/v1/content.proto";
+import "ai/pipestream/confluence/v1/content_body.proto";
 import "ai/pipestream/confluence/v1/database.proto";
 import "ai/pipestream/confluence/v1/events.proto";
 import "ai/pipestream/confluence/v1/operation.proto";
@@ -19,6 +20,7 @@ import "ai/pipestream/confluence/v1/property.proto";
 import "ai/pipestream/confluence/v1/space.proto";
 import "ai/pipestream/confluence/v1/task.proto";
 import "ai/pipestream/confluence/v1/user.proto";
+import "ai/pipestream/confluence/v1/write.proto";
 import "google/protobuf/timestamp.proto";
 
 option java_multiple_files = true;
@@ -27,22 +29,16 @@ option java_package = "ai.pipestream.confluence.v1";
 // ============================================================================
 // CONFLUENCE SERVICE - the gRPC facade over the Confluence crawler.
 //
-// A thin read proxy: every rpc delegates to the crawler core (REST v2 client,
-// mapper, crawl orchestration) and answers in the parity domain model, so a
-// gRPC client (or an agent reflecting over the descriptor set) can read the
-// workspace and stream changes without knowing the REST API exists. REST
-// pagination is transport and stays hidden: list rpcs stream, and Sync emits
-// the crawler's change envelopes plus a resume cursor for the next pass.
+// Every rpc delegates to the crawler core (REST client, mapper, crawl
+// orchestration) and answers in the domain model, so a gRPC client can read
+// and write the workspace and stream changes without knowing the REST API
+// exists. REST pagination stays hidden: list rpcs stream, and Sync emits
+// change envelopes plus a resume cursor for the next pass.
 //
-// Scope: the READ surface of Confluence Cloud REST API v2 (one rpc per v2
-// read route family; the v2 route is named on each rpc). Writes (create /
-// update / delete, redactions, admin keys, permission mutation, space
-// permission transition tasks) are deliberately absent: this is an indexer's
-// proxy. Permission *reads* are in scope because search security trimming
-// needs them, and so is every other v2 read route (likes, version details,
-// operations, the space permission catalogue and transition reads, the
-// caller's admin key, Forge app properties, the email access check): the
-// contract covers the whole v2 read surface.
+// Scope: the read and write surface of Confluence Cloud REST API v2 (the v2
+// route is named on each rpc), plus attachment upload and label writes,
+// which only REST API v1 offers. Update rpcs take the current version
+// number in `expected_version`; a stale one is answered with ABORTED.
 //
 // Streaming responses carry one entity per message in a per-rpc wrapper
 // (ListPagesResponse, SyncResponse, ...) rather than the bare domain message:
@@ -61,7 +57,7 @@ option java_package = "ai.pipestream.confluence.v1";
 // configuration, never a contract constant.
 // ============================================================================
 
-// The Confluence read proxy. Server reflection and the gRPC health service
+// The Confluence service. Server reflection and the gRPC health service
 // are always registered alongside it, so the surface is discoverable with
 // grpcurl-style tooling or any descriptor-driven client.
 service ConfluenceService {
@@ -431,6 +427,263 @@ service ConfluenceService {
   // report whether the token works. A future UI uses this as "Test
   // connection". Does not start a crawl.
   rpc ProbeConnection(ProbeConnectionRequest) returns (ProbeConnectionResponse);
+
+  // ---------------------------------------------------- content writes --
+
+  // Creates a page.
+  // v2: POST /pages.
+  rpc CreatePage(CreatePageRequest) returns (CreatePageResponse);
+
+  // Updates a page.
+  // v2: PUT /pages/{id}.
+  rpc UpdatePage(UpdatePageRequest) returns (UpdatePageResponse);
+
+  // Deletes a page: moves it to the trash, purges it, or discards its draft.
+  // v2: DELETE /pages/{id}.
+  rpc DeletePage(DeletePageRequest) returns (DeletePageResponse);
+
+  // Updates the title of a page.
+  // v2: PUT /pages/{id}/title.
+  rpc UpdatePageTitle(UpdatePageTitleRequest) returns (UpdatePageTitleResponse);
+
+  // Creates a blog post.
+  // v2: POST /blogposts.
+  rpc CreateBlogPost(CreateBlogPostRequest) returns (CreateBlogPostResponse);
+
+  // Updates a blog post.
+  // v2: PUT /blogposts/{id}.
+  rpc UpdateBlogPost(UpdateBlogPostRequest) returns (UpdateBlogPostResponse);
+
+  // Deletes a blog post: moves it to the trash, purges it, or discards its
+  // draft.
+  // v2: DELETE /blogposts/{id}.
+  rpc DeleteBlogPost(DeleteBlogPostRequest) returns (DeleteBlogPostResponse);
+
+  // Creates a footer comment or a reply to one.
+  // v2: POST /footer-comments.
+  rpc CreateFooterComment(CreateFooterCommentRequest) returns (CreateFooterCommentResponse);
+
+  // Updates a footer comment.
+  // v2: PUT /footer-comments/{comment-id}.
+  rpc UpdateFooterComment(UpdateFooterCommentRequest) returns (UpdateFooterCommentResponse);
+
+  // Deletes a footer comment.
+  // v2: DELETE /footer-comments/{comment-id}.
+  rpc DeleteFooterComment(DeleteFooterCommentRequest) returns (DeleteFooterCommentResponse);
+
+  // Creates an inline comment or a reply to one.
+  // v2: POST /inline-comments.
+  rpc CreateInlineComment(CreateInlineCommentRequest) returns (CreateInlineCommentResponse);
+
+  // Updates an inline comment, or resolves or reopens it.
+  // v2: PUT /inline-comments/{comment-id}.
+  rpc UpdateInlineComment(UpdateInlineCommentRequest) returns (UpdateInlineCommentResponse);
+
+  // Deletes an inline comment.
+  // v2: DELETE /inline-comments/{comment-id}.
+  rpc DeleteInlineComment(DeleteInlineCommentRequest) returns (DeleteInlineCommentResponse);
+
+  // Creates a piece of custom content.
+  // v2: POST /custom-content.
+  rpc CreateCustomContent(CreateCustomContentRequest) returns (CreateCustomContentResponse);
+
+  // Updates a piece of custom content.
+  // v2: PUT /custom-content/{id}.
+  rpc UpdateCustomContent(UpdateCustomContentRequest) returns (UpdateCustomContentResponse);
+
+  // Deletes a piece of custom content: moves it to the trash or purges it.
+  // v2: DELETE /custom-content/{id}.
+  rpc DeleteCustomContent(DeleteCustomContentRequest) returns (DeleteCustomContentResponse);
+
+  // Creates a database.
+  // v2: POST /databases.
+  rpc CreateDatabase(CreateDatabaseRequest) returns (CreateDatabaseResponse);
+
+  // Deletes a database.
+  // v2: DELETE /databases/{id}.
+  rpc DeleteDatabase(DeleteDatabaseRequest) returns (DeleteDatabaseResponse);
+
+  // Creates a folder.
+  // v2: POST /folders.
+  rpc CreateFolder(CreateFolderRequest) returns (CreateFolderResponse);
+
+  // Deletes a folder.
+  // v2: DELETE /folders/{id}.
+  rpc DeleteFolder(DeleteFolderRequest) returns (DeleteFolderResponse);
+
+  // Creates a whiteboard.
+  // v2: POST /whiteboards.
+  rpc CreateWhiteboard(CreateWhiteboardRequest) returns (CreateWhiteboardResponse);
+
+  // Deletes a whiteboard.
+  // v2: DELETE /whiteboards/{id}.
+  rpc DeleteWhiteboard(DeleteWhiteboardRequest) returns (DeleteWhiteboardResponse);
+
+  // Creates a Smart Link in the content tree.
+  // v2: POST /embeds.
+  rpc CreateSmartLink(CreateSmartLinkRequest) returns (CreateSmartLinkResponse);
+
+  // Deletes a Smart Link from the content tree.
+  // v2: DELETE /embeds/{id}.
+  rpc DeleteSmartLink(DeleteSmartLinkRequest) returns (DeleteSmartLinkResponse);
+
+  // Deletes an attachment: moves it to the trash or purges it.
+  // v2: DELETE /attachments/{id}.
+  rpc DeleteAttachment(DeleteAttachmentRequest) returns (DeleteAttachmentResponse);
+
+  // Creates a space.
+  // v2: POST /spaces.
+  rpc CreateSpace(CreateSpaceRequest) returns (CreateSpaceResponse);
+
+  // Updates a task.
+  // v2: PUT /tasks/{id}.
+  rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse);
+
+  // Uploads an attachment to a piece of content as a stream of chunks,
+  // acknowledging progress and ending with the stored attachment.
+  // v1: POST or PUT /wiki/rest/api/content/{id}/child/attachment.
+  rpc UploadAttachment(stream UploadAttachmentRequest) returns (stream UploadAttachmentResponse);
+
+  // --------------------------------------------------- property writes --
+
+  // Creates a property on a piece of content.
+  // v2: POST /{content-type}/{id}/properties.
+  rpc CreateContentProperty(CreateContentPropertyRequest) returns (CreateContentPropertyResponse);
+
+  // Updates a property of a piece of content.
+  // v2: PUT /{content-type}/{id}/properties/{property-id}.
+  rpc UpdateContentProperty(UpdateContentPropertyRequest) returns (UpdateContentPropertyResponse);
+
+  // Deletes a property of a piece of content.
+  // v2: DELETE /{content-type}/{id}/properties/{property-id}.
+  rpc DeleteContentProperty(DeleteContentPropertyRequest) returns (DeleteContentPropertyResponse);
+
+  // Creates a property on a space.
+  // v2: POST /spaces/{space-id}/properties.
+  rpc CreateSpaceProperty(CreateSpacePropertyRequest) returns (CreateSpacePropertyResponse);
+
+  // Updates a property of a space.
+  // v2: PUT /spaces/{space-id}/properties/{property-id}.
+  rpc UpdateSpaceProperty(UpdateSpacePropertyRequest) returns (UpdateSpacePropertyResponse);
+
+  // Deletes a property of a space.
+  // v2: DELETE /spaces/{space-id}/properties/{property-id}.
+  rpc DeleteSpaceProperty(DeleteSpacePropertyRequest) returns (DeleteSpacePropertyResponse);
+
+  // Creates or replaces a Forge app property.
+  // v2: PUT /app/properties/{propertyKey}.
+  rpc SetAppProperty(SetAppPropertyRequest) returns (SetAppPropertyResponse);
+
+  // Deletes a Forge app property.
+  // v2: DELETE /app/properties/{propertyKey}.
+  rpc DeleteAppProperty(DeleteAppPropertyRequest) returns (DeleteAppPropertyResponse);
+
+  // ------------------------------------------------------ label writes --
+
+  // Adds labels to a piece of content.
+  // v1: POST /wiki/rest/api/content/{id}/label.
+  rpc AddLabels(AddLabelsRequest) returns (AddLabelsResponse);
+
+  // Removes a label from a piece of content.
+  // v1: DELETE /wiki/rest/api/content/{id}/label.
+  rpc RemoveLabel(RemoveLabelRequest) returns (RemoveLabelResponse);
+
+  // ------------------------------------------------- permission writes --
+
+  // Adds direct permissions to a piece of content.
+  // v2: POST /{content-type}/{id}/permissions.
+  rpc AddContentPermissions(AddContentPermissionsRequest) returns (AddContentPermissionsResponse);
+
+  // Replaces the direct permissions of a piece of content.
+  // v2: PUT /{content-type}/{id}/permissions.
+  rpc SetContentPermissions(SetContentPermissionsRequest) returns (SetContentPermissionsResponse);
+
+  // Deletes direct permissions of a piece of content: all of them, or those
+  // of one principal for one operation.
+  // v2: DELETE /{content-type}/{id}/permissions.
+  rpc DeleteContentPermissions(DeleteContentPermissionsRequest) returns (DeleteContentPermissionsResponse);
+
+  // Sets the direct restriction state of a piece of content.
+  // v2: PUT /{content-type}/{id}/restriction-state.
+  rpc SetRestrictionState(SetRestrictionStateRequest) returns (SetRestrictionStateResponse);
+
+  // --------------------------------------------- classification writes --
+
+  // Sets the classification level of a piece of content.
+  // v2: PUT /{content-type}/{id}/classification-level.
+  rpc SetContentClassificationLevel(SetContentClassificationLevelRequest) returns (SetContentClassificationLevelResponse);
+
+  // Resets the classification level of a piece of content to the space
+  // default.
+  // v2: POST /{content-type}/{id}/classification-level/reset.
+  rpc ResetContentClassificationLevel(ResetContentClassificationLevelRequest) returns (ResetContentClassificationLevelResponse);
+
+  // Sets the default classification level of a space.
+  // v2: PUT /spaces/{id}/classification-level/default.
+  rpc UpdateSpaceDefaultClassificationLevel(UpdateSpaceDefaultClassificationLevelRequest) returns (UpdateSpaceDefaultClassificationLevelResponse);
+
+  // Removes the default classification level of a space.
+  // v2: DELETE /spaces/{id}/classification-level/default.
+  rpc DeleteSpaceDefaultClassificationLevel(DeleteSpaceDefaultClassificationLevelRequest) returns (DeleteSpaceDefaultClassificationLevelResponse);
+
+  // -------------------------------------- space role and access writes --
+
+  // Creates a space role.
+  // v2: POST /space-roles.
+  rpc CreateSpaceRole(CreateSpaceRoleRequest) returns (CreateSpaceRoleResponse);
+
+  // Updates a space role.
+  // v2: PUT /space-roles/{id}.
+  rpc UpdateSpaceRole(UpdateSpaceRoleRequest) returns (UpdateSpaceRoleResponse);
+
+  // Deletes a space role.
+  // v2: DELETE /space-roles/{id}.
+  rpc DeleteSpaceRole(DeleteSpaceRoleRequest) returns (DeleteSpaceRoleResponse);
+
+  // Assigns or removes roles of principals in a space.
+  // v2: POST /spaces/{id}/role-assignments.
+  rpc SetSpaceRoleAssignments(SetSpaceRoleAssignmentsRequest) returns (SetSpaceRoleAssignmentsResponse);
+
+  // Starts a task that assigns roles to principals holding given permission
+  // combinations.
+  // v2: POST /space-permissions/transition/role-assignments.
+  rpc BulkAssignSpaceRoles(BulkAssignSpaceRolesRequest) returns (BulkAssignSpaceRolesResponse);
+
+  // Starts a task that removes access from principals holding given
+  // permission combinations.
+  // v2: POST /space-permissions/transition/access-removals.
+  rpc BulkRemoveSpaceAccess(BulkRemoveSpaceAccessRequest) returns (BulkRemoveSpaceAccessResponse);
+
+  // Invites email addresses to the site.
+  // v2: POST /user/access/invite-by-email.
+  rpc InviteByEmail(InviteByEmailRequest) returns (InviteByEmailResponse);
+
+  // -------------------------------------------------- redaction writes --
+
+  // Redacts text ranges of a page.
+  // v2: POST /pages/{id}/redact.
+  rpc RedactPage(RedactPageRequest) returns (RedactPageResponse);
+
+  // Redacts text ranges of a blog post.
+  // v2: POST /blogposts/{id}/redact.
+  rpc RedactBlogPost(RedactBlogPostRequest) returns (RedactBlogPostResponse);
+
+  // -------------------------------------------------- admin key writes --
+
+  // Enables an admin key for the calling user.
+  // v2: POST /admin-key.
+  rpc EnableAdminKey(EnableAdminKeyRequest) returns (EnableAdminKeyResponse);
+
+  // Disables the calling user's admin key.
+  // v2: DELETE /admin-key.
+  rpc DisableAdminKey(DisableAdminKeyRequest) returns (DisableAdminKeyResponse);
+
+  // ------------------------------------------------------- bulk writes --
+
+  // Runs a stream of write operations concurrently, answering each with its
+  // response or an error. Send an operation that depends on another after
+  // that one is answered.
+  rpc Mutate(stream MutateRequest) returns (stream MutateResponse);
 }
 
 // ============================================================================
@@ -2134,4 +2387,306 @@ message CheckAccessByEmailResponse {
   repeated string invalid_emails = 2;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
+}
+
+// ============================================================================
+// WRITES - messages that use this file's enums, and the Mutate envelope.
+// ============================================================================
+
+// A label to add.
+message LabelInput {
+  // Prefix of the label; unset for global.
+  LabelPrefix prefix = 1;
+  // Name of the label.
+  string name = 2;
+}
+
+// Request of CreatePage.
+message CreatePageRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the space.
+  string space_id = 2;
+  // Status of the page: current or draft.
+  ContentStatus status = 3;
+  // Title of the page; required unless the page is a draft.
+  string title = 4;
+  // ID of the parent content.
+  string parent_id = 5;
+  // Body of the page.
+  ContentBody body = 6;
+  // LIVE creates a live doc; otherwise a page.
+  PageSubtype subtype = 7;
+  // Tags the page as embedded content.
+  bool embedded = 8;
+  // Makes the page visible to its creator only.
+  bool private = 9;
+  // Creates the page at the root of the space, outside the homepage tree.
+  bool root_level = 10;
+}
+
+// Response of CreatePage.
+message CreatePageResponse {
+  // The created page.
+  Page page = 1;
+}
+
+// Request of AddLabels.
+message AddLabelsRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the content.
+  string content_id = 2;
+  // The labels to add.
+  repeated LabelInput labels = 3;
+}
+
+// Response of AddLabels.
+message AddLabelsResponse {
+  // The labels of the content after the change.
+  repeated Label labels = 1;
+}
+
+// One write operation of a Mutate stream.
+message MutateRequest {
+  // Caller-chosen id echoed on the answer.
+  string op_id = 1;
+  // The operation.
+  oneof operation {
+    // A CreatePage operation.
+    CreatePageRequest create_page = 10;
+    // A UpdatePage operation.
+    UpdatePageRequest update_page = 11;
+    // A DeletePage operation.
+    DeletePageRequest delete_page = 12;
+    // A UpdatePageTitle operation.
+    UpdatePageTitleRequest update_page_title = 13;
+    // A CreateBlogPost operation.
+    CreateBlogPostRequest create_blog_post = 14;
+    // A UpdateBlogPost operation.
+    UpdateBlogPostRequest update_blog_post = 15;
+    // A DeleteBlogPost operation.
+    DeleteBlogPostRequest delete_blog_post = 16;
+    // A CreateFooterComment operation.
+    CreateFooterCommentRequest create_footer_comment = 17;
+    // A UpdateFooterComment operation.
+    UpdateFooterCommentRequest update_footer_comment = 18;
+    // A DeleteFooterComment operation.
+    DeleteFooterCommentRequest delete_footer_comment = 19;
+    // A CreateInlineComment operation.
+    CreateInlineCommentRequest create_inline_comment = 20;
+    // A UpdateInlineComment operation.
+    UpdateInlineCommentRequest update_inline_comment = 21;
+    // A DeleteInlineComment operation.
+    DeleteInlineCommentRequest delete_inline_comment = 22;
+    // A CreateCustomContent operation.
+    CreateCustomContentRequest create_custom_content = 23;
+    // A UpdateCustomContent operation.
+    UpdateCustomContentRequest update_custom_content = 24;
+    // A DeleteCustomContent operation.
+    DeleteCustomContentRequest delete_custom_content = 25;
+    // A CreateDatabase operation.
+    CreateDatabaseRequest create_database = 26;
+    // A DeleteDatabase operation.
+    DeleteDatabaseRequest delete_database = 27;
+    // A CreateFolder operation.
+    CreateFolderRequest create_folder = 28;
+    // A DeleteFolder operation.
+    DeleteFolderRequest delete_folder = 29;
+    // A CreateWhiteboard operation.
+    CreateWhiteboardRequest create_whiteboard = 30;
+    // A DeleteWhiteboard operation.
+    DeleteWhiteboardRequest delete_whiteboard = 31;
+    // A CreateSmartLink operation.
+    CreateSmartLinkRequest create_smart_link = 32;
+    // A DeleteSmartLink operation.
+    DeleteSmartLinkRequest delete_smart_link = 33;
+    // A DeleteAttachment operation.
+    DeleteAttachmentRequest delete_attachment = 34;
+    // A CreateSpace operation.
+    CreateSpaceRequest create_space = 35;
+    // A UpdateTask operation.
+    UpdateTaskRequest update_task = 36;
+    // A CreateContentProperty operation.
+    CreateContentPropertyRequest create_content_property = 37;
+    // A UpdateContentProperty operation.
+    UpdateContentPropertyRequest update_content_property = 38;
+    // A DeleteContentProperty operation.
+    DeleteContentPropertyRequest delete_content_property = 39;
+    // A CreateSpaceProperty operation.
+    CreateSpacePropertyRequest create_space_property = 40;
+    // A UpdateSpaceProperty operation.
+    UpdateSpacePropertyRequest update_space_property = 41;
+    // A DeleteSpaceProperty operation.
+    DeleteSpacePropertyRequest delete_space_property = 42;
+    // A SetAppProperty operation.
+    SetAppPropertyRequest set_app_property = 43;
+    // A DeleteAppProperty operation.
+    DeleteAppPropertyRequest delete_app_property = 44;
+    // A AddLabels operation.
+    AddLabelsRequest add_labels = 45;
+    // A RemoveLabel operation.
+    RemoveLabelRequest remove_label = 46;
+    // A AddContentPermissions operation.
+    AddContentPermissionsRequest add_content_permissions = 47;
+    // A SetContentPermissions operation.
+    SetContentPermissionsRequest set_content_permissions = 48;
+    // A DeleteContentPermissions operation.
+    DeleteContentPermissionsRequest delete_content_permissions = 49;
+    // A SetRestrictionState operation.
+    SetRestrictionStateRequest set_restriction_state = 50;
+    // A SetContentClassificationLevel operation.
+    SetContentClassificationLevelRequest set_content_classification_level = 51;
+    // A ResetContentClassificationLevel operation.
+    ResetContentClassificationLevelRequest reset_content_classification_level = 52;
+    // A UpdateSpaceDefaultClassificationLevel operation.
+    UpdateSpaceDefaultClassificationLevelRequest update_space_default_classification_level = 53;
+    // A DeleteSpaceDefaultClassificationLevel operation.
+    DeleteSpaceDefaultClassificationLevelRequest delete_space_default_classification_level = 54;
+    // A CreateSpaceRole operation.
+    CreateSpaceRoleRequest create_space_role = 55;
+    // A UpdateSpaceRole operation.
+    UpdateSpaceRoleRequest update_space_role = 56;
+    // A DeleteSpaceRole operation.
+    DeleteSpaceRoleRequest delete_space_role = 57;
+    // A SetSpaceRoleAssignments operation.
+    SetSpaceRoleAssignmentsRequest set_space_role_assignments = 58;
+    // A BulkAssignSpaceRoles operation.
+    BulkAssignSpaceRolesRequest bulk_assign_space_roles = 59;
+    // A BulkRemoveSpaceAccess operation.
+    BulkRemoveSpaceAccessRequest bulk_remove_space_access = 60;
+    // A InviteByEmail operation.
+    InviteByEmailRequest invite_by_email = 61;
+    // A RedactPage operation.
+    RedactPageRequest redact_page = 62;
+    // A RedactBlogPost operation.
+    RedactBlogPostRequest redact_blog_post = 63;
+    // A EnableAdminKey operation.
+    EnableAdminKeyRequest enable_admin_key = 64;
+    // A DisableAdminKey operation.
+    DisableAdminKeyRequest disable_admin_key = 65;
+  }
+}
+
+// The answer to one Mutate operation.
+message MutateResponse {
+  // The op_id of the operation answered.
+  string op_id = 1;
+  // The outcome.
+  oneof outcome {
+    // The operation failed.
+    MutateError error = 2;
+    // The CreatePage operation succeeded.
+    CreatePageResponse create_page = 10;
+    // The UpdatePage operation succeeded.
+    UpdatePageResponse update_page = 11;
+    // The DeletePage operation succeeded.
+    DeletePageResponse delete_page = 12;
+    // The UpdatePageTitle operation succeeded.
+    UpdatePageTitleResponse update_page_title = 13;
+    // The CreateBlogPost operation succeeded.
+    CreateBlogPostResponse create_blog_post = 14;
+    // The UpdateBlogPost operation succeeded.
+    UpdateBlogPostResponse update_blog_post = 15;
+    // The DeleteBlogPost operation succeeded.
+    DeleteBlogPostResponse delete_blog_post = 16;
+    // The CreateFooterComment operation succeeded.
+    CreateFooterCommentResponse create_footer_comment = 17;
+    // The UpdateFooterComment operation succeeded.
+    UpdateFooterCommentResponse update_footer_comment = 18;
+    // The DeleteFooterComment operation succeeded.
+    DeleteFooterCommentResponse delete_footer_comment = 19;
+    // The CreateInlineComment operation succeeded.
+    CreateInlineCommentResponse create_inline_comment = 20;
+    // The UpdateInlineComment operation succeeded.
+    UpdateInlineCommentResponse update_inline_comment = 21;
+    // The DeleteInlineComment operation succeeded.
+    DeleteInlineCommentResponse delete_inline_comment = 22;
+    // The CreateCustomContent operation succeeded.
+    CreateCustomContentResponse create_custom_content = 23;
+    // The UpdateCustomContent operation succeeded.
+    UpdateCustomContentResponse update_custom_content = 24;
+    // The DeleteCustomContent operation succeeded.
+    DeleteCustomContentResponse delete_custom_content = 25;
+    // The CreateDatabase operation succeeded.
+    CreateDatabaseResponse create_database = 26;
+    // The DeleteDatabase operation succeeded.
+    DeleteDatabaseResponse delete_database = 27;
+    // The CreateFolder operation succeeded.
+    CreateFolderResponse create_folder = 28;
+    // The DeleteFolder operation succeeded.
+    DeleteFolderResponse delete_folder = 29;
+    // The CreateWhiteboard operation succeeded.
+    CreateWhiteboardResponse create_whiteboard = 30;
+    // The DeleteWhiteboard operation succeeded.
+    DeleteWhiteboardResponse delete_whiteboard = 31;
+    // The CreateSmartLink operation succeeded.
+    CreateSmartLinkResponse create_smart_link = 32;
+    // The DeleteSmartLink operation succeeded.
+    DeleteSmartLinkResponse delete_smart_link = 33;
+    // The DeleteAttachment operation succeeded.
+    DeleteAttachmentResponse delete_attachment = 34;
+    // The CreateSpace operation succeeded.
+    CreateSpaceResponse create_space = 35;
+    // The UpdateTask operation succeeded.
+    UpdateTaskResponse update_task = 36;
+    // The CreateContentProperty operation succeeded.
+    CreateContentPropertyResponse create_content_property = 37;
+    // The UpdateContentProperty operation succeeded.
+    UpdateContentPropertyResponse update_content_property = 38;
+    // The DeleteContentProperty operation succeeded.
+    DeleteContentPropertyResponse delete_content_property = 39;
+    // The CreateSpaceProperty operation succeeded.
+    CreateSpacePropertyResponse create_space_property = 40;
+    // The UpdateSpaceProperty operation succeeded.
+    UpdateSpacePropertyResponse update_space_property = 41;
+    // The DeleteSpaceProperty operation succeeded.
+    DeleteSpacePropertyResponse delete_space_property = 42;
+    // The SetAppProperty operation succeeded.
+    SetAppPropertyResponse set_app_property = 43;
+    // The DeleteAppProperty operation succeeded.
+    DeleteAppPropertyResponse delete_app_property = 44;
+    // The AddLabels operation succeeded.
+    AddLabelsResponse add_labels = 45;
+    // The RemoveLabel operation succeeded.
+    RemoveLabelResponse remove_label = 46;
+    // The AddContentPermissions operation succeeded.
+    AddContentPermissionsResponse add_content_permissions = 47;
+    // The SetContentPermissions operation succeeded.
+    SetContentPermissionsResponse set_content_permissions = 48;
+    // The DeleteContentPermissions operation succeeded.
+    DeleteContentPermissionsResponse delete_content_permissions = 49;
+    // The SetRestrictionState operation succeeded.
+    SetRestrictionStateResponse set_restriction_state = 50;
+    // The SetContentClassificationLevel operation succeeded.
+    SetContentClassificationLevelResponse set_content_classification_level = 51;
+    // The ResetContentClassificationLevel operation succeeded.
+    ResetContentClassificationLevelResponse reset_content_classification_level = 52;
+    // The UpdateSpaceDefaultClassificationLevel operation succeeded.
+    UpdateSpaceDefaultClassificationLevelResponse update_space_default_classification_level = 53;
+    // The DeleteSpaceDefaultClassificationLevel operation succeeded.
+    DeleteSpaceDefaultClassificationLevelResponse delete_space_default_classification_level = 54;
+    // The CreateSpaceRole operation succeeded.
+    CreateSpaceRoleResponse create_space_role = 55;
+    // The UpdateSpaceRole operation succeeded.
+    UpdateSpaceRoleResponse update_space_role = 56;
+    // The DeleteSpaceRole operation succeeded.
+    DeleteSpaceRoleResponse delete_space_role = 57;
+    // The SetSpaceRoleAssignments operation succeeded.
+    SetSpaceRoleAssignmentsResponse set_space_role_assignments = 58;
+    // The BulkAssignSpaceRoles operation succeeded.
+    BulkAssignSpaceRolesResponse bulk_assign_space_roles = 59;
+    // The BulkRemoveSpaceAccess operation succeeded.
+    BulkRemoveSpaceAccessResponse bulk_remove_space_access = 60;
+    // The InviteByEmail operation succeeded.
+    InviteByEmailResponse invite_by_email = 61;
+    // The RedactPage operation succeeded.
+    RedactPageResponse redact_page = 62;
+    // The RedactBlogPost operation succeeded.
+    RedactBlogPostResponse redact_blog_post = 63;
+    // The EnableAdminKey operation succeeded.
+    EnableAdminKeyResponse enable_admin_key = 64;
+    // The DisableAdminKey operation succeeded.
+    DisableAdminKeyResponse disable_admin_key = 65;
+  }
 }

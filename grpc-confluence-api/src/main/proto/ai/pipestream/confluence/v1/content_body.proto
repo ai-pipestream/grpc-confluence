@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package ai.pipestream.confluence.v1;
+
+import "ai/pipestream/confluence/v1/adf.proto";
+
+option java_multiple_files = true;
+option java_package = "ai.pipestream.confluence.v1";
+
+// ============================================================================
+// CONTENT BODY - the body of content being written.
+// ============================================================================
+
+// A body in Confluence storage format.
+message StorageBody {
+  // The storage-format XHTML.
+  string value = 1;
+}
+
+// A body in wiki markup.
+message WikiBody {
+  // The wiki markup.
+  string value = 1;
+}
+
+// A raw body of custom content.
+message RawBody {
+  // The unprocessed content.
+  string value = 1;
+}
+
+// The body of a page, blog post, comment or custom content to write.
+message ContentBody {
+  // The body in one format.
+  oneof format {
+    // An Atlassian Document Format document.
+    AdfDocument adf = 1;
+    // Storage format.
+    StorageBody storage = 2;
+    // Wiki markup; not accepted for custom content.
+    WikiBody wiki = 3;
+    // Raw content; accepted for custom content only.
+    RawBody raw = 4;
+  }
+}
