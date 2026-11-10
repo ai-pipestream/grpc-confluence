@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      run_live_write:
+        description: Run the live write test against the real Confluence workspace and record it
+        type: boolean
+        default: false
 
 # The shared core (ai-pipestream/grpc-integration) is checked out next to
 # this repo and included as a Gradle composite build (-PintegrationDir), so
@@ -98,3 +103,68 @@ jobs:
             exit 0
           fi
           ./gradlew --no-daemon -PintegrationDir=../grpc-integration :grpc-confluence-service:liveSmokeTest
+
+  # Writes to the real workspace and records the exchanges. Only ever started
+  # by hand: a workflow_dispatch with run_live_write set.
+  live-confluence-write:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.run_live_write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: grpc-confluence
+      - id: core
+        name: Pick the grpc-integration ref (same branch if it exists, else main)
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git ls-remote --exit-code --heads https://github.com/ai-pipestream/grpc-integration "$BRANCH" >/dev/null; then
+            echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=$INTEGRATION_REF" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v5
+        with:
+          repository: ai-pipestream/grpc-integration
+          ref: ${{ steps.core.outputs.ref }}
+          path: grpc-integration
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+      - name: Live Confluence write run
+        working-directory: grpc-confluence
+        env:
+          CONFLUENCE_BASE_URL: ${{ secrets.CONFLUENCE_BASE_URL }}
+          CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
+          CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          CONFLUENCE_LIVE_WRITE: "1"
+          CONFLUENCE_SPACE_KEY: CLAUDEGRPC
+        run: |
+          if [ -z "${CONFLUENCE_EMAIL}" ] || [ -z "${CONFLUENCE_API_TOKEN}" ]; then
+            echo "Confluence secrets not configured; the live write run needs them"
+            exit 1
+          fi
+          ./gradlew --no-daemon -PintegrationDir=../grpc-integration :grpc-confluence-service:liveWriteTest
+      - name: Report
+        if: always()
+        working-directory: grpc-confluence
+        run: |
+          if [ -f grpc-confluence-service/build/live-write.md ]; then
+            cat grpc-confluence-service/build/live-write.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No live write report was written." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-write-report
+          path: grpc-confluence/grpc-confluence-service/build/live-write.md
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: confluence-recordings
+          path: grpc-confluence/grpc-confluence-service/src/test/resources/recordings/
+          if-no-files-found: warn
