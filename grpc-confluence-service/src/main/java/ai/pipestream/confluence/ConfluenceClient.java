@@ -22,7 +22,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * A thin authorized client for the Confluence Cloud REST API v2: JSON in, JSON
+ * A thin authorized client for the Confluence Cloud REST API: JSON in, JSON
  * out, basic auth from the account email plus API token, and the service's
  * throttling contract honored - 429 responses are retried after the
  * server-directed {@code Retry-After} with jitter, and a politeness limiter
@@ -44,11 +44,27 @@ public final class ConfluenceClient {
         private final int status;
         /** Raw error response body. */
         private final String body;
+        /** Seconds of the response's {@code Retry-After}, or -1. */
+        private final long retryAfterSeconds;
 
         ConfluenceApiException(int status, String body) {
+            this(status, body, -1L);
+        }
+
+        ConfluenceApiException(int status, String body, long retryAfterSeconds) {
             super("Confluence " + status + ": " + abbreviate(body));
             this.status = status;
             this.body = body == null ? "" : body;
+            this.retryAfterSeconds = retryAfterSeconds;
+        }
+
+        /**
+         * The seconds the failing response asked the caller to wait.
+         *
+         * @return the {@code Retry-After} seconds, or -1 when the response named none
+         */
+        public long retryAfterSeconds() {
+            return retryAfterSeconds;
         }
 
         /**
@@ -94,6 +110,8 @@ public final class ConfluenceClient {
     /** Redirect hops allowed on an attachment download (302 to the media CDN). */
     private static final int MAX_DOWNLOAD_REDIRECTS = 5;
     private static final Duration DEFAULT_MIN_REQUEST_INTERVAL = Duration.ofMillis(100);
+    /** Time allowed for one streamed upload. */
+    private static final Duration UPLOAD_TIMEOUT = Duration.ofHours(1);
 
     /**
      * The mapper responses are parsed with, so tests build exactly the
@@ -267,8 +285,7 @@ public final class ConfluenceClient {
     }
 
     /**
-     * POST a JSON body to a v2 route that is a read in all but verb
-     * ({@code /users-bulk}, {@code /content/convert-ids-to-types}).
+     * POST a JSON body to a route.
      *
      * @param path a v2 path
      * @param body the JSON request body
@@ -282,6 +299,140 @@ public final class ConfluenceClient {
                 .POST(HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(body)))
                 .build();
         return json(send(req, HttpResponse.BodyHandlers.ofString()));
+    }
+
+    /**
+     * A JSON response with its HTTP status.
+     *
+     * @param status the HTTP status
+     * @param body the parsed JSON body; an empty object when the response had none
+     */
+    public record JsonResponse(int status, JsonNode body) {
+    }
+
+    /**
+     * POST a JSON body to a route, with query parameters.
+     *
+     * @param path a route path
+     * @param query query parameters
+     * @param body the JSON request body, or {@code null} for none
+     * @return the parsed JSON response body
+     * @throws IOException if the request fails or the service returns an error status
+     * @throws InterruptedException if the calling thread is interrupted while waiting
+     */
+    public JsonNode post(String path, Map<String, String> query, JsonNode body)
+            throws IOException, InterruptedException {
+        return exchange("POST", path, query, body).body();
+    }
+
+    /**
+     * PUT a JSON body to a route, with query parameters.
+     *
+     * @param path a route path
+     * @param query query parameters
+     * @param body the JSON request body, or {@code null} for none
+     * @return the parsed JSON response body
+     * @throws IOException if the request fails or the service returns an error status
+     * @throws InterruptedException if the calling thread is interrupted while waiting
+     */
+    public JsonNode put(String path, Map<String, String> query, JsonNode body)
+            throws IOException, InterruptedException {
+        return exchange("PUT", path, query, body).body();
+    }
+
+    /**
+     * DELETE a route, with query parameters.
+     *
+     * @param path a route path
+     * @param query query parameters
+     * @return the parsed JSON response body
+     * @throws IOException if the request fails or the service returns an error status
+     * @throws InterruptedException if the calling thread is interrupted while waiting
+     */
+    public JsonNode delete(String path, Map<String, String> query)
+            throws IOException, InterruptedException {
+        return exchange("DELETE", path, query, null).body();
+    }
+
+    /**
+     * Send a JSON request with any method and return the status with the body.
+     *
+     * @param method the HTTP method
+     * @param path a route path
+     * @param query query parameters
+     * @param body the JSON request body, or {@code null} for none
+     * @return the HTTP status and parsed JSON response body
+     * @throws IOException if the request fails or the service returns an error status
+     * @throws InterruptedException if the calling thread is interrupted while waiting
+     */
+    public JsonResponse exchange(String method, String path, Map<String, String> query,
+            JsonNode body) throws IOException, InterruptedException {
+        HttpRequest.Builder builder = request(url(path, query));
+        if (body == null) {
+            builder.method(method, HttpRequest.BodyPublishers.noBody());
+        } else {
+            builder.header("content-type", "application/json")
+                    .method(method, HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(body)));
+        }
+        HttpResponse<String> response = send(builder.build(), HttpResponse.BodyHandlers.ofString());
+        return new JsonResponse(response.statusCode(), json(response));
+    }
+
+    /**
+     * Send one file as a {@code multipart/form-data} request, streaming the
+     * content as it is read. The request is sent once: a throttled upload is
+     * not retried.
+     *
+     * @param method the HTTP method
+     * @param path a route path
+     * @param fields the text form fields, in order
+     * @param fileName the file name of the {@code file} part
+     * @param mediaType the media type of the {@code file} part
+     * @param content the file content; read to its end and closed
+     * @return the parsed JSON response body
+     * @throws IOException if the request fails or the service returns an error status
+     * @throws InterruptedException if the calling thread is interrupted while waiting
+     */
+    public JsonNode uploadMultipart(String method, String path, Map<String, String> fields,
+            String fileName, String mediaType, InputStream content)
+            throws IOException, InterruptedException {
+        String boundary = "----confluence-" + java.util.UUID.randomUUID();
+        StringBuilder head = new StringBuilder();
+        for (Map.Entry<String, String> field : fields.entrySet()) {
+            head.append("--").append(boundary).append("\r\n")
+                    .append("Content-Disposition: form-data; name=\"")
+                    .append(quoted(field.getKey())).append("\"\r\n\r\n")
+                    .append(field.getValue()).append("\r\n");
+        }
+        head.append("--").append(boundary).append("\r\n")
+                .append("Content-Disposition: form-data; name=\"file\"; filename=\"")
+                .append(quoted(fileName)).append("\"\r\n")
+                .append("Content-Type: ").append(quoted(mediaType)).append("\r\n\r\n");
+        byte[] tail = ("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8);
+        InputStream body = new java.io.SequenceInputStream(java.util.Collections.enumeration(
+                java.util.List.of(
+                        new java.io.ByteArrayInputStream(head.toString().getBytes(StandardCharsets.UTF_8)),
+                        content, new java.io.ByteArrayInputStream(tail))));
+        HttpRequest req = request(url(path, Map.of()))
+                .timeout(UPLOAD_TIMEOUT)
+                .header("content-type", "multipart/form-data; boundary=" + boundary)
+                .header("X-Atlassian-Token", "no-check")
+                .method(method, HttpRequest.BodyPublishers.ofInputStream(() -> body))
+                .build();
+        throttle();
+        try {
+            return json(http.send(req, HttpResponse.BodyHandlers.ofString()));
+        } finally {
+            body.close();
+        }
+    }
+
+    /** A header parameter value with quotes and backslashes escaped; line breaks are refused. */
+    private static String quoted(String value) {
+        if (value.indexOf('\r') >= 0 || value.indexOf('\n') >= 0) {
+            throw new IllegalArgumentException("a multipart header value contains a line break");
+        }
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     /**
@@ -614,10 +765,20 @@ public final class ConfluenceClient {
         lastRequestNanos = System.nanoTime();
     }
 
+    /** The {@code Retry-After} seconds of a response, or -1 when absent or not a number. */
+    private static long retryAfter(HttpResponse<?> response) {
+        String value = response.headers().firstValue("Retry-After").orElse("").trim();
+        try {
+            return value.isEmpty() ? -1L : Math.max(-1L, Long.parseLong(value));
+        } catch (NumberFormatException e) {
+            return -1L;
+        }
+    }
+
     private static JsonNode json(HttpResponse<String> response) throws IOException {
         String body = response.body();
         if (response.statusCode() >= 400) {
-            throw new ConfluenceApiException(response.statusCode(), body);
+            throw new ConfluenceApiException(response.statusCode(), body, retryAfter(response));
         }
         if (body == null || body.isBlank()) {
             return JSON.createObjectNode();

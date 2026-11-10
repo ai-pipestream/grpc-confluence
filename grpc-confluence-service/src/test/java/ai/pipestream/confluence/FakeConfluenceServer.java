@@ -14,9 +14,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * An in-process fake of the Confluence Cloud REST v2 API over
+ * An in-process fake of the Confluence Cloud REST API over
  * {@link HttpServer}, same idiom as the schema-registry stub tests: stubs are
- * keyed by request path (optionally {@code path?query}), requests are
+ * keyed by request path (optionally {@code path?query} or {@code METHOD path}), requests are
  * recorded for assertions, and one-shot stubs model a 429-then-success
  * exchange. No live Atlassian calls anywhere.
  */
@@ -31,10 +31,20 @@ final class FakeConfluenceServer implements AutoCloseable {
 
     /** One request the fake received. */
     record RecordedRequest(String method, String path, String query, String authorization,
-            String body) {
+            String body, Map<String, String> headers) {
 
         RecordedRequest(String method, String path, String query, String authorization) {
-            this(method, path, query, authorization, "");
+            this(method, path, query, authorization, "", Map.of());
+        }
+
+        RecordedRequest(String method, String path, String query, String authorization,
+                String body) {
+            this(method, path, query, authorization, body, Map.of());
+        }
+
+        /** The first value of a request header, by lower-case name; empty when absent. */
+        String header(String name) {
+            return headers.getOrDefault(name.toLowerCase(java.util.Locale.ROOT), "");
         }
 
         /** The query decoded into name/value pairs, in request order. */
@@ -91,6 +101,31 @@ final class FakeConfluenceServer implements AutoCloseable {
         stubs.put(pathOrPathQuery, stub);
     }
 
+    /** Stubs a response for one HTTP method on a path; it wins over a method-less stub. */
+    void stub(String method, String path, Stub stub) {
+        stubs.put(method + " " + path, stub);
+    }
+
+    /** Stubs a JSON response with the given status for one HTTP method on a path. */
+    void stub(String method, String path, int status, String json) {
+        stub(method, path, new Stub(status, json, Map.of()));
+    }
+
+    /** The last request with {@code method} to {@code path}; fails when there was none. */
+    RecordedRequest lastTo(String method, String path) {
+        List<RecordedRequest> matching = requests.stream()
+                .filter(r -> r.method().equals(method) && r.path().equals(path)).toList();
+        if (matching.isEmpty()) {
+            throw new AssertionError("no " + method + " to " + path + "; saw " + requests);
+        }
+        return matching.getLast();
+    }
+
+    /** Forgets the recorded requests. */
+    void clearRequests() {
+        requests.clear();
+    }
+
     /** A response used exactly once for the path, before the permanent stub applies. */
     void stubOnce(String path, Stub stub) {
         onceStubs.computeIfAbsent(path, k -> new ConcurrentLinkedQueue<>()).add(stub);
@@ -120,14 +155,20 @@ final class FakeConfluenceServer implements AutoCloseable {
         try (java.io.InputStream in = exchange.getRequestBody()) {
             requestBody = new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
+        Map<String, String> headers = new java.util.HashMap<>();
+        exchange.getRequestHeaders().forEach((name, values) ->
+                headers.put(name.toLowerCase(java.util.Locale.ROOT), values.getFirst()));
         requests.add(new RecordedRequest(exchange.getRequestMethod(), path,
                 query == null ? "" : query,
-                exchange.getRequestHeaders().getFirst("authorization"), requestBody));
+                exchange.getRequestHeaders().getFirst("authorization"), requestBody, headers));
 
         Stub stub = null;
         Queue<Stub> once = onceStubs.get(path);
         if (once != null) {
             stub = once.poll();
+        }
+        if (stub == null) {
+            stub = stubs.get(exchange.getRequestMethod() + " " + path);
         }
         if (stub == null && query != null) {
             stub = stubs.get(path + "?" + query);
@@ -143,6 +184,10 @@ final class FakeConfluenceServer implements AutoCloseable {
         stub.headers().forEach((name, value) -> exchange.getResponseHeaders().add(name, value));
         if (stub.status() == 200) {
             exchange.getResponseHeaders().add("content-type", "application/json");
+        }
+        if (stub.status() == 204) {
+            exchange.sendResponseHeaders(204, -1);
+            return;
         }
         exchange.sendResponseHeaders(stub.status(), body.length);
         try (OutputStream out = exchange.getResponseBody()) {
