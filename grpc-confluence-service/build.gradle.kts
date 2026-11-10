@@ -66,7 +66,7 @@ tasks.register<Test>("liveCoverageTest") {
 }
 
 tasks.register<Test>("liveWriteTest") {
-    description = "Runs the write rpcs against the real Confluence workspace under a fresh parent page and writes build/live-write.md; needs the liveSmokeTest credentials and CONFLUENCE_LIVE_WRITE=1, optional CONFLUENCE_SPACE_KEY (default CLAUDEGRPC) and CONFLUENCE_LIVE_WRITE_ADMIN=1, skips otherwise"
+    description = "Runs the write rpcs against the real Confluence workspace under a fresh parent page, writes build/live-write.md and records the exchanges under src/test/resources/recordings/confluence; needs the liveSmokeTest credentials and CONFLUENCE_LIVE_WRITE=1, optional CONFLUENCE_SPACE_KEY (default CLAUDEGRPC) and CONFLUENCE_LIVE_WRITE_ADMIN=1, skips otherwise"
     group = "verification"
     testClassesDirs = sourceSets.test.get().output.classesDirs
     classpath = sourceSets.test.get().runtimeClasspath
@@ -74,6 +74,7 @@ tasks.register<Test>("liveWriteTest") {
         includeTestsMatching("ai.pipestream.confluence.ConfluenceLiveWriteIT")
     }
     systemProperty("liveWrite.report", layout.buildDirectory.file("live-write.md").get().asFile.path)
+    systemProperty("liveWrite.recordings", layout.projectDirectory.dir("src/test/resources/recordings/confluence").asFile.path)
     // A live run is never up to date, and the report goes to stdout too.
     outputs.upToDateWhen { false }
     testLogging {

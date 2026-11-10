@@ -252,6 +252,14 @@ assignments, space default classification, invitations, admin key) need
 `CONFLUENCE_LIVE_WRITE_ADMIN=1`; custom content needs a type in
 `CONFLUENCE_LIVE_WRITE_CUSTOM_CONTENT_TYPE`.
 
+The run also records every HTTP exchange, scrubbed, under
+`grpc-confluence-service/src/test/resources/recordings/confluence`.
+`ConfluenceWriteReplayTest` runs the same steps against that recording in the
+default `test` task, with no network, and is skipped while there is no
+recording. See the
+[recordings README](grpc-confluence-service/src/test/resources/recordings/README.md).
+In CI the run is manual only: start the `ci` workflow with `run_live_write`.
+
 ### GitHub Actions secrets
 
 Repo secrets help **CI**, not a local agent checkout. After they are
