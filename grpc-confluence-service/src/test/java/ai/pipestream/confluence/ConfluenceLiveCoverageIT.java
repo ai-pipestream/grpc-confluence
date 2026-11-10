@@ -237,6 +237,10 @@ class ConfluenceLiveCoverageIT {
             executor.shutdownNow();
         }
 
+        // Writes are never sent to a real workspace.
+        ConfluenceWriteRoutes.rpcs().forEach(rpc ->
+                rows.add(new Row(rpc, rpc, "SKIPPED", "write rpc: the live run is read-only", false)));
+
         // Every rpc of the service must have been called (or skipped for lack of data).
         Set<String> seen = new LinkedHashSet<>();
         rows.forEach(row -> seen.add(row.rpc()));
