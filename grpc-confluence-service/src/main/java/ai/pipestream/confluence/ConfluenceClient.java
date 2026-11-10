@@ -163,6 +163,21 @@ public final class ConfluenceClient {
      */
     public ConfluenceClient(String baseUrl, String email, String apiToken,
             Duration minRequestInterval) {
+        this(baseUrl, email, apiToken, minRequestInterval,
+                HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).build());
+    }
+
+    /**
+     * Creates a client that sends its requests through {@code http}.
+     *
+     * @param baseUrl the Confluence Cloud base URL including {@code /wiki}
+     * @param email the Atlassian account email for basic auth
+     * @param apiToken the Atlassian API token for basic auth
+     * @param minRequestInterval minimum gap between requests; {@link Duration#ZERO} disables
+     * @param http the HTTP client every request is sent with; it must not follow redirects
+     */
+    public ConfluenceClient(String baseUrl, String email, String apiToken,
+            Duration minRequestInterval, HttpClient http) {
         String normalized = Strings.stripTrailingSlashes(Objects.requireNonNull(baseUrl, "baseUrl"));
         this.baseUrl = normalized;
         URI uri = URI.create(normalized);
@@ -172,7 +187,7 @@ public final class ConfluenceClient {
                 + Objects.requireNonNull(apiToken, "apiToken");
         this.authHeader = "Basic "
                 + Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
-        this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).build();
+        this.http = Objects.requireNonNull(http, "http");
         this.minRequestInterval = Objects.requireNonNull(minRequestInterval);
     }
 
