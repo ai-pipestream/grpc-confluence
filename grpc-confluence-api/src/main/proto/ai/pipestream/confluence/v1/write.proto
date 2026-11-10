@@ -1,0 +1,1359 @@
+syntax = "proto3";
+
+package ai.pipestream.confluence.v1;
+
+import "ai/pipestream/confluence/v1/admin_key.proto";
+import "ai/pipestream/confluence/v1/attachment.proto";
+import "ai/pipestream/confluence/v1/blogpost.proto";
+import "ai/pipestream/confluence/v1/comment.proto";
+import "ai/pipestream/confluence/v1/common.proto";
+import "ai/pipestream/confluence/v1/content.proto";
+import "ai/pipestream/confluence/v1/content_body.proto";
+import "ai/pipestream/confluence/v1/page.proto";
+import "ai/pipestream/confluence/v1/permission.proto";
+import "ai/pipestream/confluence/v1/property.proto";
+import "ai/pipestream/confluence/v1/redaction.proto";
+import "ai/pipestream/confluence/v1/space.proto";
+import "ai/pipestream/confluence/v1/task.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "ai.pipestream.confluence.v1";
+
+// ============================================================================
+// WRITES - requests and responses of the write rpcs.
+// ============================================================================
+
+
+// The text an inline comment highlights.
+message InlineCommentSelection {
+  // The text to highlight.
+  string text_selection = 1;
+  // Number of occurrences of the text in the content.
+  int32 text_selection_match_count = 2;
+  // Zero-based index of the occurrence to highlight.
+  int32 text_selection_match_index = 3;
+}
+
+// A whiteboard template.
+enum WhiteboardTemplateKey {
+  // Not set.
+  WHITEBOARD_TEMPLATE_KEY_UNSPECIFIED = 0;
+  // `2x2-prioritization`.
+  WHITEBOARD_TEMPLATE_KEY_2X2_PRIORITIZATION = 1;
+  // `4ls-retro`.
+  WHITEBOARD_TEMPLATE_KEY_4LS_RETRO = 2;
+  // `annual-calendar`.
+  WHITEBOARD_TEMPLATE_KEY_ANNUAL_CALENDAR = 3;
+  // `brainwriting`.
+  WHITEBOARD_TEMPLATE_KEY_BRAINWRITING = 4;
+  // `concept-map`.
+  WHITEBOARD_TEMPLATE_KEY_CONCEPT_MAP = 5;
+  // `crazy-8s`.
+  WHITEBOARD_TEMPLATE_KEY_CRAZY_8S = 6;
+  // `daily-sync`.
+  WHITEBOARD_TEMPLATE_KEY_DAILY_SYNC = 7;
+  // `disruptive-brainstorm`.
+  WHITEBOARD_TEMPLATE_KEY_DISRUPTIVE_BRAINSTORM = 8;
+  // `dot-voting`.
+  WHITEBOARD_TEMPLATE_KEY_DOT_VOTING = 9;
+  // `elevator-pitch`.
+  WHITEBOARD_TEMPLATE_KEY_ELEVATOR_PITCH = 10;
+  // `flow-chart`.
+  WHITEBOARD_TEMPLATE_KEY_FLOW_CHART = 11;
+  // `gap-analysis`.
+  WHITEBOARD_TEMPLATE_KEY_GAP_ANALYSIS = 12;
+  // `ice-breakers`.
+  WHITEBOARD_TEMPLATE_KEY_ICE_BREAKERS = 13;
+  // `incident-postmortem`.
+  WHITEBOARD_TEMPLATE_KEY_INCIDENT_POSTMORTEM = 14;
+  // `journey-mapping-kit`.
+  WHITEBOARD_TEMPLATE_KEY_JOURNEY_MAPPING_KIT = 15;
+  // `kanban-board`.
+  WHITEBOARD_TEMPLATE_KEY_KANBAN_BOARD = 16;
+  // `lean-coffee`.
+  WHITEBOARD_TEMPLATE_KEY_LEAN_COFFEE = 17;
+  // `network-of-teams`.
+  WHITEBOARD_TEMPLATE_KEY_NETWORK_OF_TEAMS = 18;
+  // `org-chart`.
+  WHITEBOARD_TEMPLATE_KEY_ORG_CHART = 19;
+  // `pi-planning`.
+  WHITEBOARD_TEMPLATE_KEY_PI_PLANNING = 20;
+  // `prioritization`.
+  WHITEBOARD_TEMPLATE_KEY_PRIORITIZATION = 21;
+  // `prioritization-experiment`.
+  WHITEBOARD_TEMPLATE_KEY_PRIORITIZATION_EXPERIMENT = 22;
+  // `product-roadmap`.
+  WHITEBOARD_TEMPLATE_KEY_PRODUCT_ROADMAP = 23;
+  // `product-vision-board`.
+  WHITEBOARD_TEMPLATE_KEY_PRODUCT_VISION_BOARD = 24;
+  // `rice`.
+  WHITEBOARD_TEMPLATE_KEY_RICE = 25;
+  // `sailboat-retro`.
+  WHITEBOARD_TEMPLATE_KEY_SAILBOAT_RETRO = 26;
+  // `service-blueprint`.
+  WHITEBOARD_TEMPLATE_KEY_SERVICE_BLUEPRINT = 27;
+  // `simple-retrospective`.
+  WHITEBOARD_TEMPLATE_KEY_SIMPLE_RETROSPECTIVE = 28;
+  // `sprint-planning`.
+  WHITEBOARD_TEMPLATE_KEY_SPRINT_PLANNING = 29;
+  // `sticky-note-pack`.
+  WHITEBOARD_TEMPLATE_KEY_STICKY_NOTE_PACK = 30;
+  // `swimlanes`.
+  WHITEBOARD_TEMPLATE_KEY_SWIMLANES = 31;
+  // `team-formation-guide`.
+  WHITEBOARD_TEMPLATE_KEY_TEAM_FORMATION_GUIDE = 32;
+  // `timeline`.
+  WHITEBOARD_TEMPLATE_KEY_TIMELINE = 33;
+  // `timeline-workflow`.
+  WHITEBOARD_TEMPLATE_KEY_TIMELINE_WORKFLOW = 34;
+  // `user-story-map`.
+  WHITEBOARD_TEMPLATE_KEY_USER_STORY_MAP = 35;
+  // `workflow`.
+  WHITEBOARD_TEMPLATE_KEY_WORKFLOW = 36;
+  // `vision-board`.
+  WHITEBOARD_TEMPLATE_KEY_VISION_BOARD = 37;
+  // `venn-diagram`.
+  WHITEBOARD_TEMPLATE_KEY_VENN_DIAGRAM = 38;
+  // `storyboard`.
+  WHITEBOARD_TEMPLATE_KEY_STORYBOARD = 39;
+  // `action-plan`.
+  WHITEBOARD_TEMPLATE_KEY_ACTION_PLAN = 40;
+  // `root-cause-analysis`.
+  WHITEBOARD_TEMPLATE_KEY_ROOT_CAUSE_ANALYSIS = 41;
+  // `executive-summary`.
+  WHITEBOARD_TEMPLATE_KEY_EXECUTIVE_SUMMARY = 42;
+  // `stakeholder-mapping`.
+  WHITEBOARD_TEMPLATE_KEY_STAKEHOLDER_MAPPING = 43;
+  // `annual-calendar-2025-2026`.
+  WHITEBOARD_TEMPLATE_KEY_ANNUAL_CALENDAR_2025_2026 = 44;
+  // `health-monitor`.
+  WHITEBOARD_TEMPLATE_KEY_HEALTH_MONITOR = 45;
+  // `okr-planning`.
+  WHITEBOARD_TEMPLATE_KEY_OKR_PLANNING = 46;
+  // `swot-analysis`.
+  WHITEBOARD_TEMPLATE_KEY_SWOT_ANALYSIS = 47;
+  // `poker-planning`.
+  WHITEBOARD_TEMPLATE_KEY_POKER_PLANNING = 48;
+  // `fishbone-diagram`.
+  WHITEBOARD_TEMPLATE_KEY_FISHBONE_DIAGRAM = 49;
+  // `risk-assessment`.
+  WHITEBOARD_TEMPLATE_KEY_RISK_ASSESSMENT = 50;
+  // `bounded-context`.
+  WHITEBOARD_TEMPLATE_KEY_BOUNDED_CONTEXT = 51;
+  // `hopes-and-fears`.
+  WHITEBOARD_TEMPLATE_KEY_HOPES_AND_FEARS = 52;
+  // `swimlane-vertical`.
+  WHITEBOARD_TEMPLATE_KEY_SWIMLANE_VERTICAL = 53;
+}
+
+// The language of a whiteboard template.
+enum WhiteboardLocale {
+  // Not set.
+  WHITEBOARD_LOCALE_UNSPECIFIED = 0;
+  // `de-DE`.
+  WHITEBOARD_LOCALE_DE_DE = 1;
+  // `cs-CZ`.
+  WHITEBOARD_LOCALE_CS_CZ = 2;
+  // `ko-KR`.
+  WHITEBOARD_LOCALE_KO_KR = 3;
+  // `fr-FR`.
+  WHITEBOARD_LOCALE_FR_FR = 4;
+  // `it-IT`.
+  WHITEBOARD_LOCALE_IT_IT = 5;
+  // `ja-JP`.
+  WHITEBOARD_LOCALE_JA_JP = 6;
+  // `nl-NL`.
+  WHITEBOARD_LOCALE_NL_NL = 7;
+  // `nb-NO`.
+  WHITEBOARD_LOCALE_NB_NO = 8;
+  // `da-DK`.
+  WHITEBOARD_LOCALE_DA_DK = 9;
+  // `sv-SE`.
+  WHITEBOARD_LOCALE_SV_SE = 10;
+  // `fi-FI`.
+  WHITEBOARD_LOCALE_FI_FI = 11;
+  // `ru-RU`.
+  WHITEBOARD_LOCALE_RU_RU = 12;
+  // `pl-PL`.
+  WHITEBOARD_LOCALE_PL_PL = 13;
+  // `tr-TR`.
+  WHITEBOARD_LOCALE_TR_TR = 14;
+  // `hu-HU`.
+  WHITEBOARD_LOCALE_HU_HU = 15;
+  // `en-GB`.
+  WHITEBOARD_LOCALE_EN_GB = 16;
+  // `en-US`.
+  WHITEBOARD_LOCALE_EN_US = 17;
+  // `pt-BR`.
+  WHITEBOARD_LOCALE_PT_BR = 18;
+  // `zh-CN`.
+  WHITEBOARD_LOCALE_ZH_CN = 19;
+  // `zh-TW`.
+  WHITEBOARD_LOCALE_ZH_TW = 20;
+  // `es-ES`.
+  WHITEBOARD_LOCALE_ES_ES = 21;
+}
+
+// One operation and the principals it is granted to.
+message ContentPermissionGrant {
+  // The operation.
+  ContentPermissionOperation operation = 1;
+  // The principals granted the operation.
+  repeated ContentPermissionPrincipal principals = 2;
+}
+
+// Which spaces a bulk transition applies to.
+enum BulkTransitionSpaceType {
+  // Not set.
+  BULK_TRANSITION_SPACE_TYPE_UNSPECIFIED = 0;
+  // All spaces.
+  BULK_TRANSITION_SPACE_TYPE_ALL = 1;
+  // All spaces except personal spaces.
+  BULK_TRANSITION_SPACE_TYPE_ALL_EXCEPT_PERSONAL = 2;
+  // All spaces except the selected ones.
+  BULK_TRANSITION_SPACE_TYPE_ALL_EXCEPT_SPECIFIC = 3;
+  // Personal spaces.
+  BULK_TRANSITION_SPACE_TYPE_PERSONAL = 4;
+  // The selected spaces.
+  BULK_TRANSITION_SPACE_TYPE_SPECIFIC = 5;
+}
+
+// One space of a bulk transition selection.
+message BulkTransitionSpaceTarget {
+  // ID of the space.
+  string id = 1;
+  // Key of the space.
+  string key = 2;
+}
+
+// The spaces a bulk transition applies to.
+message BulkTransitionSpaceSelection {
+  // How the spaces are selected.
+  BulkTransitionSpaceType space_type = 1;
+  // The selected spaces, for SPECIFIC and ALL_EXCEPT_SPECIFIC.
+  repeated BulkTransitionSpaceTarget selected_spaces = 2;
+}
+
+// What happens to one principal type holding a permission combination.
+message BulkTransitionPrincipalTypeAssignment {
+  // The principal type.
+  BulkTransitionPrincipalType principal_type = 1;
+  // Removes access instead of assigning a role.
+  bool remove_access = 2;
+  // ID of the role to assign.
+  optional string role_id = 3;
+}
+
+// The role assignments for one permission combination.
+message BulkTransitionRoleAssignment {
+  // ID of the permission combination.
+  string permission_combination_id = 1;
+  // The assignment per principal type.
+  repeated BulkTransitionPrincipalTypeAssignment principal_type_assignments = 2;
+}
+
+// A started bulk transition task.
+message BulkTransitionTask {
+  // ID of the task.
+  string task_id = 1;
+  // Status of the task.
+  BulkTransitionTaskStatus status = 2;
+  // URL that reports the task status.
+  string status_url = 3;
+}
+
+// One text range to redact.
+message RedactionPointer {
+  // JSON pointer to the text node holding the text.
+  string pointer = 1;
+  // Zero-based index of the first character to redact.
+  int32 from = 2;
+  // Zero-based index after the last character to redact.
+  int32 to = 3;
+  // Reason for the redaction.
+  optional string reason = 4;
+}
+
+// Why a Mutate operation failed.
+enum MutateErrorCode {
+  // Not set.
+  MUTATE_ERROR_CODE_UNSPECIFIED = 0;
+  // The operation was malformed or rejected as invalid.
+  MUTATE_ERROR_CODE_INVALID_ARGUMENT = 1;
+  // The credentials may not perform the operation.
+  MUTATE_ERROR_CODE_PERMISSION_DENIED = 2;
+  // The target does not exist or is not visible.
+  MUTATE_ERROR_CODE_NOT_FOUND = 3;
+  // The target changed since expected_version, or the operation conflicts
+  // with its state.
+  MUTATE_ERROR_CODE_CONFLICT = 4;
+  // Confluence rate-limited the operation.
+  MUTATE_ERROR_CODE_THROTTLED = 5;
+  // Confluence could not be reached.
+  MUTATE_ERROR_CODE_UNAVAILABLE = 6;
+  // Any other failure.
+  MUTATE_ERROR_CODE_INTERNAL = 7;
+  // The connection is not usable.
+  MUTATE_ERROR_CODE_FAILED_PRECONDITION = 8;
+}
+
+// The failure of one Mutate operation.
+message MutateError {
+  // The kind of failure.
+  MutateErrorCode code = 1;
+  // Description of the failure.
+  string message = 2;
+  // HTTP status Confluence answered with; 0 when it did not answer.
+  int32 http_status = 3;
+  // How long to wait before retrying, when Confluence said so.
+  google.protobuf.Duration retry_after = 4;
+}
+
+// The first frame of an upload: where the file goes and what it is.
+message UploadAttachmentHeader {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the content the file is attached to.
+  string content_id = 2;
+  // Name of the file.
+  string file_name = 3;
+  // Media type of the file; empty for application/octet-stream.
+  string media_type = 4;
+  // Comment stored with the attachment version.
+  string comment = 5;
+  // Marks the upload as a minor edit, which sends no notifications.
+  bool minor_edit = 6;
+  // Adds a new version when an attachment with this file name exists.
+  bool replace_existing = 7;
+}
+
+// The last frame of an upload.
+message UploadAttachmentEnd {}
+
+// One frame of an attachment upload: the header, then chunks, then the end.
+message UploadAttachmentRequest {
+  // The frame.
+  oneof frame {
+    // Where the file goes and what it is; the first frame.
+    UploadAttachmentHeader header = 1;
+    // The next bytes of the file.
+    bytes chunk = 2;
+    // Marks the file complete; the last frame.
+    UploadAttachmentEnd end = 3;
+  }
+}
+
+// Progress of an upload.
+message UploadAttachmentProgress {
+  // Bytes of the file received so far.
+  int64 bytes_received = 1;
+}
+
+// One event of an attachment upload.
+message UploadAttachmentResponse {
+  // The event.
+  oneof event {
+    // Bytes received so far; sent after each chunk.
+    UploadAttachmentProgress progress = 1;
+    // The stored attachment; the last event.
+    Attachment attachment = 2;
+  }
+}
+
+// Request of UpdatePage.
+message UpdatePageRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the page.
+  string id = 2;
+  // Status of the page: current or draft.
+  ContentStatus status = 3;
+  // Title of the page.
+  string title = 4;
+  // ID of the containing space.
+  string space_id = 5;
+  // ID of the new parent content.
+  string parent_id = 6;
+  // Account ID of the new page owner.
+  string owner_id = 7;
+  // Body of the page.
+  ContentBody body = 8;
+  // The current version number; the update is sent as this plus one.
+  int32 expected_version = 9;
+  // Message stored with the new version.
+  string version_message = 10;
+}
+
+// Response of UpdatePage.
+message UpdatePageResponse {
+  // The updated page.
+  Page page = 1;
+}
+
+// Request of DeletePage.
+message DeletePageRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the page.
+  string id = 2;
+  // Permanently deletes a trashed page.
+  bool purge = 3;
+  // Deletes the draft of the page.
+  bool draft = 4;
+}
+
+// Response of DeletePage.
+message DeletePageResponse {}
+
+// Request of UpdatePageTitle.
+message UpdatePageTitleRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the page.
+  string id = 2;
+  // Status of the page: current or draft.
+  ContentStatus status = 3;
+  // Title of the page.
+  string title = 4;
+}
+
+// Response of UpdatePageTitle.
+message UpdatePageTitleResponse {
+  // The updated page.
+  Page page = 1;
+}
+
+// Request of CreateBlogPost.
+message CreateBlogPostRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the space.
+  string space_id = 2;
+  // Status of the blog post: current or draft.
+  ContentStatus status = 3;
+  // Title of the blog post; required unless it is a draft.
+  string title = 4;
+  // Body of the blog post.
+  ContentBody body = 5;
+  // Creation date to record for the blog post.
+  google.protobuf.Timestamp created_at = 6;
+  // Makes the blog post visible to its creator only.
+  bool private = 7;
+}
+
+// Response of CreateBlogPost.
+message CreateBlogPostResponse {
+  // The created blog post.
+  BlogPost blog_post = 1;
+}
+
+// Request of UpdateBlogPost.
+message UpdateBlogPostRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the blog post.
+  string id = 2;
+  // Status of the blog post: current or draft.
+  ContentStatus status = 3;
+  // Title of the blog post.
+  string title = 4;
+  // ID of the containing space.
+  string space_id = 5;
+  // Body of the blog post.
+  ContentBody body = 6;
+  // The current version number; the update is sent as this plus one.
+  int32 expected_version = 7;
+  // Message stored with the new version.
+  string version_message = 8;
+  // Creation date to record for the blog post.
+  google.protobuf.Timestamp created_at = 9;
+}
+
+// Response of UpdateBlogPost.
+message UpdateBlogPostResponse {
+  // The updated blog post.
+  BlogPost blog_post = 1;
+}
+
+// Request of DeleteBlogPost.
+message DeleteBlogPostRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the blog post.
+  string id = 2;
+  // Permanently deletes a trashed blog post.
+  bool purge = 3;
+  // Deletes the draft of the blog post.
+  bool draft = 4;
+}
+
+// Response of DeleteBlogPost.
+message DeleteBlogPostResponse {}
+
+// Request of CreateFooterComment.
+message CreateFooterCommentRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the blog post to comment on.
+  string blog_post_id = 2;
+  // ID of the page to comment on.
+  string page_id = 3;
+  // ID of the comment to reply to.
+  string parent_comment_id = 4;
+  // ID of the attachment to comment on.
+  string attachment_id = 5;
+  // ID of the custom content to comment on.
+  string custom_content_id = 6;
+  // Body of the comment.
+  ContentBody body = 7;
+}
+
+// Response of CreateFooterComment.
+message CreateFooterCommentResponse {
+  // The created comment.
+  Comment comment = 1;
+}
+
+// Request of UpdateFooterComment.
+message UpdateFooterCommentRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the comment.
+  string id = 2;
+  // Body of the comment.
+  ContentBody body = 3;
+  // The current version number; the update is sent as this plus one.
+  int32 expected_version = 4;
+  // Message stored with the new version.
+  string version_message = 5;
+}
+
+// Response of UpdateFooterComment.
+message UpdateFooterCommentResponse {
+  // The updated comment.
+  Comment comment = 1;
+}
+
+// Request of DeleteFooterComment.
+message DeleteFooterCommentRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the comment.
+  string id = 2;
+}
+
+// Response of DeleteFooterComment.
+message DeleteFooterCommentResponse {}
+
+// Request of CreateInlineComment.
+message CreateInlineCommentRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the blog post to comment on.
+  string blog_post_id = 2;
+  // ID of the page to comment on.
+  string page_id = 3;
+  // ID of the comment to reply to.
+  string parent_comment_id = 4;
+  // Body of the comment.
+  ContentBody body = 5;
+  // The text to highlight; required for a top-level comment.
+  InlineCommentSelection selection = 6;
+}
+
+// Response of CreateInlineComment.
+message CreateInlineCommentResponse {
+  // The created comment.
+  Comment comment = 1;
+}
+
+// Request of UpdateInlineComment.
+message UpdateInlineCommentRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the comment.
+  string id = 2;
+  // Body of the comment.
+  ContentBody body = 3;
+  // The current version number; the update is sent as this plus one.
+  int32 expected_version = 4;
+  // Message stored with the new version.
+  string version_message = 5;
+  // True resolves the comment, false reopens it.
+  optional bool resolved = 6;
+}
+
+// Response of UpdateInlineComment.
+message UpdateInlineCommentResponse {
+  // The updated comment.
+  Comment comment = 1;
+}
+
+// Request of DeleteInlineComment.
+message DeleteInlineCommentRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the comment.
+  string id = 2;
+}
+
+// Response of DeleteInlineComment.
+message DeleteInlineCommentResponse {}
+
+// Request of CreateCustomContent.
+message CreateCustomContentRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // Type of the custom content.
+  string type = 2;
+  // Status of the custom content: current or draft.
+  ContentStatus status = 3;
+  // ID of the containing space.
+  string space_id = 4;
+  // ID of the containing page.
+  string page_id = 5;
+  // ID of the containing blog post.
+  string blog_post_id = 6;
+  // ID of the containing custom content.
+  string custom_content_id = 7;
+  // Title of the custom content.
+  string title = 8;
+  // Body of the custom content.
+  ContentBody body = 9;
+}
+
+// Response of CreateCustomContent.
+message CreateCustomContentResponse {
+  // The created custom content.
+  CustomContent custom_content = 1;
+}
+
+// Request of UpdateCustomContent.
+message UpdateCustomContentRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the custom content.
+  string id = 2;
+  // Type of the custom content.
+  string type = 3;
+  // Status of the custom content: current.
+  ContentStatus status = 4;
+  // ID of the containing space.
+  string space_id = 5;
+  // ID of the containing page.
+  string page_id = 6;
+  // ID of the containing blog post.
+  string blog_post_id = 7;
+  // ID of the containing custom content.
+  string custom_content_id = 8;
+  // Title of the custom content.
+  string title = 9;
+  // Body of the custom content.
+  ContentBody body = 10;
+  // The current version number; the update is sent as this plus one.
+  int32 expected_version = 11;
+  // Message stored with the new version.
+  string version_message = 12;
+}
+
+// Response of UpdateCustomContent.
+message UpdateCustomContentResponse {
+  // The updated custom content.
+  CustomContent custom_content = 1;
+}
+
+// Request of DeleteCustomContent.
+message DeleteCustomContentRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the custom content.
+  string id = 2;
+  // Permanently deletes a trashed custom content.
+  bool purge = 3;
+}
+
+// Response of DeleteCustomContent.
+message DeleteCustomContentResponse {}
+
+// Request of CreateDatabase.
+message CreateDatabaseRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the space.
+  string space_id = 2;
+  // Title of the database.
+  string title = 3;
+  // ID of the parent content.
+  string parent_id = 4;
+  // Makes the database visible to its creator only.
+  bool private = 5;
+}
+
+// Response of CreateDatabase.
+message CreateDatabaseResponse {
+  // The created database.
+  Database database = 1;
+}
+
+// Request of DeleteDatabase.
+message DeleteDatabaseRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the database.
+  string id = 2;
+}
+
+// Response of DeleteDatabase.
+message DeleteDatabaseResponse {}
+
+// Request of CreateFolder.
+message CreateFolderRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the space.
+  string space_id = 2;
+  // Title of the folder.
+  string title = 3;
+  // ID of the parent content.
+  string parent_id = 4;
+}
+
+// Response of CreateFolder.
+message CreateFolderResponse {
+  // The created folder.
+  Folder folder = 1;
+}
+
+// Request of DeleteFolder.
+message DeleteFolderRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the folder.
+  string id = 2;
+}
+
+// Response of DeleteFolder.
+message DeleteFolderResponse {}
+
+// Request of CreateWhiteboard.
+message CreateWhiteboardRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the space.
+  string space_id = 2;
+  // Title of the whiteboard.
+  string title = 3;
+  // ID of the parent content.
+  string parent_id = 4;
+  // Template to add to the whiteboard.
+  WhiteboardTemplateKey template_key = 5;
+  // Language of the template.
+  WhiteboardLocale locale = 6;
+  // Makes the whiteboard visible to its creator only.
+  bool private = 7;
+}
+
+// Response of CreateWhiteboard.
+message CreateWhiteboardResponse {
+  // The created whiteboard.
+  Whiteboard whiteboard = 1;
+}
+
+// Request of DeleteWhiteboard.
+message DeleteWhiteboardRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the whiteboard.
+  string id = 2;
+}
+
+// Response of DeleteWhiteboard.
+message DeleteWhiteboardResponse {}
+
+// Request of CreateSmartLink.
+message CreateSmartLinkRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the space.
+  string space_id = 2;
+  // Title of the Smart Link.
+  string title = 3;
+  // ID of the parent content.
+  string parent_id = 4;
+  // The URL the Smart Link embeds.
+  string embed_url = 5;
+}
+
+// Response of CreateSmartLink.
+message CreateSmartLinkResponse {
+  // The created Smart Link.
+  SmartLink smart_link = 1;
+}
+
+// Request of DeleteSmartLink.
+message DeleteSmartLinkRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the Smart Link.
+  string id = 2;
+}
+
+// Response of DeleteSmartLink.
+message DeleteSmartLinkResponse {}
+
+// Request of DeleteAttachment.
+message DeleteAttachmentRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the attachment.
+  string id = 2;
+  // Permanently deletes a trashed attachment.
+  bool purge = 3;
+}
+
+// Response of DeleteAttachment.
+message DeleteAttachmentResponse {}
+
+// Request of CreateSpace.
+message CreateSpaceRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // Name of the space.
+  string name = 2;
+  // Key of the space; required unless alias is set.
+  string key = 3;
+  // Identifier of the space in page URLs; required unless key is set.
+  string alias = 4;
+  // Plain-text description of the space.
+  string description = 5;
+  // Role assignments of the new space.
+  repeated SpaceRoleAssignment role_assignments = 6;
+  // ID of the space to copy the access configuration from.
+  optional int64 copy_space_access_configuration = 7;
+  // Creates the space as private.
+  bool create_private_space = 8;
+  // Key of the template to create the space from.
+  string template_key = 9;
+}
+
+// Response of CreateSpace.
+message CreateSpaceResponse {
+  // The created space.
+  Space space = 1;
+}
+
+// Request of UpdateTask.
+message UpdateTaskRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the task.
+  string id = 2;
+  // New status of the task.
+  TaskStatus status = 3;
+  // Body format of the returned task: storage or atlas_doc_format.
+  BodyFormat body_format = 4;
+  // Local ID of the task within its page or blog post.
+  string local_id = 5;
+  // ID of the space the task is in.
+  string space_id = 6;
+  // ID of the page the task is in.
+  string page_id = 7;
+  // ID of the blog post the task is in.
+  string blog_post_id = 8;
+  // Account ID of the user who created the task.
+  string created_by = 9;
+  // Account ID of the user the task is assigned to.
+  string assigned_to = 10;
+  // Account ID of the user who completed the task.
+  string completed_by = 11;
+  // When the task was created.
+  google.protobuf.Timestamp created_at = 12;
+  // When the task was updated.
+  google.protobuf.Timestamp updated_at = 13;
+  // When the task is due.
+  google.protobuf.Timestamp due_at = 14;
+  // When the task was completed.
+  google.protobuf.Timestamp completed_at = 15;
+}
+
+// Response of UpdateTask.
+message UpdateTaskResponse {
+  // The updated task.
+  Task task = 1;
+}
+
+// Request of CreateContentProperty.
+message CreateContentPropertyRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // The content: a page, blog post, attachment, custom content, footer or
+  // inline comment, whiteboard, database, folder or Smart Link.
+  ContentRef content = 2;
+  // The property key.
+  PropertyKey key = 3;
+  // The raw key string; set only when key is CUSTOM.
+  string custom_key = 4;
+  // The property value.
+  PropertyValue value = 5;
+}
+
+// Response of CreateContentProperty.
+message CreateContentPropertyResponse {
+  // The created property.
+  ContentProperty property = 1;
+}
+
+// Request of UpdateContentProperty.
+message UpdateContentPropertyRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // The content: a page, blog post, attachment, custom content, footer or
+  // inline comment, whiteboard, database, folder or Smart Link.
+  ContentRef content = 2;
+  // ID of the property.
+  string property_id = 3;
+  // The property key.
+  PropertyKey key = 4;
+  // The raw key string; set only when key is CUSTOM.
+  string custom_key = 5;
+  // The property value.
+  PropertyValue value = 6;
+  // The current version number; the update is sent as this plus one.
+  int32 expected_version = 7;
+  // Message stored with the new version.
+  string version_message = 8;
+}
+
+// Response of UpdateContentProperty.
+message UpdateContentPropertyResponse {
+  // The updated property.
+  ContentProperty property = 1;
+}
+
+// Request of DeleteContentProperty.
+message DeleteContentPropertyRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // The content: a page, blog post, attachment, custom content, footer or
+  // inline comment, whiteboard, database, folder or Smart Link.
+  ContentRef content = 2;
+  // ID of the property.
+  string property_id = 3;
+}
+
+// Response of DeleteContentProperty.
+message DeleteContentPropertyResponse {}
+
+// Request of CreateSpaceProperty.
+message CreateSpacePropertyRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the space.
+  string space_id = 2;
+  // The property key.
+  PropertyKey key = 3;
+  // The raw key string; set only when key is CUSTOM.
+  string custom_key = 4;
+  // The property value.
+  PropertyValue value = 5;
+}
+
+// Response of CreateSpaceProperty.
+message CreateSpacePropertyResponse {
+  // The created property.
+  SpaceProperty property = 1;
+}
+
+// Request of UpdateSpaceProperty.
+message UpdateSpacePropertyRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the space.
+  string space_id = 2;
+  // ID of the property.
+  string property_id = 3;
+  // The property key.
+  PropertyKey key = 4;
+  // The raw key string; set only when key is CUSTOM.
+  string custom_key = 5;
+  // The property value.
+  PropertyValue value = 6;
+  // The current version number; the update is sent as this plus one.
+  int32 expected_version = 7;
+  // Message stored with the new version.
+  string version_message = 8;
+}
+
+// Response of UpdateSpaceProperty.
+message UpdateSpacePropertyResponse {
+  // The updated property.
+  SpaceProperty property = 1;
+}
+
+// Request of DeleteSpaceProperty.
+message DeleteSpacePropertyRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the space.
+  string space_id = 2;
+  // ID of the property.
+  string property_id = 3;
+}
+
+// Response of DeleteSpaceProperty.
+message DeleteSpacePropertyResponse {}
+
+// Request of SetAppProperty.
+message SetAppPropertyRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // The property key.
+  string key = 2;
+  // The property value.
+  PropertyValue value = 3;
+}
+
+// Response of SetAppProperty.
+message SetAppPropertyResponse {
+  // True when the property was created, false when it was replaced.
+  bool created = 1;
+}
+
+// Request of DeleteAppProperty.
+message DeleteAppPropertyRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // The property key.
+  string key = 2;
+}
+
+// Response of DeleteAppProperty.
+message DeleteAppPropertyResponse {}
+
+// Request of RemoveLabel.
+message RemoveLabelRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the content.
+  string content_id = 2;
+  // Name of the label.
+  string name = 3;
+}
+
+// Response of RemoveLabel.
+message RemoveLabelResponse {}
+
+// Request of AddContentPermissions.
+message AddContentPermissionsRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // The content: a page, blog post, database, whiteboard or folder.
+  ContentRef content = 2;
+  // The permissions, grouped by operation.
+  repeated ContentPermissionGrant permissions = 3;
+  // Allows a change that removes the caller's own edit access.
+  bool allow_self_lockout = 4;
+}
+
+// Response of AddContentPermissions.
+message AddContentPermissionsResponse {
+  // The direct permissions of the content after the change.
+  repeated ContentPermission permissions = 1;
+}
+
+// Request of SetContentPermissions.
+message SetContentPermissionsRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // The content: a page, blog post, database, whiteboard or folder.
+  ContentRef content = 2;
+  // The permissions, grouped by operation.
+  repeated ContentPermissionGrant permissions = 3;
+  // Allows a change that removes the caller's own edit access.
+  bool allow_self_lockout = 4;
+}
+
+// Response of SetContentPermissions.
+message SetContentPermissionsResponse {
+  // The direct permissions of the content after the change.
+  repeated ContentPermission permissions = 1;
+}
+
+// Request of DeleteContentPermissions.
+message DeleteContentPermissionsRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // The content: a page, blog post, database, whiteboard or folder.
+  ContentRef content = 2;
+  // Only permissions for this operation; needs principal.
+  ContentPermissionOperation operation = 3;
+  // Only permissions of this principal.
+  ContentPermissionPrincipal principal = 4;
+  // Allows a change that removes the caller's own edit access.
+  bool allow_self_lockout = 5;
+}
+
+// Response of DeleteContentPermissions.
+message DeleteContentPermissionsResponse {}
+
+// Request of SetRestrictionState.
+message SetRestrictionStateRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // The content: a page, blog post, database, whiteboard or folder.
+  ContentRef content = 2;
+  // The new restriction state.
+  ContentRestrictionState state = 3;
+  // Allows a change that removes the caller's own edit access.
+  bool allow_self_lockout = 4;
+}
+
+// Response of SetRestrictionState.
+message SetRestrictionStateResponse {
+  // The restriction state after the change.
+  RestrictionState restriction_state = 1;
+}
+
+// Request of SetContentClassificationLevel.
+message SetContentClassificationLevelRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // The content: a page, blog post, database or whiteboard.
+  ContentRef content = 2;
+  // ID of the classification level.
+  string classification_level_id = 3;
+  // Status of the content to classify: current or, for pages and blog posts,
+  // draft.
+  ContentStatus status = 4;
+}
+
+// Response of SetContentClassificationLevel.
+message SetContentClassificationLevelResponse {}
+
+// Request of ResetContentClassificationLevel.
+message ResetContentClassificationLevelRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // The content: a page, blog post, database or whiteboard.
+  ContentRef content = 2;
+  // Status of the content to reset: current or, for pages and blog posts,
+  // draft.
+  ContentStatus status = 3;
+}
+
+// Response of ResetContentClassificationLevel.
+message ResetContentClassificationLevelResponse {}
+
+// Request of UpdateSpaceDefaultClassificationLevel.
+message UpdateSpaceDefaultClassificationLevelRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the space.
+  string space_id = 2;
+  // ID of the classification level.
+  string classification_level_id = 3;
+}
+
+// Response of UpdateSpaceDefaultClassificationLevel.
+message UpdateSpaceDefaultClassificationLevelResponse {}
+
+// Request of DeleteSpaceDefaultClassificationLevel.
+message DeleteSpaceDefaultClassificationLevelRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the space.
+  string space_id = 2;
+}
+
+// Response of DeleteSpaceDefaultClassificationLevel.
+message DeleteSpaceDefaultClassificationLevelResponse {}
+
+// Request of CreateSpaceRole.
+message CreateSpaceRoleRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // Name of the role.
+  string name = 2;
+  // Description of the role.
+  string description = 3;
+  // IDs of the space permissions the role grants.
+  repeated string space_permissions = 4;
+}
+
+// Response of CreateSpaceRole.
+message CreateSpaceRoleResponse {
+  // The created role.
+  SpaceRole role = 1;
+}
+
+// Request of UpdateSpaceRole.
+message UpdateSpaceRoleRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the role.
+  string id = 2;
+  // Name of the role.
+  string name = 3;
+  // Description of the role.
+  string description = 4;
+  // IDs of the space permissions the role grants.
+  repeated string space_permissions = 5;
+  // Role to move anonymous access to when it loses this role.
+  string anonymous_reassignment_role_id = 6;
+  // Role to move guests to when they lose this role.
+  string guest_reassignment_role_id = 7;
+}
+
+// Response of UpdateSpaceRole.
+message UpdateSpaceRoleResponse {
+  // The updated role.
+  SpaceRole role = 1;
+  // ID of the background task applying the update.
+  string task_id = 2;
+}
+
+// Request of DeleteSpaceRole.
+message DeleteSpaceRoleRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the role.
+  string id = 2;
+}
+
+// Response of DeleteSpaceRole.
+message DeleteSpaceRoleResponse {
+  // ID of the background task applying the deletion.
+  string task_id = 1;
+}
+
+// Request of SetSpaceRoleAssignments.
+message SetSpaceRoleAssignmentsRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the space.
+  string space_id = 2;
+  // The assignments; an entry without a role removes the principal's role.
+  repeated SpaceRoleAssignment assignments = 3;
+}
+
+// Response of SetSpaceRoleAssignments.
+message SetSpaceRoleAssignmentsResponse {
+  // The assignments that were set.
+  repeated SpaceRoleAssignment assignments = 1;
+}
+
+// Request of BulkAssignSpaceRoles.
+message BulkAssignSpaceRolesRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // The role assignments, per permission combination.
+  repeated BulkTransitionRoleAssignment assignments = 2;
+  // The spaces the change applies to.
+  BulkTransitionSpaceSelection space_selection = 3;
+}
+
+// Response of BulkAssignSpaceRoles.
+message BulkAssignSpaceRolesResponse {
+  // The started task.
+  BulkTransitionTask task = 1;
+}
+
+// Request of BulkRemoveSpaceAccess.
+message BulkRemoveSpaceAccessRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // IDs of the permission combinations to remove.
+  repeated string permission_combination_ids = 2;
+  // The spaces the change applies to.
+  BulkTransitionSpaceSelection space_selection = 3;
+}
+
+// Response of BulkRemoveSpaceAccess.
+message BulkRemoveSpaceAccessResponse {
+  // The started task.
+  BulkTransitionTask task = 1;
+}
+
+// Request of InviteByEmail.
+message InviteByEmailRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // The email addresses to invite.
+  repeated string emails = 2;
+}
+
+// Response of InviteByEmail.
+message InviteByEmailResponse {}
+
+// Request of RedactPage.
+message RedactPageRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the page.
+  string id = 2;
+  // When the content was last updated.
+  google.protobuf.Timestamp created_at = 3;
+  // Also removes the redacted text from earlier versions.
+  optional bool clean_history = 4;
+  // The version to redact; unset for the current version.
+  optional int32 version_number = 5;
+  // The ranges to redact in the body.
+  repeated RedactionPointer body_redactions = 6;
+  // The ranges to redact in the title.
+  repeated RedactionPointer title_redactions = 7;
+}
+
+// Response of RedactPage.
+message RedactPageResponse {
+  // The redactions that were applied.
+  RedactionResponse redactions = 1;
+}
+
+// Request of RedactBlogPost.
+message RedactBlogPostRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the blog post.
+  string id = 2;
+  // When the content was last updated.
+  google.protobuf.Timestamp created_at = 3;
+  // Also removes the redacted text from earlier versions.
+  optional bool clean_history = 4;
+  // The version to redact; unset for the current version.
+  optional int32 version_number = 5;
+  // The ranges to redact in the body.
+  repeated RedactionPointer body_redactions = 6;
+  // The ranges to redact in the title.
+  repeated RedactionPointer title_redactions = 7;
+}
+
+// Response of RedactBlogPost.
+message RedactBlogPostResponse {
+  // The redactions that were applied.
+  RedactionResponse redactions = 1;
+}
+
+// Request of EnableAdminKey.
+message EnableAdminKeyRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // Minutes until the admin key expires.
+  optional int32 duration_in_minutes = 2;
+}
+
+// Response of EnableAdminKey.
+message EnableAdminKeyResponse {
+  // The enabled admin key.
+  AdminKeyResponse admin_key = 1;
+}
+
+// Request of DisableAdminKey.
+message DisableAdminKeyRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+}
+
+// Response of DisableAdminKey.
+message DisableAdminKeyResponse {}

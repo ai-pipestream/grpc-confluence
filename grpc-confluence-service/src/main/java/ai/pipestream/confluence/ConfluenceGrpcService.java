@@ -33,7 +33,8 @@ import static ai.pipestream.confluence.ConfluenceRoutes.values;
 
 /**
  * The {@code ConfluenceService} gRPC facade: one thin method per rpc,
- * delegating to the crawler core. Every handler is plain blocking code; the
+ * delegating to the crawler core; the write rpcs live in
+ * {@link ConfluenceWriter}. Every handler is plain blocking code; the
  * server runs handlers on virtual threads (see {@link ConfluenceServer}),
  * so REST round-trips park instead of pinning a carrier.
  *
@@ -85,6 +86,8 @@ public final class ConfluenceGrpcService
     static final int CHECK_ACCESS_MAX_EMAILS = 100;
     /** The largest {@code limit} any v2 list route accepts. */
     static final int MAX_LIMIT = 250;
+    /** The most operations one {@code Mutate} call runs at a time. */
+    static final int MUTATE_CONCURRENCY = 8;
 
     private static final ConfluenceValidator VALIDATOR = ConfluenceValidator.create();
     private static final com.fasterxml.jackson.databind.ObjectMapper JSON =
@@ -2166,6 +2169,598 @@ public final class ConfluenceGrpcService
     }
 
     // ======================================================================
+    // WRITES
+    // ======================================================================
+
+    /** Runs one unary write on the connection its request names. */
+    private <Q extends Message, R> void write(Q request, StreamObserver<R> observer,
+            ConfluenceWriter.Op<Q, R> op) {
+        handle(observer, () -> reply(observer, op.apply(sessionOf(request), request)));
+    }
+
+    /** The session of the connection a write request names. */
+    private Session sessionOf(Message request) {
+        return session((String) request.getField(
+                request.getDescriptorForType().findFieldByName("connection_id")));
+    }
+
+    @Override
+    public void createPage(CreatePageRequest request, StreamObserver<CreatePageResponse> observer) {
+        write(request, observer, ConfluenceWriter::createPage);
+    }
+
+    @Override
+    public void updatePage(UpdatePageRequest request, StreamObserver<UpdatePageResponse> observer) {
+        write(request, observer, ConfluenceWriter::updatePage);
+    }
+
+    @Override
+    public void deletePage(DeletePageRequest request, StreamObserver<DeletePageResponse> observer) {
+        write(request, observer, ConfluenceWriter::deletePage);
+    }
+
+    @Override
+    public void updatePageTitle(UpdatePageTitleRequest request,
+            StreamObserver<UpdatePageTitleResponse> observer) {
+        write(request, observer, ConfluenceWriter::updatePageTitle);
+    }
+
+    @Override
+    public void createBlogPost(CreateBlogPostRequest request,
+            StreamObserver<CreateBlogPostResponse> observer) {
+        write(request, observer, ConfluenceWriter::createBlogPost);
+    }
+
+    @Override
+    public void updateBlogPost(UpdateBlogPostRequest request,
+            StreamObserver<UpdateBlogPostResponse> observer) {
+        write(request, observer, ConfluenceWriter::updateBlogPost);
+    }
+
+    @Override
+    public void deleteBlogPost(DeleteBlogPostRequest request,
+            StreamObserver<DeleteBlogPostResponse> observer) {
+        write(request, observer, ConfluenceWriter::deleteBlogPost);
+    }
+
+    @Override
+    public void createFooterComment(CreateFooterCommentRequest request,
+            StreamObserver<CreateFooterCommentResponse> observer) {
+        write(request, observer, ConfluenceWriter::createFooterComment);
+    }
+
+    @Override
+    public void updateFooterComment(UpdateFooterCommentRequest request,
+            StreamObserver<UpdateFooterCommentResponse> observer) {
+        write(request, observer, ConfluenceWriter::updateFooterComment);
+    }
+
+    @Override
+    public void deleteFooterComment(DeleteFooterCommentRequest request,
+            StreamObserver<DeleteFooterCommentResponse> observer) {
+        write(request, observer, ConfluenceWriter::deleteFooterComment);
+    }
+
+    @Override
+    public void createInlineComment(CreateInlineCommentRequest request,
+            StreamObserver<CreateInlineCommentResponse> observer) {
+        write(request, observer, ConfluenceWriter::createInlineComment);
+    }
+
+    @Override
+    public void updateInlineComment(UpdateInlineCommentRequest request,
+            StreamObserver<UpdateInlineCommentResponse> observer) {
+        write(request, observer, ConfluenceWriter::updateInlineComment);
+    }
+
+    @Override
+    public void deleteInlineComment(DeleteInlineCommentRequest request,
+            StreamObserver<DeleteInlineCommentResponse> observer) {
+        write(request, observer, ConfluenceWriter::deleteInlineComment);
+    }
+
+    @Override
+    public void createCustomContent(CreateCustomContentRequest request,
+            StreamObserver<CreateCustomContentResponse> observer) {
+        write(request, observer, ConfluenceWriter::createCustomContent);
+    }
+
+    @Override
+    public void updateCustomContent(UpdateCustomContentRequest request,
+            StreamObserver<UpdateCustomContentResponse> observer) {
+        write(request, observer, ConfluenceWriter::updateCustomContent);
+    }
+
+    @Override
+    public void deleteCustomContent(DeleteCustomContentRequest request,
+            StreamObserver<DeleteCustomContentResponse> observer) {
+        write(request, observer, ConfluenceWriter::deleteCustomContent);
+    }
+
+    @Override
+    public void createDatabase(CreateDatabaseRequest request,
+            StreamObserver<CreateDatabaseResponse> observer) {
+        write(request, observer, ConfluenceWriter::createDatabase);
+    }
+
+    @Override
+    public void deleteDatabase(DeleteDatabaseRequest request,
+            StreamObserver<DeleteDatabaseResponse> observer) {
+        write(request, observer, ConfluenceWriter::deleteDatabase);
+    }
+
+    @Override
+    public void createFolder(CreateFolderRequest request,
+            StreamObserver<CreateFolderResponse> observer) {
+        write(request, observer, ConfluenceWriter::createFolder);
+    }
+
+    @Override
+    public void deleteFolder(DeleteFolderRequest request,
+            StreamObserver<DeleteFolderResponse> observer) {
+        write(request, observer, ConfluenceWriter::deleteFolder);
+    }
+
+    @Override
+    public void createWhiteboard(CreateWhiteboardRequest request,
+            StreamObserver<CreateWhiteboardResponse> observer) {
+        write(request, observer, ConfluenceWriter::createWhiteboard);
+    }
+
+    @Override
+    public void deleteWhiteboard(DeleteWhiteboardRequest request,
+            StreamObserver<DeleteWhiteboardResponse> observer) {
+        write(request, observer, ConfluenceWriter::deleteWhiteboard);
+    }
+
+    @Override
+    public void createSmartLink(CreateSmartLinkRequest request,
+            StreamObserver<CreateSmartLinkResponse> observer) {
+        write(request, observer, ConfluenceWriter::createSmartLink);
+    }
+
+    @Override
+    public void deleteSmartLink(DeleteSmartLinkRequest request,
+            StreamObserver<DeleteSmartLinkResponse> observer) {
+        write(request, observer, ConfluenceWriter::deleteSmartLink);
+    }
+
+    @Override
+    public void deleteAttachment(DeleteAttachmentRequest request,
+            StreamObserver<DeleteAttachmentResponse> observer) {
+        write(request, observer, ConfluenceWriter::deleteAttachment);
+    }
+
+    @Override
+    public void createSpace(CreateSpaceRequest request,
+            StreamObserver<CreateSpaceResponse> observer) {
+        write(request, observer, ConfluenceWriter::createSpace);
+    }
+
+    @Override
+    public void updateTask(UpdateTaskRequest request, StreamObserver<UpdateTaskResponse> observer) {
+        write(request, observer, ConfluenceWriter::updateTask);
+    }
+
+    @Override
+    public void createContentProperty(CreateContentPropertyRequest request,
+            StreamObserver<CreateContentPropertyResponse> observer) {
+        write(request, observer, ConfluenceWriter::createContentProperty);
+    }
+
+    @Override
+    public void updateContentProperty(UpdateContentPropertyRequest request,
+            StreamObserver<UpdateContentPropertyResponse> observer) {
+        write(request, observer, ConfluenceWriter::updateContentProperty);
+    }
+
+    @Override
+    public void deleteContentProperty(DeleteContentPropertyRequest request,
+            StreamObserver<DeleteContentPropertyResponse> observer) {
+        write(request, observer, ConfluenceWriter::deleteContentProperty);
+    }
+
+    @Override
+    public void createSpaceProperty(CreateSpacePropertyRequest request,
+            StreamObserver<CreateSpacePropertyResponse> observer) {
+        write(request, observer, ConfluenceWriter::createSpaceProperty);
+    }
+
+    @Override
+    public void updateSpaceProperty(UpdateSpacePropertyRequest request,
+            StreamObserver<UpdateSpacePropertyResponse> observer) {
+        write(request, observer, ConfluenceWriter::updateSpaceProperty);
+    }
+
+    @Override
+    public void deleteSpaceProperty(DeleteSpacePropertyRequest request,
+            StreamObserver<DeleteSpacePropertyResponse> observer) {
+        write(request, observer, ConfluenceWriter::deleteSpaceProperty);
+    }
+
+    @Override
+    public void setAppProperty(SetAppPropertyRequest request,
+            StreamObserver<SetAppPropertyResponse> observer) {
+        write(request, observer, ConfluenceWriter::setAppProperty);
+    }
+
+    @Override
+    public void deleteAppProperty(DeleteAppPropertyRequest request,
+            StreamObserver<DeleteAppPropertyResponse> observer) {
+        write(request, observer, ConfluenceWriter::deleteAppProperty);
+    }
+
+    @Override
+    public void addLabels(AddLabelsRequest request, StreamObserver<AddLabelsResponse> observer) {
+        write(request, observer, ConfluenceWriter::addLabels);
+    }
+
+    @Override
+    public void removeLabel(RemoveLabelRequest request,
+            StreamObserver<RemoveLabelResponse> observer) {
+        write(request, observer, ConfluenceWriter::removeLabel);
+    }
+
+    @Override
+    public void addContentPermissions(AddContentPermissionsRequest request,
+            StreamObserver<AddContentPermissionsResponse> observer) {
+        write(request, observer, ConfluenceWriter::addContentPermissions);
+    }
+
+    @Override
+    public void setContentPermissions(SetContentPermissionsRequest request,
+            StreamObserver<SetContentPermissionsResponse> observer) {
+        write(request, observer, ConfluenceWriter::setContentPermissions);
+    }
+
+    @Override
+    public void deleteContentPermissions(DeleteContentPermissionsRequest request,
+            StreamObserver<DeleteContentPermissionsResponse> observer) {
+        write(request, observer, ConfluenceWriter::deleteContentPermissions);
+    }
+
+    @Override
+    public void setRestrictionState(SetRestrictionStateRequest request,
+            StreamObserver<SetRestrictionStateResponse> observer) {
+        write(request, observer, ConfluenceWriter::setRestrictionState);
+    }
+
+    @Override
+    public void setContentClassificationLevel(SetContentClassificationLevelRequest request,
+            StreamObserver<SetContentClassificationLevelResponse> observer) {
+        write(request, observer, ConfluenceWriter::setContentClassificationLevel);
+    }
+
+    @Override
+    public void resetContentClassificationLevel(ResetContentClassificationLevelRequest request,
+            StreamObserver<ResetContentClassificationLevelResponse> observer) {
+        write(request, observer, ConfluenceWriter::resetContentClassificationLevel);
+    }
+
+    @Override
+    public void updateSpaceDefaultClassificationLevel(UpdateSpaceDefaultClassificationLevelRequest request,
+            StreamObserver<UpdateSpaceDefaultClassificationLevelResponse> observer) {
+        write(request, observer, ConfluenceWriter::updateSpaceDefaultClassificationLevel);
+    }
+
+    @Override
+    public void deleteSpaceDefaultClassificationLevel(DeleteSpaceDefaultClassificationLevelRequest request,
+            StreamObserver<DeleteSpaceDefaultClassificationLevelResponse> observer) {
+        write(request, observer, ConfluenceWriter::deleteSpaceDefaultClassificationLevel);
+    }
+
+    @Override
+    public void createSpaceRole(CreateSpaceRoleRequest request,
+            StreamObserver<CreateSpaceRoleResponse> observer) {
+        write(request, observer, ConfluenceWriter::createSpaceRole);
+    }
+
+    @Override
+    public void updateSpaceRole(UpdateSpaceRoleRequest request,
+            StreamObserver<UpdateSpaceRoleResponse> observer) {
+        write(request, observer, ConfluenceWriter::updateSpaceRole);
+    }
+
+    @Override
+    public void deleteSpaceRole(DeleteSpaceRoleRequest request,
+            StreamObserver<DeleteSpaceRoleResponse> observer) {
+        write(request, observer, ConfluenceWriter::deleteSpaceRole);
+    }
+
+    @Override
+    public void setSpaceRoleAssignments(SetSpaceRoleAssignmentsRequest request,
+            StreamObserver<SetSpaceRoleAssignmentsResponse> observer) {
+        write(request, observer, ConfluenceWriter::setSpaceRoleAssignments);
+    }
+
+    @Override
+    public void bulkAssignSpaceRoles(BulkAssignSpaceRolesRequest request,
+            StreamObserver<BulkAssignSpaceRolesResponse> observer) {
+        write(request, observer, ConfluenceWriter::bulkAssignSpaceRoles);
+    }
+
+    @Override
+    public void bulkRemoveSpaceAccess(BulkRemoveSpaceAccessRequest request,
+            StreamObserver<BulkRemoveSpaceAccessResponse> observer) {
+        write(request, observer, ConfluenceWriter::bulkRemoveSpaceAccess);
+    }
+
+    @Override
+    public void inviteByEmail(InviteByEmailRequest request,
+            StreamObserver<InviteByEmailResponse> observer) {
+        write(request, observer, ConfluenceWriter::inviteByEmail);
+    }
+
+    @Override
+    public void redactPage(RedactPageRequest request, StreamObserver<RedactPageResponse> observer) {
+        write(request, observer, ConfluenceWriter::redactPage);
+    }
+
+    @Override
+    public void redactBlogPost(RedactBlogPostRequest request,
+            StreamObserver<RedactBlogPostResponse> observer) {
+        write(request, observer, ConfluenceWriter::redactBlogPost);
+    }
+
+    @Override
+    public void enableAdminKey(EnableAdminKeyRequest request,
+            StreamObserver<EnableAdminKeyResponse> observer) {
+        write(request, observer, ConfluenceWriter::enableAdminKey);
+    }
+
+    @Override
+    public void disableAdminKey(DisableAdminKeyRequest request,
+            StreamObserver<DisableAdminKeyResponse> observer) {
+        write(request, observer, ConfluenceWriter::disableAdminKey);
+    }
+
+    @Override
+    public StreamObserver<MutateRequest> mutate(StreamObserver<MutateResponse> observer) {
+        return new MutateStream(observer);
+    }
+
+    @Override
+    public StreamObserver<UploadAttachmentRequest> uploadAttachment(
+            StreamObserver<UploadAttachmentResponse> observer) {
+        return new UploadStream(observer);
+    }
+
+    /** One {@code Mutate} call: runs its operations concurrently and answers each once. */
+    private final class MutateStream implements StreamObserver<MutateRequest> {
+        private static final com.google.protobuf.Descriptors.OneofDescriptor OPERATION =
+                MutateRequest.getDescriptor().getOneofs().get(0);
+
+        private final StreamObserver<MutateResponse> observer;
+        private final java.util.concurrent.Semaphore slots =
+                new java.util.concurrent.Semaphore(MUTATE_CONCURRENCY);
+        private boolean closed;
+
+        private MutateStream(StreamObserver<MutateResponse> observer) {
+            this.observer = observer;
+        }
+
+        @Override
+        public void onNext(MutateRequest request) {
+            try {
+                slots.acquire();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                send(answer(request, null, e));
+                return;
+            }
+            Thread.startVirtualThread(() -> {
+                try {
+                    send(run(request));
+                } finally {
+                    slots.release();
+                }
+            });
+        }
+
+        private MutateResponse run(MutateRequest request) {
+            try {
+                com.google.protobuf.Descriptors.FieldDescriptor arm =
+                        request.getOneofFieldDescriptor(OPERATION);
+                if (arm == null) {
+                    throw invalid("operation is required");
+                }
+                Message operation = (Message) request.getField(arm);
+                ConfluenceWriter.Op<Message, Message> op = ConfluenceWriter.OPS.get(operation.getClass());
+                if (op == null) {
+                    throw Status.UNIMPLEMENTED.withDescription(arm.getName() + " is not served")
+                            .asRuntimeException();
+                }
+                return answer(request, op.apply(sessionOf(operation), operation), null);
+            } catch (Throwable t) {
+                return answer(request, null, t);
+            }
+        }
+
+        private MutateResponse answer(MutateRequest request, Message result, Throwable failure) {
+            MutateResponse.Builder response = MutateResponse.newBuilder().setOpId(request.getOpId());
+            if (failure != null) {
+                return response.setError(Failure.of(failure).toMutateError()).build();
+            }
+            int arm = request.getOneofFieldDescriptor(OPERATION).getNumber();
+            return response.setField(MutateResponse.getDescriptor().findFieldByNumber(arm), result)
+                    .build();
+        }
+
+        private synchronized void send(MutateResponse response) {
+            if (closed) {
+                return;
+            }
+            try {
+                observer.onNext(response);
+            } catch (RuntimeException e) {
+                closed = true;
+            }
+        }
+
+        @Override
+        public synchronized void onError(Throwable t) {
+            closed = true;
+        }
+
+        @Override
+        public void onCompleted() {
+            slots.acquireUninterruptibly(MUTATE_CONCURRENCY);
+            synchronized (this) {
+                if (!closed) {
+                    closed = true;
+                    observer.onCompleted();
+                }
+            }
+        }
+    }
+
+    /** One {@code UploadAttachment} call: pipes the chunks into one multipart request. */
+    private final class UploadStream implements StreamObserver<UploadAttachmentRequest> {
+        private final StreamObserver<UploadAttachmentResponse> observer;
+        private Session session;
+        private ChunkPipe pipe;
+        private java.util.concurrent.CompletableFuture<JsonNode> upload;
+        private long received;
+        private boolean done;
+
+        private UploadStream(StreamObserver<UploadAttachmentResponse> observer) {
+            this.observer = observer;
+        }
+
+        @Override
+        public void onNext(UploadAttachmentRequest frame) {
+            if (done) {
+                return;
+            }
+            try {
+                switch (frame.getFrameCase()) {
+                    case HEADER -> start(frame.getHeader());
+                    case CHUNK -> {
+                        requireStarted();
+                        pipe.write(frame.getChunk(), upload);
+                        received += frame.getChunk().size();
+                        observer.onNext(UploadAttachmentResponse.newBuilder()
+                                .setProgress(UploadAttachmentProgress.newBuilder()
+                                        .setBytesReceived(received)).build());
+                    }
+                    case END -> finish();
+                    case FRAME_NOT_SET -> throw invalid("frame is required");
+                }
+            } catch (Throwable t) {
+                abort(t);
+            }
+        }
+
+        private void requireStarted() {
+            if (upload == null) {
+                throw invalid("the first frame must be the header");
+            }
+        }
+
+        private void start(UploadAttachmentHeader header) {
+            if (upload != null) {
+                throw invalid("the header was already sent");
+            }
+            Session target = session(header.getConnectionId());
+            String path = ConfluenceWriter.attachmentUploadPath(header.getContentId());
+            String fileName = requireId(header.getFileName(), "file_name");
+            String mediaType = header.getMediaType().isBlank() ? "application/octet-stream"
+                    : header.getMediaType();
+            if ((fileName + mediaType).indexOf('\r') >= 0 || (fileName + mediaType).indexOf('\n') >= 0) {
+                throw invalid("file_name and media_type must not contain line breaks");
+            }
+            Map<String, String> fields = new java.util.LinkedHashMap<>();
+            if (!header.getComment().isEmpty()) {
+                fields.put("comment", header.getComment());
+            }
+            fields.put("minorEdit", String.valueOf(header.getMinorEdit()));
+            String method = header.getReplaceExisting() ? "PUT" : "POST";
+            ChunkPipe body = new ChunkPipe();
+            java.util.concurrent.CompletableFuture<JsonNode> response =
+                    new java.util.concurrent.CompletableFuture<>();
+            Thread.startVirtualThread(() -> {
+                try {
+                    response.complete(target.client().uploadMultipart(method, path, fields, fileName,
+                            mediaType, body));
+                } catch (Throwable t) {
+                    response.completeExceptionally(t);
+                }
+            });
+            session = target;
+            pipe = body;
+            upload = response;
+        }
+
+        private void finish() throws Exception {
+            requireStarted();
+            pipe.finish(upload);
+            JsonNode stored;
+            try {
+                stored = upload.get().path("results").path(0);
+            } catch (java.util.concurrent.ExecutionException e) {
+                throw e.getCause() instanceof Exception cause ? cause : e;
+            }
+            done = true;
+            observer.onNext(UploadAttachmentResponse.newBuilder()
+                    .setAttachment(requireValid(storedAttachment(session, stored))).build());
+            observer.onCompleted();
+        }
+
+        private void abort(Throwable t) {
+            done = true;
+            if (pipe != null) {
+                pipe.fail(new IOException("the upload was abandoned"));
+            }
+            fail(observer, t);
+        }
+
+        @Override
+        public void onError(Throwable t) {
+            done = true;
+            if (pipe != null) {
+                pipe.fail(new IOException("the client cancelled the upload"));
+            }
+        }
+
+        @Override
+        public void onCompleted() {
+            if (!done) {
+                abort(invalid("the stream ended before the end frame"));
+            }
+        }
+    }
+
+    /**
+     * The attachment an upload stored: read back by id, or mapped from the
+     * upload answer when it cannot be read back.
+     */
+    private static Attachment storedAttachment(Session session, JsonNode stored)
+            throws IOException, InterruptedException {
+        String id = stored.path("id").asText("");
+        for (String candidate : id.startsWith("att") ? List.of(id, id.substring(3)) : List.of(id)) {
+            if (candidate.isEmpty()) {
+                continue;
+            }
+            try {
+                return session.mapper.toAttachment(
+                        session.client.get("/api/v2/attachments/" + candidate));
+            } catch (ConfluenceClient.ConfluenceApiException e) {
+                if (e.status() != 404) {
+                    throw e;
+                }
+            }
+        }
+        JsonNode extensions = stored.path("extensions");
+        return Attachment.newBuilder()
+                .setId(id)
+                .setTitle(stored.path("title").asText(""))
+                .setMediaType(extensions.path("mediaType").asText(""))
+                .setFileSize(extensions.path("fileSize").asLong(0))
+                .setComment(extensions.path("comment").asText(""))
+                .build();
+    }
+
+    // ======================================================================
     // REQUEST PLUMBING
     // ======================================================================
 
@@ -2362,7 +2957,16 @@ public final class ConfluenceGrpcService
         }
     }
 
-    private record Session(String connectionId, ConfluenceConnectorConfig config,
+    /**
+     * One resolved connection.
+     *
+     * @param connectionId the catalog connection id
+     * @param config the connector config
+     * @param client the authorized REST client
+     * @param mapper the response mapper
+     * @param output the connection's output settings
+     */
+    record Session(String connectionId, ConfluenceConnectorConfig config,
             ConfluenceClient client, ConfluenceMapper mapper, ConnectionOutput output) {
     }
 
@@ -2396,30 +3000,87 @@ public final class ConfluenceGrpcService
     }
 
     private static void fail(StreamObserver<?> observer, Throwable t) {
-        Status status;
-        if (t instanceof io.grpc.StatusRuntimeException e) {
-            observer.onError(e);
-            return;
-        } else if (t instanceof ConfluenceClient.ConfluenceApiException e) {
-            status = (switch (e.status()) {
-                case 400 -> Status.INVALID_ARGUMENT;
-                case 401, 403 -> Status.PERMISSION_DENIED;
-                case 404 -> Status.NOT_FOUND;
-                case 429 -> Status.RESOURCE_EXHAUSTED;
-                default -> Status.INTERNAL;
-            }).withDescription(e.getMessage());
-        } else if (t instanceof ConfluenceClient.RepeatedCursorException e) {
-            status = Status.INTERNAL.withDescription(e.getMessage());
-        } else if (t instanceof ConfluenceClient.UnsafePathException e) {
-            status = Status.INVALID_ARGUMENT.withDescription(e.getMessage());
-        } else if (t instanceof InterruptedException e) {
-            Thread.currentThread().interrupt();
-            status = Status.CANCELLED.withDescription("interrupted: " + e.getMessage());
-        } else if (t instanceof IOException e) {
-            status = Status.UNAVAILABLE.withDescription("Confluence unreachable: " + e.getMessage());
-        } else {
-            status = Status.INTERNAL.withDescription(String.valueOf(t.getMessage()));
+        observer.onError(Failure.of(t).toException());
+    }
+
+    /**
+     * A failure as the gRPC status it maps to.
+     *
+     * @param status the gRPC status
+     * @param httpStatus the HTTP status Confluence answered with; 0 when it did not answer
+     * @param retryAfterSeconds the seconds Confluence asked to wait; -1 when it named none
+     */
+    record Failure(Status status, int httpStatus, long retryAfterSeconds) {
+
+        /** Maps any failure of an rpc body. */
+        static Failure of(Throwable t) {
+            if (t instanceof io.grpc.StatusRuntimeException e) {
+                return new Failure(e.getStatus(), 0, -1L);
+            } else if (t instanceof ConfluenceClient.ConfluenceApiException e) {
+                Status status = (switch (e.status()) {
+                    case 400 -> Status.INVALID_ARGUMENT;
+                    case 401, 403 -> Status.PERMISSION_DENIED;
+                    case 404 -> Status.NOT_FOUND;
+                    case 409 -> Status.ABORTED;
+                    case 429 -> Status.RESOURCE_EXHAUSTED;
+                    default -> Status.INTERNAL;
+                }).withDescription(e.getMessage());
+                return new Failure(status, e.status(), e.retryAfterSeconds());
+            }
+            Status status;
+            if (t instanceof ConfluenceClient.RepeatedCursorException e) {
+                status = Status.INTERNAL.withDescription(e.getMessage());
+            } else if (t instanceof ConfluenceClient.UnsafePathException
+                    || t instanceof AdfCodec.AdfException) {
+                status = Status.INVALID_ARGUMENT.withDescription(t.getMessage());
+            } else if (t instanceof InterruptedException e) {
+                Thread.currentThread().interrupt();
+                status = Status.CANCELLED.withDescription("interrupted: " + e.getMessage());
+            } else if (t instanceof IOException e) {
+                status = Status.UNAVAILABLE.withDescription("Confluence unreachable: " + e.getMessage());
+            } else {
+                status = Status.INTERNAL.withDescription(String.valueOf(t.getMessage()));
+            }
+            return new Failure(status, 0, -1L);
         }
-        observer.onError(status.asRuntimeException());
+
+        /** The status as an exception, with {@code RetryInfo} when a wait was named. */
+        io.grpc.StatusRuntimeException toException() {
+            if (retryAfterSeconds < 0) {
+                return status.asRuntimeException();
+            }
+            return io.grpc.protobuf.StatusProto.toStatusRuntimeException(
+                    com.google.rpc.Status.newBuilder()
+                            .setCode(status.getCode().value())
+                            .setMessage(String.valueOf(status.getDescription()))
+                            .addDetails(com.google.protobuf.Any.pack(
+                                    com.google.rpc.RetryInfo.newBuilder()
+                                            .setRetryDelay(com.google.protobuf.Duration.newBuilder()
+                                                    .setSeconds(retryAfterSeconds))
+                                            .build()))
+                            .build());
+        }
+
+        /** The failure as a {@code Mutate} outcome. */
+        MutateError toMutateError() {
+            MutateError.Builder error = MutateError.newBuilder()
+                    .setCode(switch (status.getCode()) {
+                        case INVALID_ARGUMENT -> MutateErrorCode.MUTATE_ERROR_CODE_INVALID_ARGUMENT;
+                        case PERMISSION_DENIED -> MutateErrorCode.MUTATE_ERROR_CODE_PERMISSION_DENIED;
+                        case NOT_FOUND -> MutateErrorCode.MUTATE_ERROR_CODE_NOT_FOUND;
+                        case ABORTED -> MutateErrorCode.MUTATE_ERROR_CODE_CONFLICT;
+                        case RESOURCE_EXHAUSTED -> MutateErrorCode.MUTATE_ERROR_CODE_THROTTLED;
+                        case UNAVAILABLE -> MutateErrorCode.MUTATE_ERROR_CODE_UNAVAILABLE;
+                        case FAILED_PRECONDITION -> MutateErrorCode.MUTATE_ERROR_CODE_FAILED_PRECONDITION;
+                        default -> MutateErrorCode.MUTATE_ERROR_CODE_INTERNAL;
+                    })
+                    .setMessage(String.valueOf(status.getDescription()))
+                    .setHttpStatus(httpStatus);
+            if (retryAfterSeconds >= 0) {
+                error.setRetryAfter(com.google.protobuf.Duration.newBuilder()
+                        .setSeconds(retryAfterSeconds));
+            }
+            return error.build();
+        }
     }
 }

@@ -39,7 +39,7 @@ Group `ai.pipestream.confluence`, version `0.1.0-SNAPSHOT`.
 | Module | Port | What it is |
 |---|---|---|
 | `grpc-confluence-api` | | The API proto contract. 1:1 Confluence API fully validated for gRPC. |
-| `grpc-confluence-service` | 9095 | Live Confluence Cloud proxy. REST v2 in, typed gRPC out, plus crawl and sync. |
+| `grpc-confluence-service` | 9095 | Live Confluence Cloud proxy. REST in, typed gRPC out (reads and writes), plus crawl and sync. |
 | `grpc-confluence-output` | | Confluence store keys, OKF catalog mapping, and its `OkfCatalogSource` registration. |
 | `grpc-confluence-mcp` | | `confluence_*` and `connection_test` tools for the combined `grpc-mcp` server (`McpToolProvider`). `run` starts that server with these tools. |
 | `grpc-confluence-connect` | | Kafka Connect source (`ConfluenceSourceConnector`) and its plugin zip. |
@@ -233,6 +233,32 @@ credentials are in the environment:
 It runs `ListSpaces` (limit 1), then the space homepage
 `GetPage` and `ListAttachments`. It never runs a full `Sync` and never
 downloads attachment bytes.
+
+The live write run proves the write rpcs against a real workspace. It is
+excluded from `test` and skips unless the same credentials are set **and**
+`CONFLUENCE_LIVE_WRITE=1`:
+
+```
+CONFLUENCE_LIVE_WRITE=1 CONFLUENCE_SPACE_KEY=CLAUDEGRPC \
+  ./gradlew :grpc-confluence-service:liveWriteTest
+```
+
+It creates a parent page `pipestream-live-write-<UTC timestamp>-<random>` in
+the space (`CONFLUENCE_SPACE_KEY`, default `CLAUDEGRPC`), runs every write
+rpc under it, reads each result back, then deletes and purges what it made.
+`build/live-write.md` has one row per rpc (PASS / FAIL / SKIPPED) and lists
+anything left behind. Tenant-level writes (space create, space roles, role
+assignments, space default classification, invitations, admin key) need
+`CONFLUENCE_LIVE_WRITE_ADMIN=1`; custom content needs a type in
+`CONFLUENCE_LIVE_WRITE_CUSTOM_CONTENT_TYPE`.
+
+The run also records every HTTP exchange, scrubbed, under
+`grpc-confluence-service/src/test/resources/recordings/confluence`.
+`ConfluenceWriteReplayTest` runs the same steps against that recording in the
+default `test` task, with no network, and is skipped while there is no
+recording. See the
+[recordings README](grpc-confluence-service/src/test/resources/recordings/README.md).
+In CI the run is manual only: start the `ci` workflow with `run_live_write`.
 
 ### GitHub Actions secrets
 

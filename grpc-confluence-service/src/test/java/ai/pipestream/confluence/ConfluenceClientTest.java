@@ -207,4 +207,65 @@ class ConfluenceClientTest {
         // A route that percent-encodes a free-form key still works.
         ConfluenceClient.requireSafePath("/api/v2/app/properties/my%20key%3Av1");
     }
+
+    @Test
+    void writesSendTheMethodBodyAndQuery() throws Exception {
+        fake.stub("PUT", "/wiki/api/v2/pages/5", 200, "{\"id\":\"5\"}");
+        fake.stub("DELETE", "/wiki/api/v2/pages/5", 204, "");
+        fake.stub("POST", "/wiki/api/v2/pages", 201, "{\"id\":\"6\"}");
+        com.fasterxml.jackson.databind.node.ObjectNode body =
+                ConfluenceClient.responseJson().createObjectNode().put("title", "t");
+
+        assertThat(client.put("/api/v2/pages/5", Map.of(), body).path("id").asText()).isEqualTo("5");
+        FakeConfluenceServer.RecordedRequest put = fake.lastTo("PUT", "/wiki/api/v2/pages/5");
+        assertThat(put.body()).isEqualTo("{\"title\":\"t\"}");
+        assertThat(put.header("content-type")).isEqualTo("application/json");
+
+        assertThat(client.delete("/api/v2/pages/5", Map.of("purge", "true")).isEmpty()).isTrue();
+        assertThat(fake.lastTo("DELETE", "/wiki/api/v2/pages/5").query()).isEqualTo("purge=true");
+
+        ConfluenceClient.JsonResponse created = client.exchange("POST", "/api/v2/pages", Map.of(), body);
+        assertThat(created.status()).isEqualTo(201);
+        assertThat(created.body().path("id").asText()).isEqualTo("6");
+    }
+
+    @Test
+    void apiErrorsCarryRetryAfter() {
+        for (int i = 0; i < 6; i++) {
+            fake.stubOnce("/wiki/api/v2/pages/5", new FakeConfluenceServer.Stub(429,
+                    "{}", Map.of("Retry-After", "0")));
+        }
+        fake.stub("DELETE", "/wiki/api/v2/pages/6",
+                new FakeConfluenceServer.Stub(409, "{}", Map.of("Retry-After", "soon")));
+
+        assertThatThrownBy(() -> client.delete("/api/v2/pages/5", Map.of()))
+                .isInstanceOfSatisfying(ConfluenceClient.ConfluenceApiException.class,
+                        e -> assertThat(e.retryAfterSeconds()).isZero());
+        assertThatThrownBy(() -> client.delete("/api/v2/pages/6", Map.of()))
+                .isInstanceOfSatisfying(ConfluenceClient.ConfluenceApiException.class, e -> {
+                    assertThat(e.status()).isEqualTo(409);
+                    assertThat(e.retryAfterSeconds()).isEqualTo(-1);
+                });
+    }
+
+    @Test
+    void multipartUploadsStreamTheFileOnce() throws Exception {
+        fake.stub("POST", "/wiki/rest/api/content/5/child/attachment", 200, "{\"results\":[]}");
+        java.util.Map<String, String> fields = new java.util.LinkedHashMap<>();
+        fields.put("minorEdit", "true");
+
+        client.uploadMultipart("POST", "/rest/api/content/5/child/attachment", fields, "a.txt",
+                "text/plain", new java.io.ByteArrayInputStream("hello".getBytes()));
+
+        FakeConfluenceServer.RecordedRequest request =
+                fake.lastTo("POST", "/wiki/rest/api/content/5/child/attachment");
+        assertThat(request.header("x-atlassian-token")).isEqualTo("no-check");
+        assertThat(request.header("transfer-encoding")).isEqualTo("chunked");
+        assertThat(request.body()).contains("name=\"minorEdit\"\r\n\r\ntrue\r\n")
+                .contains("filename=\"a.txt\"\r\nContent-Type: text/plain\r\n\r\nhello\r\n");
+        assertThatThrownBy(() -> client.uploadMultipart("POST",
+                "/rest/api/content/5/child/attachment", fields, "a\nb", "text/plain",
+                new java.io.ByteArrayInputStream(new byte[0])))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }
