@@ -1,0 +1,48 @@
+{
+  "scenario" : "attachments",
+  "sequence" : 7,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/attachments/att28606467",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "mediaTypeDescription" : null,
+        "webuiLink" : "/pages/viewpageattachments.action?pageId=28475393&preview=%2F28475393%2F28606467%2Fpipestream-live-write-20261115T143842Z-7f0d8011.bin",
+        "createdAt" : "2026-11-15T14:38:53.722Z",
+        "comment" : "live write run",
+        "version" : {
+          "number" : 1,
+          "message" : "live write run",
+          "minorEdit" : true,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-15T14:38:53.722Z"
+        },
+        "id" : "att28606467",
+        "mediaType" : "application/octet-stream",
+        "fileId" : "558c170f-f71b-4351-a7b3-aa93e1f65db9",
+        "downloadLink" : "/rest/api/content/28475393/child/attachment/att28606467/download",
+        "pageId" : "28475393",
+        "status" : "current",
+        "title" : "pipestream-live-write-20261115T143842Z-7f0d8011.bin",
+        "fileSize" : 5242880,
+        "_links" : {
+          "download" : "/rest/api/content/28475393/child/attachment/att28606467/download",
+          "webui" : "/pages/viewpageattachments.action?pageId=28475393&preview=%2F28475393%2F28606467%2Fpipestream-live-write-20261115T143842Z-7f0d8011.bin",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}
