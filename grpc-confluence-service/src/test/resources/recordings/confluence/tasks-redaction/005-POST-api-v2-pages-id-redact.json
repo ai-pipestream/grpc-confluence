@@ -1,0 +1,44 @@
+{
+  "scenario" : "tasks-redaction",
+  "sequence" : 5,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/28737569/redact",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "createdAt" : "2026-11-15T14:56:07.605Z",
+        "body" : {
+          "redactions" : [ {
+            "pointer" : "/content/1/content/0",
+            "from" : 6,
+            "to" : 14,
+            "reason" : "live write test"
+          } ]
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 404,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "errors" : [ {
+          "status" : 404,
+          "code" : "NOT_FOUND",
+          "title" : "Feature is not available due to a lack of Atlassian Guard Premium entitlement.",
+          "detail" : null
+        } ]
+      }
+    }
+  }
+}

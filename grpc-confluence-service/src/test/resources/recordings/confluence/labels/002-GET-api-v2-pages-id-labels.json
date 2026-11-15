@@ -1,0 +1,39 @@
+{
+  "scenario" : "labels",
+  "sequence" : 2,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/28540952/labels",
+    "query" : [ {
+      "name" : "limit",
+      "value" : "25"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "prefix" : "global",
+          "name" : "live-write-2df9eef3",
+          "id" : "28409887"
+        }, {
+          "prefix" : "global",
+          "name" : "live-write-2df9eef3-b",
+          "id" : "28409889"
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

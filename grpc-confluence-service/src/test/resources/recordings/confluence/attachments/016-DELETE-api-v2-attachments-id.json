@@ -1,0 +1,18 @@
+{
+  "scenario" : "attachments",
+  "sequence" : 16,
+  "request" : {
+    "method" : "DELETE",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/attachments/att28606493",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 204,
+    "headers" : { }
+  }
+}

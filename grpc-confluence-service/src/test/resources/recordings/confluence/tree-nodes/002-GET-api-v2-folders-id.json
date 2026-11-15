@@ -1,0 +1,49 @@
+{
+  "scenario" : "tree-nodes",
+  "sequence" : 2,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/folders/28442664",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "id" : "28442664",
+        "type" : "folder",
+        "parentId" : "28475424",
+        "title" : "pipestream-live-write-20261115T145552Z-2df9eef3 folder",
+        "parentType" : "page",
+        "position" : 1874,
+        "authorId" : "account-1",
+        "ownerId" : "account-1",
+        "createdAt" : 1794754571608,
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-15T14:56:11.608Z"
+        },
+        "status" : "current",
+        "spaceId" : "7798786",
+        "_links" : {
+          "editui" : "/spaces/CLAUDEGRPC/folder/28442664",
+          "webui" : "/spaces/CLAUDEGRPC/folder/28442664",
+          "edituiv2" : "/spaces/CLAUDEGRPC/folder/28442664",
+          "tinyui" : "/x/KACyAQ",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

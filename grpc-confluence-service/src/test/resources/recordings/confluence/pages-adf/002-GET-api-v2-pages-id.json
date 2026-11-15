@@ -1,0 +1,59 @@
+{
+  "scenario" : "pages-adf",
+  "sequence" : 2,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/28737569",
+    "query" : [ {
+      "name" : "body-format",
+      "value" : "atlas_doc_format"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "parentType" : "page",
+        "authorId" : "account-1",
+        "parentId" : "28475424",
+        "ownerId" : "account-1",
+        "lastOwnerId" : null,
+        "createdAt" : "2026-11-15T14:55:54.344Z",
+        "position" : 586,
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-15T14:55:54.344Z",
+          "ncsStepVersion" : "1"
+        },
+        "id" : "28737569",
+        "spaceId" : "7798786",
+        "body" : {
+          "atlas_doc_format" : {
+            "representation" : "atlas_doc_format",
+            "value" : "{\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"text\":\"Typed heading\",\"type\":\"text\"}]},{\"type\":\"paragraph\",\"content\":[{\"text\":\"alpha REDACTME omega\",\"type\":\"text\"}]},{\"type\":\"taskList\",\"attrs\":{\"localId\":\"4ae834f2-b72d-3e39-9685-8356e505b618\"},\"content\":[{\"type\":\"taskItem\",\"attrs\":{\"state\":\"TODO\",\"localId\":\"fdd73301-69e2-347b-aa2b-f3cf609638b3\"},\"content\":[{\"text\":\"ship it\",\"type\":\"text\"}]}]}],\"version\":1}"
+          }
+        },
+        "status" : "current",
+        "title" : "pipestream-live-write-20261115T145552Z-2df9eef3 adf",
+        "_links" : {
+          "editui" : "/pages/resumedraft.action?draftId=28737569",
+          "webui" : "/spaces/CLAUDEGRPC/pages/28737569/pipestream-live-write-20261115T145552Z-2df9eef3+adf",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/28737569",
+          "tinyui" : "/x/IYC2AQ",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

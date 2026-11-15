@@ -1,0 +1,50 @@
+{
+  "scenario" : "comments",
+  "sequence" : 2,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/footer-comments/28737589",
+    "query" : [ {
+      "name" : "body-format",
+      "value" : "storage"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "id" : "28737589",
+        "status" : "current",
+        "title" : "Re: pipestream-live-write-20261115T145552Z-2df9eef3 retitled",
+        "pageId" : "28540952",
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-15T14:55:58.287Z",
+          "contributorIds" : [ ]
+        },
+        "resolutionStatus" : "open",
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<p>footer pipestream-live-write-20261115T145552Z-2df9eef3</p>"
+          }
+        },
+        "_links" : {
+          "webui" : "/spaces/CLAUDEGRPC/pages/28540952/pipestream-live-write-20261115T145552Z-2df9eef3+retitled?focusedCommentId=28737589",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

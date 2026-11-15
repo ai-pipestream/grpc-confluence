@@ -1,0 +1,68 @@
+{
+  "scenario" : "pages-adf",
+  "sequence" : 1,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "spaceId" : "7798786",
+        "title" : "pipestream-live-write-20261115T145552Z-2df9eef3 adf",
+        "parentId" : "28475424",
+        "body" : {
+          "representation" : "atlas_doc_format",
+          "value" : "{\"version\":1,\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Typed heading\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"alpha REDACTME omega\"}]},{\"type\":\"taskList\",\"attrs\":{\"localId\":\"4ae834f2-b72d-3e39-9685-8356e505b618\"},\"content\":[{\"type\":\"taskItem\",\"attrs\":{\"localId\":\"fdd73301-69e2-347b-aa2b-f3cf609638b3\",\"state\":\"TODO\"},\"content\":[{\"type\":\"text\",\"text\":\"ship it\"}]}]}]}"
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "parentType" : "page",
+        "authorId" : "account-1",
+        "spaceId" : "7798786",
+        "parentId" : "28475424",
+        "ownerId" : "account-1",
+        "lastOwnerId" : null,
+        "createdAt" : "2026-11-15T14:55:54.344Z",
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-15T14:55:54.344Z",
+          "ncsStepVersion" : "1"
+        },
+        "position" : 586,
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<h2>Typed heading</h2><p>alpha REDACTME omega</p><ac:task-list ac:task-list-id=\"4ae834f2-b72d-3e39-9685-8356e505b618\">\n<ac:task>\n<ac:task-id>1</ac:task-id>\n<ac:task-uuid>fdd73301-69e2-347b-aa2b-f3cf609638b3</ac:task-uuid>\n<ac:task-status>incomplete</ac:task-status>\n<ac:task-body><span class=\"placeholder-inline-tasks\">ship it</span></ac:task-body>\n</ac:task>\n</ac:task-list>"
+          }
+        },
+        "status" : "current",
+        "title" : "pipestream-live-write-20261115T145552Z-2df9eef3 adf",
+        "id" : "28737569",
+        "_links" : {
+          "editui" : "/pages/resumedraft.action?draftId=28737569",
+          "webui" : "/spaces/CLAUDEGRPC/pages/28737569/pipestream-live-write-20261115T145552Z-2df9eef3+adf",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/28737569",
+          "tinyui" : "/x/IYC2AQ",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}
