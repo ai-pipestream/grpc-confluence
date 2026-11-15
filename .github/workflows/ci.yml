@@ -211,7 +211,13 @@ jobs:
           check "basic credential" 'Basic [A-Za-z0-9+/=]{8,}'
           check "bearer credential" 'Bearer [A-Za-z0-9._-]{8,}'
           check "cookie value" '"(set-)?cookie"[[:space:]]*:'
-          check "email address" '[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+\.[A-Za-z]{2,}'
+          # Placeholder addresses the scrubber wrote are fine; any other address is a leak.
+          n=$(grep -rIhoE --exclude=README.md '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' . | grep -vcE '@example\.invalid$' || true)
+          echo "email address: $n matches outside the placeholder domain"
+          if [ "$n" -gt 0 ]; then
+            grep -rIlE --exclude=README.md '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' . | head -20
+            fail=1
+          fi
           echo "site host mentions: $(grep -rIlE --exclude=README.md 'atlassian\.net' . | wc -l) files"
           exit $fail
       - uses: actions/setup-java@v5
