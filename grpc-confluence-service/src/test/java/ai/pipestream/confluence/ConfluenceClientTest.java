@@ -114,6 +114,28 @@ class ConfluenceClientTest {
     }
 
     @Test
+    void retriesAServerFaultOnADelete() throws Exception {
+        fake.stubOnce("/wiki/api/v2/pages/7", new FakeConfluenceServer.Stub(500, "{}", Map.of()));
+        fake.stub("/wiki/api/v2/pages/7", new FakeConfluenceServer.Stub(204, "", Map.of()));
+
+        client.delete("/api/v2/pages/7", Map.of());
+
+        assertThat(fake.requestsTo("/wiki/api/v2/pages/7")).hasSize(2);
+    }
+
+    @Test
+    void doesNotRetryAServerFaultOnAPost() {
+        fake.stubOnce("/wiki/api/v2/pages", new FakeConfluenceServer.Stub(500, "{}", Map.of()));
+        fake.stub("/wiki/api/v2/pages", "{}");
+
+        assertThatThrownBy(() -> client.post("/api/v2/pages", Map.of(),
+                com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode()))
+                .isInstanceOf(ConfluenceClient.ConfluenceApiException.class)
+                .hasMessageContaining("500");
+        assertThat(fake.requestsTo("/wiki/api/v2/pages")).hasSize(1);
+    }
+
+    @Test
     void surfacesApiErrorsWithStatus() {
         fake.stub("/wiki/api/v2/pages/999",
                 new FakeConfluenceServer.Stub(404, "{\"message\":\"no page\"}", Map.of()));

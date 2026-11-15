@@ -190,6 +190,8 @@ jobs:
           repository: ai-pipestream/grpc-integration
           ref: ${{ env.INTEGRATION_REF }}
           path: grpc-integration
+      - name: Drop the previous recordings
+        run: rm -rf grpc-confluence/grpc-confluence-service/src/test/resources/recordings/confluence
       - uses: actions/download-artifact@v4
         with:
           name: confluence-recordings

@@ -542,13 +542,13 @@ final class WriteScenarios {
         ContentPermissionGrant grant = ContentPermissionGrant.newBuilder()
                 .setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_UPDATE)
                 .addPrincipals(me).build();
-        step("AddContentPermissions", "AddContentPermissions", () -> {
+        step("AddContentPermissions", "AddContentPermissions", restrictionWrite(() -> {
             stub().addContentPermissions(AddContentPermissionsRequest.newBuilder().setContent(ref)
                     .addPermissions(grant).build());
             check(permissionHolders(ref).contains(self), "the permission was not read back");
             return "update permission for the caller";
-        });
-        step("SetRestrictionState", "SetRestrictionState", () -> {
+        }));
+        step("SetRestrictionState", "SetRestrictionState", restrictionWrite(() -> {
             stub().setRestrictionState(SetRestrictionStateRequest.newBuilder().setContent(ref)
                     .setState(ContentRestrictionState.CONTENT_RESTRICTION_STATE_EDIT_RESTRICTED).build());
             ContentRestrictionState read = stub().getRestrictionState(
@@ -557,14 +557,14 @@ final class WriteScenarios {
             check(read == ContentRestrictionState.CONTENT_RESTRICTION_STATE_EDIT_RESTRICTED,
                     "the state read back is " + read);
             return "EDIT_RESTRICTED read back";
-        });
-        step("SetContentPermissions", "SetContentPermissions", () -> {
+        }));
+        step("SetContentPermissions", "SetContentPermissions", restrictionWrite(() -> {
             stub().setContentPermissions(SetContentPermissionsRequest.newBuilder().setContent(ref)
                     .addPermissions(grant).build());
             check(permissionHolders(ref).contains(self), "the permission was not read back");
             return "permissions replaced";
-        });
-        step("SetRestrictionState", "SetRestrictionState (back to OPEN)", () -> {
+        }));
+        step("SetRestrictionState", "SetRestrictionState (back to OPEN)", restrictionWrite(() -> {
             stub().setRestrictionState(SetRestrictionStateRequest.newBuilder().setContent(ref)
                     .setState(ContentRestrictionState.CONTENT_RESTRICTION_STATE_OPEN).build());
             ContentRestrictionState read = stub().getRestrictionState(
@@ -573,13 +573,32 @@ final class WriteScenarios {
             check(read == ContentRestrictionState.CONTENT_RESTRICTION_STATE_OPEN,
                     "the state read back is " + read);
             return "OPEN read back";
-        });
-        step("DeleteContentPermissions", "DeleteContentPermissions", () -> {
+        }));
+        step("DeleteContentPermissions", "DeleteContentPermissions", restrictionWrite(() -> {
             stub().deleteContentPermissions(DeleteContentPermissionsRequest.newBuilder().setContent(ref)
                     .setAllowSelfLockout(true).build());
             check(permissionHolders(ref).isEmpty(), "permissions remain: " + permissionHolders(ref));
             return "no direct permissions left";
-        });
+        }));
+    }
+
+    /**
+     * Turns the tenant's answer that this user may not change restrictions
+     * into a SKIPPED row.
+     */
+    private Step restrictionWrite(Step body) {
+        return () -> {
+            try {
+                return body.run();
+            } catch (StatusRuntimeException e) {
+                String description = String.valueOf(e.getStatus().getDescription());
+                if (e.getStatus().getCode() == Status.Code.NOT_FOUND
+                        && description.contains("must have permissions to update restrictions")) {
+                    throw new Skip("the tenant does not let this user change restrictions: " + describe(e));
+                }
+                throw e;
+            }
+        };
     }
 
     private void classification(Page page, Space space, boolean admin) {

@@ -107,6 +107,8 @@ public final class ConfluenceClient {
             .disable(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES)
             .build();
     private static final int MAX_THROTTLE_RETRIES = 5;
+    private static final int MAX_SERVER_FAULT_RETRIES = 2;
+    private static final Duration SERVER_FAULT_BACKOFF = Duration.ofMillis(500);
     /** Redirect hops allowed on an attachment download (302 to the media CDN). */
     private static final int MAX_DOWNLOAD_REDIRECTS = 5;
     private static final Duration DEFAULT_MIN_REQUEST_INTERVAL = Duration.ofMillis(100);
@@ -746,25 +748,43 @@ public final class ConfluenceClient {
 
     /**
      * Sends with Confluence's throttling contract: the politeness gap first,
-     * then 429 retried after {@code Retry-After} seconds plus jitter.
+     * then 429 retried after {@code Retry-After} seconds plus jitter. A 500,
+     * 502 or 504 answer to a GET, PUT or DELETE is retried a few times.
      */
     private <T> HttpResponse<T> send(HttpRequest req, HttpResponse.BodyHandler<T> handler)
             throws IOException, InterruptedException {
         HttpResponse<T> response = null;
-        for (int attempt = 0; attempt <= MAX_THROTTLE_RETRIES; attempt++) {
+        int throttled = 0;
+        int failed = 0;
+        while (true) {
             throttle();
             response = http.send(req, handler);
-            if (response.statusCode() != 429 || attempt == MAX_THROTTLE_RETRIES) {
+            int status = response.statusCode();
+            Duration wait;
+            if (status == 429 && throttled < MAX_THROTTLE_RETRIES) {
+                throttled++;
+                long waitSeconds = response.headers().firstValueAsLong("Retry-After").orElse(2L);
+                wait = Duration.ofSeconds(Math.min(waitSeconds, 60));
+            } else if (serverFault(status) && repeatable(req.method()) && failed < MAX_SERVER_FAULT_RETRIES) {
+                failed++;
+                wait = SERVER_FAULT_BACKOFF.multipliedBy(failed);
+            } else {
                 return response;
             }
             if (response.body() instanceof java.io.Closeable streamed) {
                 streamed.close();
             }
-            long waitSeconds = response.headers().firstValueAsLong("Retry-After").orElse(2L);
-            long jitterMillis = ThreadLocalRandom.current().nextLong(500);
-            Thread.sleep(Duration.ofSeconds(Math.min(waitSeconds, 60)).plusMillis(jitterMillis));
+            Thread.sleep(wait.plusMillis(ThreadLocalRandom.current().nextLong(500)));
         }
-        return response;
+    }
+
+    private static boolean serverFault(int status) {
+        return status == 500 || status == 502 || status == 504;
+    }
+
+    /** Whether sending the same request twice leaves the same state as sending it once. */
+    private static boolean repeatable(String method) {
+        return method.equals("GET") || method.equals("PUT") || method.equals("DELETE");
     }
 
     /** Keeps at least {@code minRequestInterval} between requests, sleeping on the caller. */
