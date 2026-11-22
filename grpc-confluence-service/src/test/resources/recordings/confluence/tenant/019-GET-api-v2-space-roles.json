@@ -1,0 +1,61 @@
+{
+  "scenario" : "tenant",
+  "sequence" : 19,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/space-roles",
+    "query" : [ {
+      "name" : "limit",
+      "value" : "25"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "id" : "0c103ff5-44d0-4b2a-b80d-8690442c95f0",
+          "type" : "SYSTEM",
+          "name" : "Collaborator",
+          "description" : "Can add and edit content",
+          "spacePermissions" : [ "delete/own-content", "read/comment", "archive/page", "write/space", "manage/page", "export/content", "delete/own-comment", "create/blogpost", "edit/blogpost", "edit/native-content", "read/space", "create/attachment" ]
+        }, {
+          "id" : "26d75a6e-ad72-42c3-bf30-007d3ebae9ed",
+          "type" : "SYSTEM",
+          "name" : "Viewer",
+          "description" : "Can view and comment on content",
+          "spacePermissions" : [ "delete/own-content", "read/comment", "export/content", "delete/own-comment", "read/space" ]
+        }, {
+          "id" : "431e8e3e-ebb7-49c3-b3f2-9e5af7ebfafe",
+          "type" : "SYSTEM",
+          "name" : "View only",
+          "description" : "Can view content",
+          "spacePermissions" : [ "read/space" ]
+        }, {
+          "id" : "49676ffc-2b06-4e9b-a585-e58970dce01a",
+          "type" : "SYSTEM",
+          "name" : "Manager",
+          "description" : "Can manage people and content but not space settings",
+          "spacePermissions" : [ "delete/own-content", "read/comment", "archive/page", "delete/attachment", "manage/public-links", "manage/page", "export/content", "delete/own-comment", "edit/native-content", "manage/users", "delete/page", "write/space", "delete/blogpost", "manage/guests", "create/blogpost", "edit/blogpost", "read/space", "create/attachment", "delete/comment" ]
+        }, {
+          "id" : "6820786b-b8db-4102-b789-dcb45cba7c83",
+          "type" : "SYSTEM",
+          "name" : "Admin",
+          "description" : "Can manage everything in the space",
+          "spacePermissions" : [ "read/comment", "archive/page", "export/space", "manage/public-links", "manage/page", "export/content", "manage/users", "edit/native-content", "delete/page", "archive/space", "delete/space", "manage/look-and-feel", "manage/nonlicensed", "create/blogpost", "delete/own-content", "manage/content", "delete/attachment", "delete/own-comment", "manage/space", "manage/templates", "write/space", "delete/blogpost", "manage/guests", "edit/blogpost", "read/space", "create/attachment", "delete/comment" ]
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

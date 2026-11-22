@@ -1,10 +1,10 @@
 {
   "scenario" : "cleanup",
-  "sequence" : 12,
+  "sequence" : 2,
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/folders/30474489",
+    "path" : "/wiki/api/v2/pages/29884714",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -21,7 +21,7 @@
         "errors" : [ {
           "status" : 404,
           "code" : "NOT_FOUND",
-          "title" : "No content found with id : 30474489 and status [current, archived]",
+          "title" : "Not Found",
           "detail" : null
         } ]
       }

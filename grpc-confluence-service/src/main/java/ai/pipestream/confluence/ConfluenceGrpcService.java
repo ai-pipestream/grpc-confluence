@@ -1801,6 +1801,18 @@ public final class ConfluenceGrpcService
         });
     }
 
+    @Override
+    public void getLongRunningTask(GetLongRunningTaskRequest request,
+            StreamObserver<GetLongRunningTaskResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            JsonNode node = session.client.get("/rest/api/longtask/"
+                    + requireId(request.getTaskId(), "task_id"));
+            reply(observer, GetLongRunningTaskResponse.newBuilder()
+                    .setTask(ConfluenceMapper.toLongRunningTask(node)).build());
+        });
+    }
+
     // ======================================================================
     // CONTENT
     // ======================================================================
