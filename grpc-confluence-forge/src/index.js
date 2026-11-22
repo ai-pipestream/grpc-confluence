@@ -1,4 +1,4 @@
-import kvs, { WhereConditions } from '@forge/kvs';
+import { kvs, WhereConditions } from '@forge/kvs';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 
 /** Key prefix of queued events. */
