@@ -355,6 +355,7 @@ jobs:
           CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
           CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
           CONFLUENCE_LIVE_ACL: "1"
+          JOIN_PROOF_EMAIL: ${{ secrets.JOIN_PROOF_EMAIL }}
           CONFLUENCE_SPACE_KEY: CLAUDEGRPC
         run: |
           if [ -z "${CONFLUENCE_EMAIL}" ] || [ -z "${CONFLUENCE_API_TOKEN}" ]; then

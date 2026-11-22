@@ -57,6 +57,11 @@ class ConfluenceLiveAclIT {
                 .withZone(ZoneOffset.UTC).format(Instant.now()) + "-" + UUID.randomUUID().toString().substring(0, 8);
         Path recordings = Path.of(System.getProperty("liveAcl.recordings", ConfluenceAclReplayTest.DEFAULT_RECORDINGS));
 
+        String joinProof = env("JOIN_PROOF_EMAIL");
+        if (joinProof != null) {
+            System.out.println("- Join proof: JOIN_PROOF_EMAIL " + (joinProof.equalsIgnoreCase(email)
+                    ? "equals" : "differs from") + " the Confluence login email");
+        }
         RecordingScrubber scrubber = new RecordingScrubber();
         scrubber.site(URI.create(baseUrl).getAuthority());
         scrubber.email(email);
