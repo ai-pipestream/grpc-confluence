@@ -2,7 +2,7 @@
   "scenario" : "tenant",
   "sequence" : 22,
   "request" : {
-    "method" : "DELETE",
+    "method" : "GET",
     "host" : "site-1.example.invalid",
     "path" : "/wiki/api/v2/admin-key",
     "query" : [ ],
@@ -12,7 +12,15 @@
     "authorized" : true
   },
   "response" : {
-    "status" : 204,
-    "headers" : { }
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "accountId" : "account-1",
+        "expirationTime" : "2026-11-22T15:48:29.706Z"
+      }
+    }
   }
 }

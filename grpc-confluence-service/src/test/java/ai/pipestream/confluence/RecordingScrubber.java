@@ -64,6 +64,17 @@ final class RecordingScrubber {
         literal(authority, site(authority, true));
     }
 
+    /** Names the Forge app trigger URL of the run; its host and path are replaced. */
+    void forgeTrigger(String url) {
+        java.net.URI trigger = java.net.URI.create(url);
+        String host = "forge-app." + PLACEHOLDER_DOMAIN;
+        String path = "/x1/forge-trigger";
+        issued.add(host);
+        issued.add(path);
+        literal(trigger.getAuthority(), host);
+        literal(trigger.getRawPath(), path);
+    }
+
     /** Names the account email of the run. */
     void email(String email) {
         literal(email, placeholder("email", email, n -> "user-" + n + "@" + PLACEHOLDER_DOMAIN));
@@ -147,8 +158,12 @@ final class RecordingScrubber {
      */
     static List<String> leaks(String text) {
         List<String> found = new ArrayList<>();
-        if (text.toLowerCase(Locale.ROOT).contains("atlassian.net")) {
+        String lower = text.toLowerCase(Locale.ROOT);
+        if (lower.contains("atlassian.net")) {
             found.add("site hostname");
+        }
+        if (lower.contains("atlassian-dev.net")) {
+            found.add("Forge trigger hostname");
         }
         if (matches(text, EMAIL, match -> !placeholderAddress(match))) {
             found.add("email address");

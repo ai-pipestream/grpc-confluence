@@ -30,6 +30,8 @@ class ConfluenceWriteReplayTest {
 
     /** Where the recording lives, relative to the module directory. */
     static final String DEFAULT_RECORDINGS = "src/test/resources/recordings/confluence";
+    /** Where the app property recording lives, relative to the module directory. */
+    static final String APP_PROPERTY_RECORDINGS = "src/test/resources/recordings/confluence-app-properties";
 
     private Server server;
     private ManagedChannel channel;
@@ -46,23 +48,35 @@ class ConfluenceWriteReplayTest {
 
     @TestFactory
     List<DynamicTest> everyWriteScenarioAgainstTheRecording() throws IOException {
-        Path recordings = Path.of(System.getProperty("writeReplay.recordings", DEFAULT_RECORDINGS));
+        return replay(Path.of(System.getProperty("writeReplay.recordings", DEFAULT_RECORDINGS)),
+                WriteScenarios.names(), false, "liveWriteTest");
+    }
+
+    @TestFactory
+    List<DynamicTest> everyAppPropertyScenarioAgainstTheRecording() throws IOException {
+        return replay(Path.of(System.getProperty("appPropertyReplay.recordings", APP_PROPERTY_RECORDINGS)),
+                WriteScenarios.appPropertyNames(), true, "liveAppPropertiesTest");
+    }
+
+    /** One test per scenario name against the recording under {@code recordings}. */
+    private List<DynamicTest> replay(Path recordings, List<String> names, boolean appProperties,
+            String task) throws IOException {
         List<DynamicTest> tests = new ArrayList<>();
         if (!ReplayTape.recorded(recordings)) {
-            for (String name : WriteScenarios.names()) {
+            for (String name : names) {
                 tests.add(DynamicTest.dynamicTest(name, () -> assumeTrue(false, "no recording under "
-                        + recordings + "; record one with :grpc-confluence-service:liveWriteTest")));
+                        + recordings + "; record one with :grpc-confluence-service:" + task)));
             }
             return tests;
         }
         ReplayTape tape = new ReplayTape(recordings);
         JsonNode run = tape.run();
-        WriteScenarios scenarios = start(tape, run);
+        WriteScenarios scenarios = start(tape, run, appProperties);
         for (WriteScenarios.Scenario scenario : scenarios.scenarios()) {
             tests.add(DynamicTest.dynamicTest(scenario.name(), () -> {
                 assumeTrue(tape.has(scenario.name()) || recordedWithoutRequests(run, scenario.name()),
                         "the recording has no scenario " + scenario.name()
-                                + "; record again with :grpc-confluence-service:liveWriteTest");
+                                + "; record again with :grpc-confluence-service:" + task);
                 int rowsBefore = scenarios.rows().size();
                 int violationsBefore = tape.violations().size();
                 tape.scenario(scenario.name());
@@ -84,12 +98,15 @@ class ConfluenceWriteReplayTest {
     }
 
     /** Starts the service on the tape and answers the scenarios that call it. */
-    private WriteScenarios start(ReplayTape tape, JsonNode run) throws IOException {
+    private WriteScenarios start(ReplayTape tape, JsonNode run, boolean appProperties)
+            throws IOException {
         ConfluenceConnectorConfig config = ConfluenceConnectorConfig.builder()
                 .baseUrl(run.path("baseUrl").asText()).email("replay@" + RecordingScrubber.PLACEHOLDER_DOMAIN)
                 .apiToken("replay").pageSize(25).build();
         ConfluenceClient client = new ConfluenceClient(config.baseUrl(), config.email(),
                 config.apiToken(), Duration.ZERO, tape);
+        client.forgeApp(appProperties
+                ? new ConfluenceClient.ForgeApp(run.path("forgeAppUrl").asText(), "replay") : null);
         String name = InProcessServerBuilder.generateName();
         server = InProcessServerBuilder.forName(name)
                 .executor(Executors.newVirtualThreadPerTaskExecutor())
@@ -97,14 +114,15 @@ class ConfluenceWriteReplayTest {
                         ConfluenceGrpcService.DEFAULT_ATTACHMENT_MAX_BYTES))
                 .build().start();
         channel = InProcessChannelBuilder.forName(name).build();
-        return new WriteScenarios(channel, backend(tape, run));
+        return appProperties ? WriteScenarios.appProperties(channel, backend(tape, run))
+                : new WriteScenarios(channel, backend(tape, run));
     }
 
     /** The backend the recording was made with. */
     static WriteScenarios.Backend backend(ExchangeTape tape, JsonNode run) {
         return new WriteScenarios.Backend(run.path("spaceKey").asText(), run.path("run").asText(),
                 run.path("admin").asBoolean(), run.path("customContentType").asText(null),
-                run.path("inviteEmail").asText(null), List.of(), tape);
+                run.path("inviteEmail").asText(null), List.of(), tape, 0);
     }
 
     /** Whether the recorded run went through a scenario that made no request. */

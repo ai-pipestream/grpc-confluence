@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/29884673",
+    "path" : "/wiki/api/v2/pages/30179844",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -23,34 +23,34 @@
       "json" : {
         "authorId" : "account-1",
         "parentType" : "page",
-        "parentId" : "29851761",
+        "spaceId" : "7798786",
+        "parentId" : "30376427",
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T14:19:04.315Z",
-        "position" : 437,
+        "createdAt" : "2026-11-22T15:46:15.748Z",
+        "position" : 917,
         "version" : {
           "number" : 3,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T14:19:06.651Z",
+          "createdAt" : "2026-11-22T15:46:16.968Z",
           "ncsStepVersion" : "5"
         },
-        "id" : "29884673",
-        "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>Updated body pipestream-live-write-20261122T141900Z-46e204d2 inlinetarget</p>"
+            "value" : "<p>Updated body pipestream-live-write-20261122T154612Z-76a48fba inlinetarget</p>"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261122T141900Z-46e204d2 retitled",
+        "title" : "pipestream-live-write-20261122T154612Z-76a48fba retitled",
+        "id" : "30179844",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=29884673",
-          "webui" : "/spaces/CLAUDEGRPC/pages/29884673/pipestream-live-write-20261122T141900Z-46e204d2+retitled",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29884673",
-          "tinyui" : "/x/AQHIAQ",
+          "editui" : "/pages/resumedraft.action?draftId=30179844",
+          "webui" : "/spaces/CLAUDEGRPC/pages/30179844/pipestream-live-write-20261122T154612Z-76a48fba+retitled",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30179844",
+          "tinyui" : "/x/BILMAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

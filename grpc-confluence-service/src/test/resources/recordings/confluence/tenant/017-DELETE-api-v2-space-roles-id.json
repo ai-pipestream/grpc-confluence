@@ -1,10 +1,10 @@
 {
   "scenario" : "tenant",
-  "sequence" : 16,
+  "sequence" : 17,
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/space-roles/b2c31d7b-eac0-4a19-8796-9a045df69861",
+    "path" : "/wiki/api/v2/space-roles/17e322af-f44e-4644-bb8d-6b83fc75482c",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -18,7 +18,7 @@
     },
     "body" : {
       "json" : {
-        "taskId" : "30179827"
+        "taskId" : "30638108"
       }
     }
   }

@@ -84,6 +84,9 @@ CONFLUENCE_API_TOKEN=...
 CONFLUENCE_SPACES=ENG,DOCS          # optional allowlist
 # optional: the site's attachment size limit; larger uploads are refused before they are sent
 # CONFLUENCE_MAX_ATTACHMENT_BYTES=104857600
+# optional: a Forge app's web trigger; the app property rpcs are served to a Forge app only
+# CONFLUENCE_FORGE_APP_URL=https://...
+# CONFLUENCE_FORGE_APP_SECRET=...
 CONFLUENCE_GRPC_PORT=9095
 # optional raw-bytes Kafka sink
 CONFLUENCE_KAFKA_BOOTSTRAP_SERVERS=localhost:9092
