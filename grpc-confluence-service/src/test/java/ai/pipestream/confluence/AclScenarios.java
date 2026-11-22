@@ -287,8 +287,11 @@ final class AclScenarios {
                     .map(ConfluenceEntity::getUser).toList();
             check(users.stream().anyMatch(u -> u.getAccountId().equals(caller)), "no user record for the caller");
             long withEmail = users.stream().filter(u -> !u.getEmail().isEmpty()).count();
+            var domains = new java.util.TreeSet<String>();
+            users.stream().map(User::getEmail).filter(e -> e.indexOf('@') > 0)
+                    .forEach(e -> domains.add(e.substring(e.indexOf('@') + 1).toLowerCase(java.util.Locale.ROOT)));
             return "chain of " + owners.size() + " owners, parent VIEW_RESTRICTED, " + groups + ", "
-                    + users.size() + " users of which " + withEmail + " with an email";
+                    + users.size() + " users of which " + withEmail + " with an email (domains " + domains + ")";
         });
     }
 
