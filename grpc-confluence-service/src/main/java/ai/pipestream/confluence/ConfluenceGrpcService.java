@@ -1626,6 +1626,153 @@ public final class ConfluenceGrpcService
         });
     }
 
+    // ======================================================================
+    // GROUPS AND CONTENT ACCESS
+    // ======================================================================
+
+    @Override
+    public void getGroup(GetGroupRequest request, StreamObserver<GetGroupResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            JsonNode node = session.client.get("/rest/api/group/by-id",
+                    Map.of("id", requireId(request.getGroupId(), "group_id")));
+            reply(observer, GetGroupResponse.newBuilder().setGroup(toGroup(node)).build());
+        });
+    }
+
+    @Override
+    public void listGroupMembers(ListGroupMembersRequest request,
+            StreamObserver<ListGroupMembersResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            walkOffsets(session, "/rest/api/group/" + requireId(request.getGroupId(), "group_id")
+                    + "/membersByGroupId", Map.of(), node -> observer.onNext(
+                    ListGroupMembersResponse.newBuilder().setUser(session.mapper.toUser(node)).build()));
+            observer.onCompleted();
+        });
+    }
+
+    @Override
+    public void listUserGroups(ListUserGroupsRequest request,
+            StreamObserver<ListUserGroupsResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            walkOffsets(session, "/rest/api/user/memberof",
+                    Map.of("accountId", requireId(request.getAccountId(), "account_id")), node ->
+                    observer.onNext(ListUserGroupsResponse.newBuilder().setGroup(toGroup(node)).build()));
+            observer.onCompleted();
+        });
+    }
+
+    @Override
+    public void getContentAccess(GetContentAccessRequest request,
+            StreamObserver<GetContentAccessResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            ContentRef content = request.getContent();
+            String path = ConfluenceRoutes.contentPath(content, ConfluenceRoutes.PERMISSION_TARGETS,
+                    "GetContentAccess");
+            String spaceId = session.client.get(path).path("spaceId").asText("");
+            if (spaceId.isEmpty()) {
+                throw Status.INTERNAL.withDescription("GetContentAccess: " + path
+                        + " answered without a spaceId").asRuntimeException();
+            }
+            GetContentAccessResponse.Builder response = GetContentAccessResponse.newBuilder()
+                    .setSpaceId(spaceId);
+            walk(session, "/api/v2/spaces/" + spaceId + "/permissions",
+                    Map.of("limit", String.valueOf(MAX_LIMIT)), node ->
+                    response.addSpacePermissions(session.mapper.toSpacePermissionAssignment(node)));
+            walkIfFound(session, "/api/v2/spaces/" + spaceId + "/role-assignments",
+                    Map.of("limit", String.valueOf(MAX_LIMIT)), node ->
+                    response.addSpaceRoleAssignments(session.mapper.toSpaceRoleAssignment(node)));
+            List<ContentRef> owners = new ArrayList<>();
+            owners.add(content);
+            if (ConfluenceRoutes.TREE_NODES.contains(content.getType())) {
+                List<ContentRef> ancestors = new ArrayList<>();
+                listAncestors(ListAncestorsRequest.newBuilder().setContent(content)
+                        .setConnectionId(request.getConnectionId()).build(), collector(item -> {
+                            ContentType type = ancestorContentType(item.getAncestor().getType());
+                            if (type != null) {
+                                ancestors.add(ContentRef.newBuilder().setType(type)
+                                        .setId(item.getAncestor().getId()).build());
+                            }
+                        }));
+                owners.addAll(ancestors.reversed());
+            }
+            for (ContentRef owner : owners) {
+                String ownerPath = ConfluenceRoutes.contentPath(owner, ConfluenceRoutes.PERMISSION_TARGETS,
+                        "GetContentAccess");
+                RestrictionState state = session.mapper.toRestrictionState(
+                        session.client.get(ownerPath + "/restriction-state"));
+                ContentAccessOwner.Builder entry = ContentAccessOwner.newBuilder().setContent(owner)
+                        .setRestrictionState(state);
+                if (state.getState() != ContentRestrictionState.CONTENT_RESTRICTION_STATE_OPEN) {
+                    walk(session, ownerPath + "/permissions", Map.of("limit", String.valueOf(MAX_LIMIT)),
+                            node -> entry.addPermissions(session.mapper.toContentPermission(node)));
+                }
+                response.addOwners(entry);
+            }
+            reply(observer, response.setCompleteness(SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE)
+                    .build());
+        });
+    }
+
+    /** The content kind of an ancestor that can carry restrictions; null for others. */
+    private static ContentType ancestorContentType(AncestorType type) {
+        return switch (type) {
+            case ANCESTOR_TYPE_PAGE -> ContentType.CONTENT_TYPE_PAGE;
+            case ANCESTOR_TYPE_WHITEBOARD -> ContentType.CONTENT_TYPE_WHITEBOARD;
+            case ANCESTOR_TYPE_DATABASE -> ContentType.CONTENT_TYPE_DATABASE;
+            case ANCESTOR_TYPE_FOLDER -> ContentType.CONTENT_TYPE_FOLDER;
+            default -> null;
+        };
+    }
+
+    /** A v1 group JSON object as a {@link Group}. */
+    private static Group toGroup(JsonNode node) {
+        return Group.newBuilder().setId(node.path("id").asText(""))
+                .setName(node.path("name").asText("")).setType(node.path("type").asText("")).build();
+    }
+
+    /** Walks a v1 offset-paged list route ({@code start}/{@code limit}) until a short page. */
+    private void walkOffsets(Session session, String path, Map<String, String> query,
+            Consumer<JsonNode> onNode) throws IOException, InterruptedException {
+        int pageSize = session.config.pageSize();
+        for (int start = 0; ; start += pageSize) {
+            requireNotCancelled();
+            Map<String, String> params = new java.util.TreeMap<>(query);
+            params.put("start", String.valueOf(start));
+            params.put("limit", String.valueOf(pageSize));
+            JsonNode results = session.client.get(path, params).path("results");
+            results.forEach(onNode);
+            if (results.size() < pageSize) {
+                return;
+            }
+        }
+    }
+
+    /** A stream observer that hands each item to {@code onItem} and rethrows an error. */
+    private static <T> StreamObserver<T> collector(Consumer<T> onItem) {
+        return new StreamObserver<>() {
+            @Override
+            public void onNext(T value) {
+                onItem.accept(value);
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                if (t instanceof RuntimeException runtime) {
+                    throw runtime;
+                }
+                throw new IllegalStateException(t);
+            }
+
+            @Override
+            public void onCompleted() {
+            }
+        };
+    }
+
     /** {@code role-type} and the paired {@code principal-type}/{@code principal-id} (upper-case wire). */
     private static void roleFilters(Query query, RoleType roleType, boolean hasPrincipal,
             Principal principal) {

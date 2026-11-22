@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package ai.pipestream.confluence.v1;
 
+import "ai/pipestream/confluence/v1/access.proto";
 import "ai/pipestream/confluence/v1/admin_key.proto";
 import "ai/pipestream/confluence/v1/attachment.proto";
 import "ai/pipestream/confluence/v1/blogpost.proto";
@@ -345,6 +346,26 @@ service ConfluenceService {
   rpc GetAppProperty(GetAppPropertyRequest) returns (GetAppPropertyResponse);
 
   // ----------------------------------------- permissions (read side only) --
+
+  // One group.
+  // v1: GET /rest/api/group/by-id?id={groupId}.
+  rpc GetGroup(GetGroupRequest) returns (GetGroupResponse);
+
+  // The members of a group, as a stream.
+  // v1: GET /rest/api/group/{groupId}/membersByGroupId.
+  rpc ListGroupMembers(ListGroupMembersRequest) returns (stream ListGroupMembersResponse);
+
+  // The groups a user belongs to, as a stream.
+  // v1: GET /rest/api/user/memberof?accountId={accountId}.
+  rpc ListUserGroups(ListUserGroupsRequest) returns (stream ListUserGroupsResponse);
+
+  // The space permissions, space role assignments, and the restriction
+  // state and permission entries of a content item and each of its
+  // ancestors.
+  // v2: GET /{content-type}/{id}, /ancestors, /restriction-state,
+  // /permissions; GET /spaces/{id}/permissions, /role-assignments.
+  rpc GetContentAccess(GetContentAccessRequest) returns (GetContentAccessResponse);
+
 
   // The direct restriction state of a page, blog post, database, whiteboard
   // or folder.
