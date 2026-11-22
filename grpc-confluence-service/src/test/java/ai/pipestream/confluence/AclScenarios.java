@@ -287,12 +287,23 @@ final class AclScenarios {
                     .map(ConfluenceEntity::getUser).toList();
             check(users.stream().anyMatch(u -> u.getAccountId().equals(caller)), "no user record for the caller");
             long withEmail = users.stream().filter(u -> !u.getEmail().isEmpty()).count();
-            var domains = new java.util.TreeSet<String>();
+            var domains = new java.util.TreeMap<String, Integer>();
             users.stream().map(User::getEmail).filter(e -> e.indexOf('@') > 0)
-                    .forEach(e -> domains.add(e.substring(e.indexOf('@') + 1).toLowerCase(java.util.Locale.ROOT)));
+                    .forEach(e -> domains.merge(domainClass(e), 1, Integer::sum));
             return "chain of " + owners.size() + " owners, parent VIEW_RESTRICTED, " + groups + ", "
                     + users.size() + " users of which " + withEmail + " with an email (domains " + domains + ")";
         });
+    }
+
+    private static final java.util.Set<String> CONSUMER_DOMAINS = java.util.Set.of("gmail.com", "googlemail.com",
+            "outlook.com", "hotmail.com", "live.com", "msn.com", "yahoo.com", "icloud.com", "me.com", "proton.me",
+            "protonmail.com", "example.invalid");
+
+    /** A consumer mail domain by name; any other domain only as onmicrosoft.com or custom. */
+    private static String domainClass(String email) {
+        String domain = email.substring(email.indexOf('@') + 1).toLowerCase(java.util.Locale.ROOT);
+        if (CONSUMER_DOMAINS.contains(domain)) return domain;
+        return domain.endsWith(".onmicrosoft.com") ? "onmicrosoft.com" : "custom";
     }
 
     private void cleanUp() {
