@@ -64,6 +64,9 @@ class ConfluenceLiveAclIT {
         }
         RecordingScrubber scrubber = new RecordingScrubber();
         scrubber.site(URI.create(baseUrl).getAuthority());
+        if (joinProof != null && joinProof.equalsIgnoreCase(email)) {
+            scrubber.joinEmail(email);
+        }
         scrubber.email(email);
         scrubber.secret(token);
         RecordingTape tape = new RecordingTape(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).build(),
