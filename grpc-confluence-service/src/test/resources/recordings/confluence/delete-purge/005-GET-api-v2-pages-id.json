@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/29720720",
+    "path" : "/wiki/api/v2/pages/30179415",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"

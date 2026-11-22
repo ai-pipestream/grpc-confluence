@@ -4,10 +4,10 @@
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/rest/api/content/29917213/label",
+    "path" : "/wiki/rest/api/content/30375958/label",
     "query" : [ {
       "name" : "name",
-      "value" : "live-write-1bfb10d7"
+      "value" : "live-write-2489d4c3"
     } ],
     "headers" : {
       "accept" : "application/json"

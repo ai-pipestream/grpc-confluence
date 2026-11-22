@@ -14,11 +14,11 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-write-20261122T125241Z-1bfb10d7 adf",
-        "parentId" : "29720674",
+        "title" : "pipestream-live-write-20261122T130923Z-2489d4c3 adf",
+        "parentId" : "29884486",
         "body" : {
           "representation" : "atlas_doc_format",
-          "value" : "{\"version\":1,\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Typed heading\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"alpha REDACTME omega\"}]},{\"type\":\"taskList\",\"attrs\":{\"localId\":\"cc6b5405-74ae-3b46-8a8e-5cf8cd54e775\"},\"content\":[{\"type\":\"taskItem\",\"attrs\":{\"localId\":\"d0d3559f-119c-3f1c-82ed-5b4bd5721142\",\"state\":\"TODO\"},\"content\":[{\"type\":\"text\",\"text\":\"ship it\"}]}]}]}"
+          "value" : "{\"version\":1,\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Typed heading\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"alpha REDACTME omega\"}]},{\"type\":\"taskList\",\"attrs\":{\"localId\":\"93697734-d498-301c-88ef-f3c9e6760f96\"},\"content\":[{\"type\":\"taskItem\",\"attrs\":{\"localId\":\"4190e02e-45d5-3f49-a6c0-3cdb2398f44f\",\"state\":\"TODO\"},\"content\":[{\"type\":\"text\",\"text\":\"ship it\"}]}]}]}"
         }
       }
     }
@@ -32,34 +32,34 @@
       "json" : {
         "authorId" : "account-1",
         "parentType" : "page",
-        "parentId" : "29720674",
+        "spaceId" : "7798786",
+        "parentId" : "29884486",
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T12:52:43.742Z",
-        "position" : 225,
+        "createdAt" : "2026-11-22T13:09:25.651Z",
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T12:52:43.742Z",
+          "createdAt" : "2026-11-22T13:09:25.651Z",
           "ncsStepVersion" : "1"
         },
-        "spaceId" : "7798786",
+        "id" : "30048303",
+        "position" : 822,
+        "status" : "current",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<h2>Typed heading</h2><p>alpha REDACTME omega</p><ac:task-list ac:task-list-id=\"cc6b5405-74ae-3b46-8a8e-5cf8cd54e775\">\n<ac:task>\n<ac:task-id>1</ac:task-id>\n<ac:task-uuid>d0d3559f-119c-3f1c-82ed-5b4bd5721142</ac:task-uuid>\n<ac:task-status>incomplete</ac:task-status>\n<ac:task-body><span class=\"placeholder-inline-tasks\">ship it</span></ac:task-body>\n</ac:task>\n</ac:task-list>"
+            "value" : "<h2>Typed heading</h2><p>alpha REDACTME omega</p><ac:task-list ac:task-list-id=\"93697734-d498-301c-88ef-f3c9e6760f96\">\n<ac:task>\n<ac:task-id>1</ac:task-id>\n<ac:task-uuid>4190e02e-45d5-3f49-a6c0-3cdb2398f44f</ac:task-uuid>\n<ac:task-status>incomplete</ac:task-status>\n<ac:task-body><span class=\"placeholder-inline-tasks\">ship it</span></ac:task-body>\n</ac:task>\n</ac:task-list>"
           }
         },
-        "status" : "current",
-        "title" : "pipestream-live-write-20261122T125241Z-1bfb10d7 adf",
-        "id" : "30441473",
+        "title" : "pipestream-live-write-20261122T130923Z-2489d4c3 adf",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=30441473",
-          "webui" : "/spaces/CLAUDEGRPC/pages/30441473/pipestream-live-write-20261122T125241Z-1bfb10d7+adf",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30441473",
-          "tinyui" : "/x/AYDQAQ",
+          "editui" : "/pages/resumedraft.action?draftId=30048303",
+          "webui" : "/spaces/CLAUDEGRPC/pages/30048303/pipestream-live-write-20261122T130923Z-2489d4c3+adf",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30048303",
+          "tinyui" : "/x/L4DKAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

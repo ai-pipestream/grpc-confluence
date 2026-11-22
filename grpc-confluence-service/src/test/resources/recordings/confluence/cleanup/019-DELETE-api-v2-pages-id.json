@@ -4,7 +4,7 @@
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/29720674",
+    "path" : "/wiki/api/v2/pages/29884486",
     "query" : [ {
       "name" : "purge",
       "value" : "true"

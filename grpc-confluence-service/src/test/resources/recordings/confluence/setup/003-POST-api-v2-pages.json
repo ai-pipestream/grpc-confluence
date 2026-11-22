@@ -14,10 +14,10 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-write-20261122T125241Z-1bfb10d7",
+        "title" : "pipestream-live-write-20261122T130923Z-2489d4c3",
         "body" : {
           "representation" : "storage",
-          "value" : "<p>Parent of the live write run pipestream-live-write-20261122T125241Z-1bfb10d7.</p>"
+          "value" : "<p>Parent of the live write run pipestream-live-write-20261122T130923Z-2489d4c3.</p>"
         }
       }
     }
@@ -34,31 +34,31 @@
         "parentId" : "7798963",
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T12:52:42.845Z",
-        "position" : 781,
+        "createdAt" : "2026-11-22T13:09:24.995Z",
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T12:52:42.845Z",
+          "createdAt" : "2026-11-22T13:09:24.995Z",
           "ncsStepVersion" : "1"
         },
-        "id" : "29720674",
+        "position" : 850,
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>Parent of the live write run pipestream-live-write-20261122T125241Z-1bfb10d7.</p>"
+            "value" : "<p>Parent of the live write run pipestream-live-write-20261122T130923Z-2489d4c3.</p>"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261122T125241Z-1bfb10d7",
+        "title" : "pipestream-live-write-20261122T130923Z-2489d4c3",
+        "id" : "29884486",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=29720674",
-          "webui" : "/spaces/CLAUDEGRPC/pages/29720674/pipestream-live-write-20261122T125241Z-1bfb10d7",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29720674",
-          "tinyui" : "/x/YoDFAQ",
+          "editui" : "/pages/resumedraft.action?draftId=29884486",
+          "webui" : "/spaces/CLAUDEGRPC/pages/29884486/pipestream-live-write-20261122T130923Z-2489d4c3",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29884486",
+          "tinyui" : "/x/RgDIAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

@@ -1,7 +1,7 @@
 {
   "baseUrl" : "https://site-1.example.invalid/wiki",
   "spaceKey" : "CLAUDEGRPC",
-  "run" : "pipestream-live-write-20261122T125241Z-1bfb10d7",
+  "run" : "pipestream-live-write-20261122T130923Z-2489d4c3",
   "admin" : false,
   "customContentType" : null,
   "inviteEmail" : null,
@@ -232,6 +232,10 @@
   }, {
     "rpc" : "CreateSpace",
     "step" : "CreateSpace",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "DeleteSpace",
+    "step" : "DeleteSpace",
     "outcome" : "SKIPPED"
   }, {
     "rpc" : "CreateSpaceRole",

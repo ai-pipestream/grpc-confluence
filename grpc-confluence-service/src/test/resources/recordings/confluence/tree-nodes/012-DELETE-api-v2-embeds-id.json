@@ -4,7 +4,7 @@
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/embeds/29720695",
+    "path" : "/wiki/api/v2/embeds/30474280",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
