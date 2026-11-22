@@ -5,7 +5,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/7798963/permissions",
+    "path" : "/wiki/api/v2/pages/28409901/permissions",
     "query" : [ {
       "name" : "limit",
       "value" : "25"
@@ -28,7 +28,7 @@
             "principalType" : "user",
             "principalId" : "account-1"
           },
-          "createdAt" : "2026-08-25T00:57:42.226Z",
+          "createdAt" : "2026-11-15T21:13:47.494Z",
           "createdByAaid" : "account-1",
           "createdBy" : "account-1"
         } ],

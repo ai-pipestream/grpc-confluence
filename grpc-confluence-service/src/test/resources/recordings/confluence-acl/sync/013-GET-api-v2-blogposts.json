@@ -1,14 +1,17 @@
 {
   "scenario" : "sync",
-  "sequence" : 21,
+  "sequence" : 13,
   "unordered" : 1,
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30048452/ancestors",
+    "path" : "/wiki/api/v2/blogposts",
     "query" : [ {
       "name" : "limit",
-      "value" : "250"
+      "value" : "25"
+    }, {
+      "name" : "space-id",
+      "value" : "7798786"
     } ],
     "headers" : {
       "accept" : "application/json"
@@ -22,13 +25,7 @@
     },
     "body" : {
       "json" : {
-        "results" : [ {
-          "id" : "7798963",
-          "type" : "page"
-        }, {
-          "id" : "29851840",
-          "type" : "page"
-        } ],
+        "results" : [ ],
         "_links" : {
           "base" : "https://site-1.example.invalid/wiki"
         }

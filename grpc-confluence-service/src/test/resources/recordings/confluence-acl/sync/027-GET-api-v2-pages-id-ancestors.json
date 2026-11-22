@@ -1,17 +1,14 @@
 {
   "scenario" : "sync",
-  "sequence" : 30,
+  "sequence" : 27,
   "unordered" : 1,
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30048452/inline-comments",
+    "path" : "/wiki/api/v2/pages/28409901/ancestors",
     "query" : [ {
-      "name" : "body-format",
-      "value" : "storage"
-    }, {
       "name" : "limit",
-      "value" : "25"
+      "value" : "250"
     } ],
     "headers" : {
       "accept" : "application/json"
@@ -25,7 +22,10 @@
     },
     "body" : {
       "json" : {
-        "results" : [ ],
+        "results" : [ {
+          "id" : "7798963",
+          "type" : "page"
+        } ],
         "_links" : {
           "base" : "https://site-1.example.invalid/wiki"
         }

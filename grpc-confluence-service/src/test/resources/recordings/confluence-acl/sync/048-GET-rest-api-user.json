@@ -1,6 +1,6 @@
 {
   "scenario" : "sync",
-  "sequence" : 46,
+  "sequence" : 48,
   "unordered" : 1,
   "request" : {
     "method" : "GET",
@@ -8,7 +8,7 @@
     "path" : "/wiki/rest/api/user",
     "query" : [ {
       "name" : "accountId",
-      "value" : "account-3"
+      "value" : "account-2"
     } ],
     "headers" : {
       "accept" : "application/json"
@@ -23,17 +23,17 @@
     "body" : {
       "json" : {
         "type" : "known",
-        "accountId" : "account-3",
+        "accountId" : "account-2",
         "accountType" : "app",
         "email" : "",
-        "publicName" : "User 2",
+        "publicName" : "User 3",
         "profilePicture" : {
-          "path" : "/avatars/avatar-3.png",
+          "path" : "/avatars/avatar-4.png",
           "width" : 48,
           "height" : 48,
           "isDefault" : false
         },
-        "displayName" : "User 2",
+        "displayName" : "User 3",
         "isExternalCollaborator" : false,
         "isGuest" : false,
         "accountStatus" : "active",
@@ -42,7 +42,7 @@
           "personalSpace" : ""
         },
         "_links" : {
-          "self" : "https://site-1.example.invalid/wiki/rest/api/user?accountId=account-3",
+          "self" : "https://site-1.example.invalid/wiki/rest/api/user?accountId=account-2",
           "base" : "https://site-1.example.invalid/wiki",
           "context" : "/wiki"
         }

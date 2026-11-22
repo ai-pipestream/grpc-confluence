@@ -1,11 +1,11 @@
 {
   "scenario" : "sync",
-  "sequence" : 16,
+  "sequence" : 21,
   "unordered" : 1,
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30048452/restriction-state",
+    "path" : "/wiki/api/v2/pages/30114841/restriction-state",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -19,7 +19,10 @@
     },
     "body" : {
       "json" : {
-        "state" : "OPEN"
+        "state" : "VIEW_RESTRICTED",
+        "createdAt" : "2026-11-22T21:06:40.798Z",
+        "createdByAaid" : "account-1",
+        "createdBy" : "account-1"
       }
     }
   }

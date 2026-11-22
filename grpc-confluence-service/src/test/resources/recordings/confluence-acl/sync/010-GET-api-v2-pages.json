@@ -1,6 +1,6 @@
 {
   "scenario" : "sync",
-  "sequence" : 9,
+  "sequence" : 10,
   "unordered" : 1,
   "request" : {
     "method" : "GET",
@@ -32,22 +32,22 @@
     "body" : {
       "json" : {
         "results" : [ {
-          "parentType" : "page",
           "authorId" : "account-1",
-          "parentId" : "29851840",
+          "parentType" : "page",
+          "parentId" : "30114841",
           "ownerId" : "account-1",
           "lastOwnerId" : null,
-          "createdAt" : "2026-11-22T14:58:28.390Z",
+          "createdAt" : "2026-11-22T21:06:39.657Z",
           "version" : {
             "number" : 1,
             "message" : "",
             "minorEdit" : false,
             "authorId" : "account-1",
-            "createdAt" : "2026-11-22T14:58:28.390Z",
+            "createdAt" : "2026-11-22T21:06:39.657Z",
             "ncsStepVersion" : "1"
           },
-          "position" : 698,
-          "id" : "30048452",
+          "position" : 452,
+          "id" : "30180106",
           "spaceId" : "7798786",
           "body" : {
             "storage" : {
@@ -56,30 +56,30 @@
             }
           },
           "status" : "current",
-          "title" : "pipestream-live-acl-20261122T145825Z-7450e835 child",
+          "title" : "pipestream-live-acl-20261122T210636Z-d3c3a476 child",
           "_links" : {
-            "editui" : "/pages/resumedraft.action?draftId=30048452",
-            "webui" : "/spaces/CLAUDEGRPC/pages/30048452/pipestream-live-acl-20261122T145825Z-7450e835+child",
-            "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30048452",
-            "tinyui" : "/x/xIDKAQ"
+            "editui" : "/pages/resumedraft.action?draftId=30180106",
+            "webui" : "/spaces/CLAUDEGRPC/pages/30180106/pipestream-live-acl-20261122T210636Z-d3c3a476+child",
+            "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30180106",
+            "tinyui" : "/x/CoPMAQ"
           }
         }, {
-          "parentType" : "page",
           "authorId" : "account-1",
+          "parentType" : "page",
           "parentId" : "7798963",
           "ownerId" : "account-1",
           "lastOwnerId" : null,
-          "createdAt" : "2026-11-22T14:58:27.561Z",
+          "createdAt" : "2026-11-22T21:06:38.837Z",
           "version" : {
             "number" : 1,
             "message" : "",
             "minorEdit" : false,
             "authorId" : "account-1",
-            "createdAt" : "2026-11-22T14:58:27.561Z",
+            "createdAt" : "2026-11-22T21:06:38.837Z",
             "ncsStepVersion" : "1"
           },
-          "position" : 822,
-          "id" : "29851840",
+          "position" : 463,
+          "id" : "30114841",
           "spaceId" : "7798786",
           "body" : {
             "storage" : {
@@ -88,16 +88,16 @@
             }
           },
           "status" : "current",
-          "title" : "pipestream-live-acl-20261122T145825Z-7450e835",
+          "title" : "pipestream-live-acl-20261122T210636Z-d3c3a476",
           "_links" : {
-            "editui" : "/pages/resumedraft.action?draftId=29851840",
-            "webui" : "/spaces/CLAUDEGRPC/pages/29851840/pipestream-live-acl-20261122T145825Z-7450e835",
-            "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29851840",
-            "tinyui" : "/x/wIDHAQ"
+            "editui" : "/pages/resumedraft.action?draftId=30114841",
+            "webui" : "/spaces/CLAUDEGRPC/pages/30114841/pipestream-live-acl-20261122T210636Z-d3c3a476",
+            "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30114841",
+            "tinyui" : "/x/GYTLAQ"
           }
         }, {
-          "parentType" : "page",
           "authorId" : "account-1",
+          "parentType" : "page",
           "parentId" : "7798963",
           "ownerId" : "account-1",
           "lastOwnerId" : null,
@@ -128,8 +128,8 @@
             "tinyui" : "/x/LYCxAQ"
           }
         }, {
-          "parentType" : "page",
           "authorId" : "account-1",
+          "parentType" : "page",
           "parentId" : "7798963",
           "ownerId" : "account-1",
           "lastOwnerId" : null,
@@ -160,8 +160,8 @@
             "tinyui" : "/x/AQB4"
           }
         }, {
-          "parentType" : null,
           "authorId" : "account-1",
+          "parentType" : null,
           "parentId" : null,
           "ownerId" : "account-1",
           "lastOwnerId" : null,

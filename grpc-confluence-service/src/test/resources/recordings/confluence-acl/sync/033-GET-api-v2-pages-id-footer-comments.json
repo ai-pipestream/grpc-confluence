@@ -1,17 +1,17 @@
 {
   "scenario" : "sync",
-  "sequence" : 15,
+  "sequence" : 33,
   "unordered" : 1,
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/blogposts",
+    "path" : "/wiki/api/v2/pages/30114841/footer-comments",
     "query" : [ {
+      "name" : "body-format",
+      "value" : "storage"
+    }, {
       "name" : "limit",
       "value" : "25"
-    }, {
-      "name" : "space-id",
-      "value" : "7798786"
     } ],
     "headers" : {
       "accept" : "application/json"

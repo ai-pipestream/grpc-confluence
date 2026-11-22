@@ -1,11 +1,11 @@
 {
   "scenario" : "sync",
-  "sequence" : 31,
+  "sequence" : 35,
   "unordered" : 1,
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/29851840/footer-comments",
+    "path" : "/wiki/api/v2/pages/30180106/inline-comments",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"

@@ -14,8 +14,8 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-acl-20261122T145825Z-7450e835 child",
-        "parentId" : "29851840",
+        "title" : "pipestream-live-acl-20261122T210636Z-d3c3a476 child",
+        "parentId" : "30114841",
         "body" : {
           "representation" : "storage",
           "value" : "<p>Child of the ACL run.</p>"
@@ -32,34 +32,34 @@
       "json" : {
         "authorId" : "account-1",
         "parentType" : "page",
-        "spaceId" : "7798786",
-        "parentId" : "29851840",
+        "parentId" : "30114841",
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T14:58:28.390Z",
+        "createdAt" : "2026-11-22T21:06:39.657Z",
+        "position" : 452,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T14:58:28.390Z",
+          "createdAt" : "2026-11-22T21:06:39.657Z",
           "ncsStepVersion" : "1"
         },
-        "id" : "30048452",
-        "position" : 698,
-        "status" : "current",
+        "id" : "30180106",
+        "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
             "value" : "<p>Child of the ACL run.</p>"
           }
         },
-        "title" : "pipestream-live-acl-20261122T145825Z-7450e835 child",
+        "status" : "current",
+        "title" : "pipestream-live-acl-20261122T210636Z-d3c3a476 child",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=30048452",
-          "webui" : "/spaces/CLAUDEGRPC/pages/30048452/pipestream-live-acl-20261122T145825Z-7450e835+child",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30048452",
-          "tinyui" : "/x/xIDKAQ",
+          "editui" : "/pages/resumedraft.action?draftId=30180106",
+          "webui" : "/spaces/CLAUDEGRPC/pages/30180106/pipestream-live-acl-20261122T210636Z-d3c3a476+child",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30180106",
+          "tinyui" : "/x/CoPMAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

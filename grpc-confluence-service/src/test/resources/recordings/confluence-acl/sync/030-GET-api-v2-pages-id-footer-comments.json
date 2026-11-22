@@ -1,12 +1,15 @@
 {
   "scenario" : "sync",
-  "sequence" : 42,
+  "sequence" : 30,
   "unordered" : 1,
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30048452/direct-children",
+    "path" : "/wiki/api/v2/pages/30180106/footer-comments",
     "query" : [ {
+      "name" : "body-format",
+      "value" : "storage"
+    }, {
       "name" : "limit",
       "value" : "25"
     } ],

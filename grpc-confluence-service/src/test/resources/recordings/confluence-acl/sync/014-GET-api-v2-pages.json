@@ -1,6 +1,6 @@
 {
   "scenario" : "sync",
-  "sequence" : 12,
+  "sequence" : 14,
   "unordered" : 1,
   "request" : {
     "method" : "GET",
@@ -41,11 +41,11 @@
             "ncsStepVersion" : null
           },
           "position" : 946,
-          "id" : "7798963",
           "spaceId" : "7798786",
           "body" : { },
           "status" : "current",
           "title" : "Claude gRPC Live Test Home",
+          "id" : "7798963",
           "_links" : {
             "editui" : "/pages/resumedraft.action?draftId=7798963",
             "webui" : "/spaces/CLAUDEGRPC/overview",
@@ -68,11 +68,11 @@
             "ncsStepVersion" : "8"
           },
           "position" : 9,
-          "id" : "7864321",
           "spaceId" : "7798786",
           "body" : { },
           "status" : "current",
           "title" : "Sync Probe Page",
+          "id" : "7864321",
           "_links" : {
             "editui" : "/pages/resumedraft.action?draftId=7864321",
             "webui" : "/spaces/CLAUDEGRPC/pages/7864321/Sync+Probe+Page",
@@ -95,11 +95,11 @@
             "ncsStepVersion" : "1"
           },
           "position" : 336,
-          "id" : "28409901",
           "spaceId" : "7798786",
           "body" : { },
           "status" : "current",
           "title" : "Document Analytics probe 2026-11-15T21:13:47Z",
+          "id" : "28409901",
           "_links" : {
             "editui" : "/pages/resumedraft.action?draftId=28409901",
             "webui" : "/spaces/CLAUDEGRPC/pages/28409901/Document+Analytics+probe+2026-11-15T21+13+47Z",
@@ -112,53 +112,53 @@
           "parentId" : "7798963",
           "ownerId" : "account-1",
           "lastOwnerId" : null,
-          "createdAt" : "2026-11-22T14:58:27.561Z",
+          "createdAt" : "2026-11-22T21:06:38.837Z",
           "version" : {
             "number" : 1,
             "message" : "",
             "minorEdit" : false,
             "authorId" : "account-1",
-            "createdAt" : "2026-11-22T14:58:27.561Z",
+            "createdAt" : "2026-11-22T21:06:38.837Z",
             "ncsStepVersion" : "1"
           },
-          "position" : 822,
-          "id" : "29851840",
+          "position" : 463,
           "spaceId" : "7798786",
           "body" : { },
           "status" : "current",
-          "title" : "pipestream-live-acl-20261122T145825Z-7450e835",
+          "title" : "pipestream-live-acl-20261122T210636Z-d3c3a476",
+          "id" : "30114841",
           "_links" : {
-            "editui" : "/pages/resumedraft.action?draftId=29851840",
-            "webui" : "/spaces/CLAUDEGRPC/pages/29851840/pipestream-live-acl-20261122T145825Z-7450e835",
-            "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29851840",
-            "tinyui" : "/x/wIDHAQ"
+            "editui" : "/pages/resumedraft.action?draftId=30114841",
+            "webui" : "/spaces/CLAUDEGRPC/pages/30114841/pipestream-live-acl-20261122T210636Z-d3c3a476",
+            "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30114841",
+            "tinyui" : "/x/GYTLAQ"
           }
         }, {
           "authorId" : "account-1",
           "parentType" : "page",
-          "parentId" : "29851840",
+          "parentId" : "30114841",
           "ownerId" : "account-1",
           "lastOwnerId" : null,
-          "createdAt" : "2026-11-22T14:58:28.390Z",
+          "createdAt" : "2026-11-22T21:06:39.657Z",
           "version" : {
             "number" : 1,
             "message" : "",
             "minorEdit" : false,
             "authorId" : "account-1",
-            "createdAt" : "2026-11-22T14:58:28.390Z",
+            "createdAt" : "2026-11-22T21:06:39.657Z",
             "ncsStepVersion" : "1"
           },
-          "position" : 698,
-          "id" : "30048452",
+          "position" : 452,
           "spaceId" : "7798786",
           "body" : { },
           "status" : "current",
-          "title" : "pipestream-live-acl-20261122T145825Z-7450e835 child",
+          "title" : "pipestream-live-acl-20261122T210636Z-d3c3a476 child",
+          "id" : "30180106",
           "_links" : {
-            "editui" : "/pages/resumedraft.action?draftId=30048452",
-            "webui" : "/spaces/CLAUDEGRPC/pages/30048452/pipestream-live-acl-20261122T145825Z-7450e835+child",
-            "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30048452",
-            "tinyui" : "/x/xIDKAQ"
+            "editui" : "/pages/resumedraft.action?draftId=30180106",
+            "webui" : "/spaces/CLAUDEGRPC/pages/30180106/pipestream-live-acl-20261122T210636Z-d3c3a476+child",
+            "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30180106",
+            "tinyui" : "/x/CoPMAQ"
           }
         } ],
         "_links" : {

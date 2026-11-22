@@ -1,11 +1,11 @@
 {
   "scenario" : "sync",
-  "sequence" : 13,
+  "sequence" : 16,
   "unordered" : 1,
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30048452/permissions",
+    "path" : "/wiki/api/v2/pages/30114841/permissions",
     "query" : [ {
       "name" : "limit",
       "value" : "25"
@@ -23,12 +23,21 @@
     "body" : {
       "json" : {
         "results" : [ {
+          "operation" : "read",
+          "principal" : {
+            "principalType" : "group",
+            "principalId" : "7c989546-0d14-4a91-99ec-a0afdaaedc22"
+          },
+          "createdAt" : "2026-11-22T21:06:44.903Z",
+          "createdByAaid" : "account-1",
+          "createdBy" : "account-1"
+        }, {
           "operation" : "update",
           "principal" : {
             "principalType" : "user",
             "principalId" : "account-1"
           },
-          "createdAt" : "2026-11-22T14:58:28.404Z",
+          "createdAt" : "2026-11-22T21:06:38.890Z",
           "createdByAaid" : "account-1",
           "createdBy" : "account-1"
         } ],

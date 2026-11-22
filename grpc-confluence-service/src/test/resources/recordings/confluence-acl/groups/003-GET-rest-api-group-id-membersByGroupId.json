@@ -26,7 +26,7 @@
       "json" : {
         "results" : [ {
           "type" : "known",
-          "accountId" : "account-4",
+          "accountId" : "account-5",
           "accountType" : "atlassian",
           "email" : "",
           "publicName" : "User 1",
@@ -46,13 +46,13 @@
             "personalSpace" : ""
           },
           "_links" : {
-            "self" : "https://site-1.example.invalid/wiki/rest/api/user?accountId=account-4"
+            "self" : "https://site-1.example.invalid/wiki/rest/api/user?accountId=account-5"
           }
         }, {
           "type" : "known",
           "accountId" : "account-1",
           "accountType" : "atlassian",
-          "email" : "user-1@example.invalid",
+          "email" : "join-proof@example.invalid",
           "publicName" : "User 1",
           "profilePicture" : {
             "path" : "/avatars/avatar-2.png",

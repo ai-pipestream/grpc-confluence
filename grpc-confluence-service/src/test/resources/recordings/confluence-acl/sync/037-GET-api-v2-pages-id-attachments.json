@@ -5,7 +5,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/29851840/attachments",
+    "path" : "/wiki/api/v2/pages/30114841/attachments",
     "query" : [ {
       "name" : "limit",
       "value" : "25"

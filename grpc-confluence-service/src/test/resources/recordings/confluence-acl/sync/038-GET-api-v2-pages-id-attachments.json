@@ -1,15 +1,12 @@
 {
   "scenario" : "sync",
-  "sequence" : 27,
+  "sequence" : 38,
   "unordered" : 1,
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30048452/footer-comments",
+    "path" : "/wiki/api/v2/pages/30180106/attachments",
     "query" : [ {
-      "name" : "body-format",
-      "value" : "storage"
-    }, {
       "name" : "limit",
       "value" : "25"
     } ],

@@ -1,11 +1,11 @@
 {
   "scenario" : "sync",
-  "sequence" : 35,
+  "sequence" : 40,
   "unordered" : 1,
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30048452/attachments",
+    "path" : "/wiki/api/v2/pages/30180106/labels",
     "query" : [ {
       "name" : "limit",
       "value" : "25"
