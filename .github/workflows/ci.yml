@@ -330,6 +330,10 @@ jobs:
           if int(suite.get("skipped", "0")) or int(suite.get("tests", "0")) == 0:
               raise SystemExit("The live change test was skipped; no live evidence.")
           PY
+      - name: Forge logs
+        if: failure()
+        working-directory: grpc-confluence/grpc-confluence-forge
+        run: forge logs -e development --since 30m --limit 200 || true
       - name: Report
         if: always()
         working-directory: grpc-confluence
