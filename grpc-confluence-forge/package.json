@@ -1,0 +1,14 @@
+{
+  "name": "grpc-confluence-forge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Queues Confluence product events for grpc-confluence to collect.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node --test src/*.test.js"
+  },
+  "dependencies": {
+    "@forge/kvs": "2.1.2"
+  }
+}
