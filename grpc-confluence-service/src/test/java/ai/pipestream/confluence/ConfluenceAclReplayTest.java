@@ -66,6 +66,14 @@ class ConfluenceAclReplayTest {
             tape.finish();
         }
         assertThat(tape.violations()).as("requests that differ from the recording").isEmpty();
+        // The replayed Sync records (scrubbed, as the recording is), for consumers' mapping tests.
+        Path records = Path.of("build", "acl-sync", "confluence-sync-records.binpb");
+        java.nio.file.Files.createDirectories(records.getParent());
+        try (java.io.OutputStream out = java.nio.file.Files.newOutputStream(records)) {
+            for (ai.pipestream.confluence.v1.ConfluenceEntity entity : scenarios.syncRecords()) {
+                entity.writeDelimitedTo(out);
+            }
+        }
         assertThat(scenarios.rows()).as("FAIL rows").noneMatch(row -> row.outcome().equals("FAIL"));
         List<String> recorded = new ArrayList<>();
         run.path("outcomes").forEach(row -> recorded.add(row.path("rpc").asText() + " | "

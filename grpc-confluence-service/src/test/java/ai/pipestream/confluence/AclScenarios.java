@@ -62,6 +62,7 @@ final class AclScenarios {
     private Page parent;
     private Page child;
     private String callerGroup;
+    private final List<ConfluenceEntity> syncRecords = new ArrayList<>();
 
     AclScenarios(Channel channel, Backend backend) {
         this.channel = channel;
@@ -96,6 +97,11 @@ final class AclScenarios {
 
     List<Row> rows() {
         return List.copyOf(rows);
+    }
+
+    /** The ACL and directory records the Sync step received, by entity id. */
+    List<ConfluenceEntity> syncRecords() {
+        return List.copyOf(syncRecords);
     }
 
     List<String> leftBehind() {
@@ -224,6 +230,11 @@ final class AclScenarios {
             } finally {
                 backend.tape().unordered(false);
             }
+            syncRecords.clear();
+            byId.values().stream().filter(e -> e.hasSpaceAccess() || e.hasAccessChain() || e.hasUser()
+                    || e.hasGroup() || e.hasGroupMember())
+                    .sorted(java.util.Comparator.comparing(ConfluenceEntity::getEntityId))
+                    .forEach(syncRecords::add);
             check(cursor != null, "no resume cursor");
             ConfluenceEntity chain = byId.get("page:" + child.getId() + "/access");
             check(chain != null, "no access chain for the child");
