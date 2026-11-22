@@ -61,6 +61,9 @@ final class WriteScenarios {
             String inviteEmail, List<String> secrets, ExchangeTape tape, long oversizeBytes) {
     }
 
+    /** The scenario of the app property rpcs, which needs a Forge app. */
+    static final String APP_PROPERTIES = "app-properties";
+
     /** One report row. */
     record Row(String rpc, String label, String outcome, String detail) {
     }
@@ -92,6 +95,7 @@ final class WriteScenarios {
     private final Channel channel;
     private final Backend backend;
     private final String run;
+    private final boolean appProperties;
     private int localIds;
     private Space space;
     private Page parent;
@@ -99,9 +103,24 @@ final class WriteScenarios {
     private Page page;
 
     WriteScenarios(Channel channel, Backend backend) {
+        this(channel, backend, false);
+    }
+
+    private WriteScenarios(Channel channel, Backend backend, boolean appProperties) {
         this.channel = channel;
         this.backend = backend;
         this.run = backend.run();
+        this.appProperties = appProperties;
+    }
+
+    /** The suite of the app property rpcs alone; its service must reach a Forge app. */
+    static WriteScenarios appProperties(Channel channel, Backend backend) {
+        return new WriteScenarios(channel, backend, true);
+    }
+
+    /** The scenario names of {@link #appProperties}, in the order they run. */
+    static List<String> appPropertyNames() {
+        return List.of(APP_PROPERTIES, CLEANUP);
     }
 
     /** The scenario names, in the order they run; {@link #CLEANUP} is last. */
@@ -114,6 +133,10 @@ final class WriteScenarios {
 
     /** The scenarios in the order of {@link #names()}; each one needs those before it. */
     List<Scenario> scenarios() {
+        if (appProperties) {
+            return List.of(new Scenario(APP_PROPERTIES, this::appProperties),
+                    new Scenario(CLEANUP, this::cleanUp));
+        }
         return List.of(
                 new Scenario("setup", this::setup),
                 new Scenario("pages-adf", () -> inRun(() -> adfPage = pagesWithAdf(space, parent))),
@@ -145,7 +168,7 @@ final class WriteScenarios {
                     tenantLevel(space, backend.admin());
                     skipAll("tenant-wide permission transition, never run", "BulkAssignSpaceRoles",
                             "BulkRemoveSpaceAccess");
-                    skipAll("served to Forge app credentials only", "SetAppProperty",
+                    skipAll("needs a Forge app; run by the app property suite", "SetAppProperty",
                             "DeleteAppProperty");
                 })),
                 new Scenario(CLEANUP, this::cleanUp));
@@ -1121,6 +1144,78 @@ final class WriteScenarios {
                 () -> stub().deletePage(DeletePageRequest.newBuilder().setId(id).setPurge(true).build())));
     }
 
+    /** Sets, reads, lists, replaces and deletes one app property of the Forge app. */
+    private void appProperties() {
+        String key = run + "-app";
+        java.util.concurrent.atomic.AtomicBoolean stored =
+                new java.util.concurrent.atomic.AtomicBoolean();
+        cleanups.add(() -> {
+            if (stored.get()) {
+                try {
+                    stub().deleteAppProperty(DeleteAppPropertyRequest.newBuilder().setKey(key).build());
+                } catch (StatusRuntimeException e) {
+                    if (e.getStatus().getCode() != Status.Code.NOT_FOUND) {
+                        leftBehind.add("app property " + key + ": " + describe(e));
+                    }
+                }
+            }
+        });
+        step("SetAppProperty", "SetAppProperty (create)", () -> {
+            SetAppPropertyResponse set = stub().setAppProperty(SetAppPropertyRequest.newBuilder()
+                    .setKey(key).setValue(plainValue("one")).build());
+            stored.set(true);
+            check(set.getCreated(), "the property was not reported as created");
+            return "created";
+        });
+        step("GetAppProperty", "GetAppProperty", () -> {
+            AppProperty read = stub().getAppProperty(GetAppPropertyRequest.newBuilder()
+                    .setKey(key).build()).getProperty();
+            check(read.getCustomKey().equals(key), "the key read back differs: " + read.getCustomKey());
+            check(read.getValue().equals(plainValue("one")), "the value read back differs: " + read.getValue());
+            return "value identical";
+        });
+        step("ListAppProperties", "ListAppProperties", () -> {
+            List<AppProperty> listed = new ArrayList<>();
+            stub().listAppProperties(ListAppPropertiesRequest.getDefaultInstance())
+                    .forEachRemaining(response -> listed.add(response.getProperty()));
+            check(listed.stream().anyMatch(property -> property.getCustomKey().equals(key)
+                    && property.getValue().equals(plainValue("one"))),
+                    "the property is not listed with its value");
+            return "listed among " + listed.size();
+        });
+        step("SetAppProperty", "SetAppProperty (replace)", () -> {
+            SetAppPropertyResponse set = stub().setAppProperty(SetAppPropertyRequest.newBuilder()
+                    .setKey(key).setValue(plainValue("two")).build());
+            check(!set.getCreated(), "the replaced property was reported as created");
+            AppProperty read = stub().getAppProperty(GetAppPropertyRequest.newBuilder()
+                    .setKey(key).build()).getProperty();
+            check(read.getValue().equals(plainValue("two")), "the value read back differs: " + read.getValue());
+            return "replaced; value identical";
+        });
+        step("SetAppProperty", "SetAppProperty (exact decimal is INVALID_ARGUMENT)", () -> {
+            expectCode(Status.Code.INVALID_ARGUMENT, () -> stub().setAppProperty(
+                    SetAppPropertyRequest.newBuilder().setKey(key + "-decimal")
+                            .setValue(PropertyValue.newBuilder()
+                                    .setDecimalValue("1.00000000000000000001")).build()));
+            return "INVALID_ARGUMENT, nothing sent";
+        });
+        step("DeleteAppProperty", "DeleteAppProperty", () -> {
+            stub().deleteAppProperty(DeleteAppPropertyRequest.newBuilder().setKey(key).build());
+            stored.set(false);
+            return "deleted";
+        });
+        step("GetAppProperty", "GetAppProperty (deleted is NOT_FOUND)", () -> {
+            expectCode(Status.Code.NOT_FOUND, () -> stub().getAppProperty(
+                    GetAppPropertyRequest.newBuilder().setKey(key).build()));
+            return "NOT_FOUND";
+        });
+        step("DeleteAppProperty", "DeleteAppProperty (missing is NOT_FOUND)", () -> {
+            expectCode(Status.Code.NOT_FOUND, () -> stub().deleteAppProperty(
+                    DeleteAppPropertyRequest.newBuilder().setKey(key).build()));
+            return "NOT_FOUND";
+        });
+    }
+
     /** Deletes what the run created, then adds a row for every rpc that has none. */
     private void cleanUp() {
         for (int i = cleanups.size() - 1; i >= 0; i--) {
@@ -1129,6 +1224,9 @@ final class WriteScenarios {
             } catch (RuntimeException e) {
                 leftBehind.add("a clean-up step failed: " + scrub(String.valueOf(e.getMessage())));
             }
+        }
+        if (appProperties) {
+            return;
         }
         Set<String> seen = new LinkedHashSet<>();
         rows.forEach(row -> seen.add(row.rpc()));
