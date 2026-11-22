@@ -160,9 +160,11 @@ jobs:
           PYTHON
 
   # Writes to the real workspace and records the exchanges. Only ever started
-  # by hand: a workflow_dispatch with run_live_write set.
+  # by hand: a workflow_dispatch with run_live_write set. It does not wait for
+  # build: a change to the scenarios fails the replay there until this job has
+  # recorded again, and this job compiles the service itself.
   live-confluence-write:
-    needs: build
+    needs: buf
     if: github.event_name == 'workflow_dispatch' && inputs.run_live_write
     runs-on: ubuntu-latest
     steps:
