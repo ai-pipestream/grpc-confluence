@@ -42,11 +42,11 @@ Bodies are written as a typed `ContentBody` (an `AdfDocument` modelling every
 node and mark of the vendored ADF schema, storage XHTML, wiki markup, or raw
 custom content); property values as the typed `PropertyValue` tree.
 
-## 1. Read scope (and why writes are out)
+## 1. Scope: reads and writes
 
-`ConfluenceService` is the read proxy for an indexer. Every v2 **read** route family gets one rpc. Writes are out: create/update/delete of content, comments, properties, classification, redactions (`POST …/redact`), admin key enable/disable, permission mutation (`POST/PUT/DELETE …/permissions`, `PUT …/restriction-state`), space-permission transition tasks, role/assignment mutation. Permission **reads** are in scope because search security trimming needs the direct restriction state, the direct user/group grants, the space permission assignments and the space role assignments to compute effective visibility.
+`ConfluenceService` covers both directions. Every v2 **read** route family gets one rpc, and the **write** routes are typed rpcs too: create, update, delete, move, and restore of content, comments, attachments, labels, and properties, plus classification, redaction, admin key, restriction, permission, and role mutation. Which writes are proven against a live site, and which the test tenant refuses, is listed in the live write report (`liveWriteTest`). Permission **reads** matter for search security trimming: the direct restriction state, the direct user/group grants, the space permission assignments and the space role assignments are what effective visibility is computed from.
 
-Also kept out (see §5): Forge-only `app/properties`, `check-access-by-email`, `invite-by-email`, thumbnail download, like counts (derivable), space permission transition reads (admin migration tooling), admin-key read (session state).
+The routes an earlier revision kept out now have rpcs as well: Forge `app/properties`, `check-access-by-email`, `invite-by-email`, thumbnail download, like counts, space permission transition tasks, and the admin key.
 
 ## 2. Endpoint-group coverage: before → after
 

@@ -3,8 +3,9 @@
 Licensed under Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 A gRPC version of the Confluence API. The proxy speaks Confluence Cloud
-REST v2 upstream and typed gRPC downstream: clients read spaces, pages,
-blog posts, comments, and attachments over one generated contract, pick up
+REST v2 upstream and typed gRPC downstream: clients read and write spaces,
+pages, blog posts, comments, attachments, labels, and properties over one
+generated contract (create, update, delete, move, and restore), pick up
 **automatic updates** through cursor-based incremental `Sync` streams, and
 **archive the site live** — every completed crawl can land as an Open
 Knowledge Format bundle with a sibling WARC 1.1 archive, a raw protobuf
@@ -224,6 +225,9 @@ https://buf.build or use the version CI pins.
 Java 25 toolchain. `./gradlew build` is the fake/unit suite, javadoc
 (`-Xdoclint:all -Xwerror` on handwritten API), and never talks to
 Atlassian.
+
+Write rpcs are tested against the real site by `liveWriteTest` (below), and
+its recorded exchanges are replayed in `test`.
 
 The live smoke is **read-only**, excluded from `test`, and skips unless
 credentials are in the environment:
