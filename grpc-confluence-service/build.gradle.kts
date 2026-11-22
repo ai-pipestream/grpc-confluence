@@ -116,7 +116,3 @@ tasks.register<Test>("liveAppPropertiesTest") {
         showStandardStreams = true
     }
 }
-    testLogging {
-        showStandardStreams = true
-    }
-}
