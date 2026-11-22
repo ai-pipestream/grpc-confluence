@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * The access-control read steps: a parent page restricted to the caller with
  * an open child page under it, read back through GetContentAccess, and the
- * group rpcs on a group the space names. The same steps run against the real
+ * group rpcs on a group of the caller. The same steps run against the real
  * workspace and against a recording of it.
  */
 final class AclScenarios {
@@ -79,7 +79,7 @@ final class AclScenarios {
                     }
                 }),
                 new Scenario("groups", () -> {
-                    if (space != null) {
+                    if (parent != null) {
                         groups();
                     }
                 }),
@@ -112,6 +112,9 @@ final class AclScenarios {
             stub().addContentPermissions(AddContentPermissionsRequest.newBuilder().setContent(ref)
                     .addPermissions(ContentPermissionGrant.newBuilder()
                             .setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_READ)
+                            .addPrincipals(self()))
+                    .addPermissions(ContentPermissionGrant.newBuilder()
+                            .setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_UPDATE)
                             .addPrincipals(self())).build());
             stub().setRestrictionState(SetRestrictionStateRequest.newBuilder().setContent(ref)
                     .setState(ContentRestrictionState.CONTENT_RESTRICTION_STATE_VIEW_RESTRICTED).build());
@@ -147,50 +150,36 @@ final class AclScenarios {
     }
 
     private void groups() {
-        String groupId = firstGroup();
+        String caller = parent.getAuthorId();
+        Set<String> callerGroups = new LinkedHashSet<>();
+        step("ListUserGroups", "ListUserGroups (the caller)", () -> {
+            stub().listUserGroups(ListUserGroupsRequest.newBuilder().setAccountId(caller).build())
+                    .forEachRemaining(r -> callerGroups.add(r.getGroup().getId()));
+            check(!callerGroups.isEmpty(), "the caller is in no group");
+            return callerGroups.size() + " groups";
+        });
+        String groupId = callerGroups.stream().sorted().findFirst().orElse(null);
         if (groupId == null) {
-            for (String rpc : List.of("GetGroup", "ListGroupMembers", "ListUserGroups")) {
-                rows.add(new Row(rpc, rpc, "SKIPPED", "no space permission names a group"));
+            for (String rpc : List.of("GetGroup", "ListGroupMembers")) {
+                rows.add(new Row(rpc, rpc, "SKIPPED", "the caller's groups could not be read"));
             }
             return;
         }
-        step("GetGroup", "GetGroup (a group the space names)", () -> {
+        step("GetGroup", "GetGroup (a group of the caller)", () -> {
             Group group = stub().getGroup(GetGroupRequest.newBuilder().setGroupId(groupId).build()).getGroup();
             check(group.getId().equals(groupId), "id " + group.getId());
             check(!group.getName().isEmpty(), "no name");
             return "group has a name";
         });
-        List<User> members = new ArrayList<>();
         step("ListGroupMembers", "ListGroupMembers (same group)", () -> {
+            List<User> members = new ArrayList<>();
             stub().listGroupMembers(ListGroupMembersRequest.newBuilder().setGroupId(groupId).build())
                     .forEachRemaining(r -> members.add(r.getUser()));
-            check(!members.isEmpty(), "no members");
             check(members.stream().allMatch(u -> !u.getAccountId().isEmpty()), "a member without account id");
-            return members.size() + " members";
+            check(members.stream().anyMatch(u -> u.getAccountId().equals(caller)),
+                    "the members do not include the caller");
+            return members.size() + " members, including the caller";
         });
-        step("ListUserGroups", "ListUserGroups (a member of that group)", () -> {
-            if (members.isEmpty()) {
-                throw new AssertionError("no member to look up");
-            }
-            Set<String> groups = new LinkedHashSet<>();
-            stub().listUserGroups(ListUserGroupsRequest.newBuilder()
-                    .setAccountId(members.getFirst().getAccountId()).build())
-                    .forEachRemaining(r -> groups.add(r.getGroup().getId()));
-            check(groups.contains(groupId), "the member's groups do not include the group");
-            return groups.size() + " groups, including the one listing the member";
-        });
-    }
-
-    private String firstGroup() {
-        List<String> groups = new ArrayList<>();
-        stub().listSpacePermissionAssignments(ListSpacePermissionAssignmentsRequest.newBuilder()
-                .setSpaceId(space.getId()).build()).forEachRemaining(r -> {
-                    SpacePermissionPrincipal principal = r.getAssignment().getPrincipal();
-                    if (principal.getType() == SpacePermissionPrincipalType.SPACE_PERMISSION_PRINCIPAL_TYPE_GROUP) {
-                        groups.add(principal.getId());
-                    }
-                });
-        return groups.stream().sorted().findFirst().orElse(null);
     }
 
     private void cleanUp() {
