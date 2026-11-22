@@ -1,0 +1,40 @@
+{
+  "scenario" : "30-blog-updated-event",
+  "sequence" : 3,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/blogposts/29884892/permissions",
+    "query" : [ {
+      "name" : "limit",
+      "value" : "25"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "operation" : "update",
+          "principal" : {
+            "principalType" : "user",
+            "principalId" : "User 1"
+          },
+          "createdAt" : "2026-11-22T16:45:53.129Z",
+          "createdByAaid" : "User 1",
+          "createdBy" : "User 1"
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

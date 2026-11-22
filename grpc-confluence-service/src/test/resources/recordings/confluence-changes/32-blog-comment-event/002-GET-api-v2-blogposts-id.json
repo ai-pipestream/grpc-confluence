@@ -1,0 +1,54 @@
+{
+  "scenario" : "32-blog-comment-event",
+  "sequence" : 2,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/blogposts/29884892",
+    "query" : [ {
+      "name" : "body-format",
+      "value" : "storage"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "authorId" : "User 1",
+        "spaceId" : "7798786",
+        "createdAt" : "2026-11-22T16:45:53.108Z",
+        "version" : {
+          "number" : 2,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "User 1",
+          "createdAt" : "2026-11-22T16:46:01.587Z",
+          "ncsStepVersion" : "3"
+        },
+        "id" : "29884892",
+        "status" : "current",
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<p>Change feed blog pipestream-live-change-20261122T164350Z-947c4ef2, edited.</p>"
+          }
+        },
+        "title" : "pipestream-live-change-20261122T164350Z-947c4ef2",
+        "_links" : {
+          "editui" : "/pages/resumedraft.action?draftId=29884892",
+          "webui" : "/spaces/CLAUDEGRPC/blog/2026/11/22/29884892/pipestream-live-change-20261122T164350Z-947c4ef2",
+          "edituiv2" : "/spaces/CLAUDEGRPC/blog/edit-v2/29884892",
+          "tinyui" : "/x/3AHIAQ",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

@@ -2,43 +2,151 @@
   "baseUrl" : "https://site-1.example.invalid/wiki",
   "queueUrl" : "https://site-2.example.invalid/x1/token-1",
   "spaceKey" : "CLAUDEGRPC",
-  "run" : "pipestream-live-change-20261122T155121Z-a4ab2bad",
+  "run" : "pipestream-live-change-20261122T164350Z-947c4ef2",
   "outcomes" : [ {
     "step" : "01-watch-start",
     "outcome" : "PASS"
   }, {
-    "step" : "02-create-page",
+    "step" : "02-create-pages",
     "outcome" : "PASS"
   }, {
     "step" : "03-created-event",
     "outcome" : "PASS"
   }, {
-    "step" : "04-update-page",
+    "step" : "04-event-expiry",
     "outcome" : "PASS"
   }, {
-    "step" : "05-updated-event",
+    "step" : "05-update-page",
     "outcome" : "PASS"
   }, {
-    "step" : "06-create-comment",
+    "step" : "06-updated-event",
     "outcome" : "PASS"
   }, {
-    "step" : "07-comment-event",
+    "step" : "07-move-page",
     "outcome" : "PASS"
   }, {
-    "step" : "08-trash-page",
+    "step" : "08-moved-event",
     "outcome" : "PASS"
   }, {
-    "step" : "09-trashed-event",
+    "step" : "09-create-comment",
     "outcome" : "PASS"
   }, {
-    "step" : "10-purge-page",
+    "step" : "10-comment-created-event",
     "outcome" : "PASS"
   }, {
-    "step" : "11-deleted-event",
+    "step" : "11-update-comment",
     "outcome" : "PASS"
   }, {
-    "step" : "12-watch-stop",
+    "step" : "12-comment-updated-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "13-delete-comment",
+    "outcome" : "PASS"
+  }, {
+    "step" : "14-comment-deleted-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "15-upload-attachment",
+    "outcome" : "PASS"
+  }, {
+    "step" : "16-attachment-created-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "17-trash-attachment",
+    "outcome" : "PASS"
+  }, {
+    "step" : "18-attachment-trashed-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "19-purge-attachment",
+    "outcome" : "PASS"
+  }, {
+    "step" : "20-attachment-deleted-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "21-restrict-page",
+    "outcome" : "PASS"
+  }, {
+    "step" : "22-restricted-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "23-unrestrict-page",
+    "outcome" : "PASS"
+  }, {
+    "step" : "24-unrestricted-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "25-complete-task",
+    "outcome" : "PASS"
+  }, {
+    "step" : "26-task-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "27-create-blog",
+    "outcome" : "PASS"
+  }, {
+    "step" : "28-blog-created-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "29-update-blog",
+    "outcome" : "PASS"
+  }, {
+    "step" : "30-blog-updated-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "31-blog-comment",
+    "outcome" : "PASS"
+  }, {
+    "step" : "32-blog-comment-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "33-trash-blog",
+    "outcome" : "PASS"
+  }, {
+    "step" : "34-blog-trashed-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "35-purge-blog",
+    "outcome" : "PASS"
+  }, {
+    "step" : "36-blog-deleted-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "37-backlog",
+    "outcome" : "PASS"
+  }, {
+    "step" : "38-trash-page",
+    "outcome" : "PASS"
+  }, {
+    "step" : "39-trashed-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "40-restore-page",
+    "outcome" : "PASS"
+  }, {
+    "step" : "41-restored-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "42-purge-page",
+    "outcome" : "PASS"
+  }, {
+    "step" : "43-deleted-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "44-create-space",
+    "outcome" : "PASS"
+  }, {
+    "step" : "45-space-created-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "46-delete-space",
+    "outcome" : "PASS"
+  }, {
+    "step" : "47-space-deleted-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "48-watch-stop",
     "outcome" : "PASS"
   } ],
-  "scenarios" : [ "01-watch-start", "02-create-page", "03-created-event", "04-update-page", "05-updated-event", "06-create-comment", "07-comment-event", "08-trash-page", "09-trashed-event", "10-purge-page", "11-deleted-event", "12-watch-stop", "cleanup" ]
+  "scenarios" : [ "01-watch-start", "02-create-pages", "03-created-event", "04-event-expiry", "05-update-page", "06-updated-event", "07-move-page", "08-moved-event", "09-create-comment", "10-comment-created-event", "11-update-comment", "12-comment-updated-event", "13-delete-comment", "14-comment-deleted-event", "15-upload-attachment", "16-attachment-created-event", "17-trash-attachment", "18-attachment-trashed-event", "19-purge-attachment", "20-attachment-deleted-event", "21-restrict-page", "22-restricted-event", "23-unrestrict-page", "24-unrestricted-event", "25-complete-task", "26-task-event", "27-create-blog", "28-blog-created-event", "29-update-blog", "30-blog-updated-event", "31-blog-comment", "32-blog-comment-event", "33-trash-blog", "34-blog-trashed-event", "35-purge-blog", "36-blog-deleted-event", "37-backlog", "38-trash-page", "39-trashed-event", "40-restore-page", "41-restored-event", "42-purge-page", "43-deleted-event", "44-create-space", "45-space-created-event", "46-delete-space", "47-space-deleted-event", "48-watch-stop", "cleanup" ]
 }

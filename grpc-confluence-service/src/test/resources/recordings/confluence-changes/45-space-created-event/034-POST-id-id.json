@@ -1,0 +1,31 @@
+{
+  "scenario" : "45-space-created-event",
+  "sequence" : 34,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-2.example.invalid",
+    "path" : "/x1/token-1",
+    "query" : [ ],
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "authorized" : false,
+    "body" : {
+      "json" : {
+        "action" : "ack",
+        "keys" : [ "evt:001795366104987:09e41123-ca53-44f5-bfe6-2235fe1a615d", "evt:001795366104994:ad78630b-d2ea-46b6-9591-0fcfd40aa441", "evt:001795366104997:f113cd5c-a856-49d5-bb47-60110a73e985", "evt:001795366105012:165335d1-72c6-47b1-b402-fa108653c24d", "evt:001795366105012:a08b4621-be0f-4145-9eda-e564fe19122f", "evt:001795366105024:384d23d7-0abe-49e2-a6a7-cfe6b3064f59", "evt:001795366105129:206a9322-9315-4aca-8545-42b4ed57f638" ]
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "acked" : 7
+      }
+    }
+  }
+}

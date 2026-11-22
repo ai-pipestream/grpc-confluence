@@ -1,0 +1,31 @@
+{
+  "scenario" : "26-task-event",
+  "sequence" : 18,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-2.example.invalid",
+    "path" : "/x1/token-1",
+    "query" : [ ],
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "authorized" : false,
+    "body" : {
+      "json" : {
+        "action" : "ack",
+        "keys" : [ "evt:001795365942934:10eb4f1f-2397-4cbb-9a73-0a49f4de65ca", "evt:001795365943033:5387c4de-e00f-4266-af4e-dbecd88c1fc2" ]
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "acked" : 2
+      }
+    }
+  }
+}

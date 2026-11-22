@@ -1,0 +1,31 @@
+{
+  "scenario" : "36-blog-deleted-event",
+  "sequence" : 2,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-2.example.invalid",
+    "path" : "/x1/token-1",
+    "query" : [ ],
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "authorized" : false,
+    "body" : {
+      "json" : {
+        "action" : "ack",
+        "keys" : [ "evt:001795365985740:3d32a469-165f-4d10-a173-1faca0960bf1" ]
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "acked" : 1
+      }
+    }
+  }
+}

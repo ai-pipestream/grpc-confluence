@@ -1,0 +1,31 @@
+{
+  "scenario" : "20-attachment-deleted-event",
+  "sequence" : 10,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-2.example.invalid",
+    "path" : "/x1/token-1",
+    "query" : [ ],
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "authorized" : false,
+    "body" : {
+      "json" : {
+        "action" : "ack",
+        "keys" : [ "evt:001795365915976:71ec5ad4-beb8-4fc7-932b-3b5edae6c2f5" ]
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "acked" : 1
+      }
+    }
+  }
+}

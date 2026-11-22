@@ -1,0 +1,57 @@
+{
+  "scenario" : "09-create-comment",
+  "sequence" : 1,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/footer-comments",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "pageId" : "30114549",
+        "body" : {
+          "representation" : "storage",
+          "value" : "<p>comment pipestream-live-change-20261122T164350Z-947c4ef2</p>"
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 201,
+    "headers" : {
+      "content-type" : "application/json",
+      "location" : "/wiki/api/v2/footer-comments/29851905"
+    },
+    "body" : {
+      "json" : {
+        "id" : "29851905",
+        "status" : "current",
+        "title" : "Re: pipestream-live-change-20261122T164350Z-947c4ef2",
+        "pageId" : "30114549",
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "User 1",
+          "createdAt" : "2026-11-22T16:44:29.135Z",
+          "contributorIds" : [ ]
+        },
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<p>comment pipestream-live-change-20261122T164350Z-947c4ef2</p>"
+          }
+        },
+        "_links" : {
+          "webui" : "/spaces/CLAUDEGRPC/pages/30114549/pipestream-live-change-20261122T164350Z-947c4ef2?focusedCommentId=29851905",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

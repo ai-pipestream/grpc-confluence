@@ -1,0 +1,31 @@
+{
+  "scenario" : "28-blog-created-event",
+  "sequence" : 10,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-2.example.invalid",
+    "path" : "/x1/token-1",
+    "query" : [ ],
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "authorized" : false,
+    "body" : {
+      "json" : {
+        "action" : "ack",
+        "keys" : [ "evt:001795365954094:d3c8eeb5-ecb2-4406-9e1d-f848d26e6d8b" ]
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "acked" : 1
+      }
+    }
+  }
+}

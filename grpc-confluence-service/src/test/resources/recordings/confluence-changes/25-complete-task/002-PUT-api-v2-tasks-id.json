@@ -1,0 +1,44 @@
+{
+  "scenario" : "25-complete-task",
+  "sequence" : 2,
+  "request" : {
+    "method" : "PUT",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/tasks/225",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "id" : "225",
+        "status" : "complete"
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "pageId" : "30114549",
+        "assignedTo" : null,
+        "dueAt" : null,
+        "updatedAt" : null,
+        "completedAt" : "2026-11-22T16:45:42.165Z",
+        "completedBy" : "User 1",
+        "localId" : "1",
+        "createdAt" : "2026-11-22T16:43:55.461Z",
+        "id" : "225",
+        "spaceId" : "7798786",
+        "body" : null,
+        "status" : "complete",
+        "createdBy" : "User 1"
+      }
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "scenario" : "37-backlog",
+  "sequence" : 134,
+  "request" : {
+    "method" : "PUT",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/30572936",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "id" : "30572936",
+        "status" : "current",
+        "title" : "pipestream-live-change-20261122T164350Z-947c4ef2 backlog",
+        "body" : {
+          "representation" : "storage",
+          "value" : "<p>backlog 99</p>"
+        },
+        "version" : {
+          "number" : 100
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 409,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "errors" : [ {
+          "status" : 409,
+          "code" : "CONFLICT",
+          "title" : "Batch update returned unexpected row count from update [0]; actual row count: 0; expected: 1; statement executed: update CONTENT set HIBERNATEVERSION=?, TITLE=?, LOWERTITLE=?, VERSION=?, CREATOR=?, AGENT_CREATOR_AAID=?, CREATIONDATE=?, LASTMODIFIER=?, AGENT_LASTMODIFIER_AAID=?, LASTMODDATE=?, VERSIONCOMMENT=?, PREVVER=?, CONTENT_STATUS=?, NAVIGATIONTYPE=?, PAGEID=?, DRAFTTYPE=?, SPACEID=?, CHILD_POSITION=?, PARENTID=?, MESSAGEID=? where CONTENTID=? and HIBERNATEVERSION=?; nested exception is org.hibernate.StaleStateException: Batch update returned unexpected row count from update [0]; actual row count: 0; expected: 1; statement executed: update CONTENT set HIBERNATEVERSION=?, TITLE=?, LOWERTITLE=?, VERSION=?, CREATOR=?, AGENT_CREATOR_AAID=?, CREATIONDATE=?, LASTMODIFIER=?, AGENT_LASTMODIFIER_AAID=?, LASTMODDATE=?, VERSIONCOMMENT=?, PREVVER=?, CONTENT_STATUS=?, NAVIGATIONTYPE=?, PAGEID=?, DRAFTTYPE=?, SPACEID=?, CHILD_POSITION=?, PARENTID=?, MESSAGEID=? where CONTENTID=? and HIBERNATEVERSION=?",
+          "detail" : null
+        } ]
+      }
+    }
+  }
+}

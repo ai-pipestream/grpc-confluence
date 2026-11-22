@@ -1,0 +1,31 @@
+{
+  "scenario" : "47-space-deleted-event",
+  "sequence" : 2,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-2.example.invalid",
+    "path" : "/x1/token-1",
+    "query" : [ ],
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "authorized" : false,
+    "body" : {
+      "json" : {
+        "action" : "ack",
+        "keys" : [ "evt:001795366119956:731bd709-cc9a-46c4-a78c-20408583282b", "evt:001795366120014:2a2fe0b5-5f75-40cf-8f39-db6c9211b8db", "evt:001795366120079:8d8ea142-6ccc-4f66-9561-4739c6bb9c9e", "evt:001795366120085:2488a779-e3ec-4805-9ef8-5d9f28c66af3", "evt:001795366120089:793d8293-79e2-41cf-b1a1-faf5fe8a425d" ]
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "acked" : 5
+      }
+    }
+  }
+}

@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30376448",
+    "path" : "/wiki/api/v2/pages/29884865",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -21,36 +21,36 @@
     },
     "body" : {
       "json" : {
-        "authorId" : "User 1",
+        "authorId" : "account-1",
         "parentType" : "page",
         "parentId" : "7798963",
-        "ownerId" : "User 1",
+        "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T15:51:26.959Z",
-        "position" : 640,
+        "createdAt" : "2026-11-22T16:43:54.647Z",
+        "position" : 575,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
-          "authorId" : "User 1",
-          "createdAt" : "2026-11-22T15:51:26.959Z",
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-22T16:43:54.647Z",
           "ncsStepVersion" : "1"
         },
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>Change feed run pipestream-live-change-20261122T155121Z-a4ab2bad.</p>"
+            "value" : "<p>Parent for pipestream-live-change-20261122T164350Z-947c4ef2.</p>"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-change-20261122T155121Z-a4ab2bad",
-        "id" : "30376448",
+        "title" : "pipestream-live-change-20261122T164350Z-947c4ef2 parent",
+        "id" : "29884865",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=30376448",
-          "webui" : "/spaces/CLAUDEGRPC/pages/30376448/pipestream-live-change-20261122T155121Z-a4ab2bad",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30376448",
-          "tinyui" : "/x/AILPAQ",
+          "editui" : "/pages/resumedraft.action?draftId=29884865",
+          "webui" : "/spaces/CLAUDEGRPC/pages/29884865/pipestream-live-change-20261122T164350Z-947c4ef2+parent",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29884865",
+          "tinyui" : "/x/wQHIAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

@@ -1,0 +1,184 @@
+{
+  "scenario" : "15-upload-attachment",
+  "sequence" : 1,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/content/30114549/child/attachment",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "multipart/form-data",
+      "x-atlassian-token" : "no-check"
+    },
+    "authorized" : true,
+    "body" : {
+      "multipart" : [ {
+        "name" : "comment",
+        "value" : "live change run"
+      }, {
+        "name" : "minorEdit",
+        "value" : "true"
+      }, {
+        "name" : "file",
+        "filename" : "pipestream-live-change-20261122T164350Z-947c4ef2.txt",
+        "contentType" : "text/plain",
+        "sha256" : "6ad6beb278cf4cdd0a7e58f4de22814e7fd1547a479185c6ae8e39d5fc69ebfd",
+        "length" : 72
+      } ]
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "id" : "att29720893",
+          "type" : "attachment",
+          "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:attachment/29720893",
+          "base64EncodedAri" : "opaque-2",
+          "status" : "current",
+          "title" : "pipestream-live-change-20261122T164350Z-947c4ef2.txt",
+          "version" : {
+            "by" : {
+              "type" : "known",
+              "accountId" : "account-1",
+              "accountType" : "atlassian",
+              "email" : "user-1@example.invalid",
+              "publicName" : "User 2",
+              "profilePicture" : {
+                "path" : "/avatars/avatar-1.png",
+                "width" : 48,
+                "height" : 48,
+                "isDefault" : false
+              },
+              "displayName" : "User 2",
+              "isExternalCollaborator" : false,
+              "isGuest" : false,
+              "locale" : "en_US",
+              "accountStatus" : "active",
+              "_expandable" : {
+                "operations" : "",
+                "personalSpace" : ""
+              },
+              "_links" : {
+                "self" : "https://site-1.example.invalid/wiki/rest/api/user?accountId=account-1"
+              }
+            },
+            "when" : "2026-11-22T16:44:58.048Z",
+            "friendlyWhen" : "just a moment ago",
+            "message" : "live change run",
+            "number" : 1,
+            "minorEdit" : true,
+            "contentTypeModified" : false,
+            "_expandable" : {
+              "collaborators" : "",
+              "content" : "/rest/api/content/att29720893"
+            },
+            "_links" : {
+              "self" : "https://site-1.example.invalid/wiki/rest/api/content/att29720893/version/1"
+            }
+          },
+          "container" : {
+            "id" : "30114549",
+            "type" : "page",
+            "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:page/30114549",
+            "base64EncodedAri" : "opaque-1",
+            "status" : "current",
+            "title" : "pipestream-live-change-20261122T164350Z-947c4ef2",
+            "macroRenderedOutput" : { },
+            "extensions" : {
+              "position" : "none"
+            },
+            "_expandable" : {
+              "container" : "/rest/api/space/CLAUDEGRPC",
+              "metadata" : "",
+              "restrictions" : "/rest/api/content/30114549/restriction/byOperation",
+              "history" : "/rest/api/content/30114549/history",
+              "body" : "",
+              "version" : "",
+              "descendants" : "/rest/api/content/30114549/descendant",
+              "space" : "/rest/api/space/CLAUDEGRPC",
+              "childTypes" : "",
+              "schedulePublishInfo" : "",
+              "operations" : "",
+              "schedulePublishDate" : "",
+              "children" : "/rest/api/content/30114549/child",
+              "ancestors" : "",
+              "draftVersion" : ""
+            },
+            "_links" : {
+              "self" : "https://site-1.example.invalid/wiki/rest/api/content/30114549",
+              "tinyui" : "/x/9YLLAQ",
+              "editui" : "/pages/resumedraft.action?draftId=30114549",
+              "webui" : "/spaces/CLAUDEGRPC/pages/30114549/pipestream-live-change-20261122T164350Z-947c4ef2",
+              "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30114549"
+            }
+          },
+          "macroRenderedOutput" : { },
+          "metadata" : {
+            "comment" : "live change run",
+            "mediaType" : "text/plain",
+            "labels" : {
+              "results" : [ ],
+              "start" : 0,
+              "limit" : 200,
+              "size" : 0,
+              "_links" : {
+                "next" : "/rest/api/content/att29720893/label?next=true&limit=200&start=200",
+                "self" : "https://site-1.example.invalid/wiki/rest/api/content/att29720893/label"
+              }
+            },
+            "_expandable" : {
+              "lastEditedTime" : "",
+              "currentuser" : "",
+              "comments" : "",
+              "createdBySpaceBlueprint" : "",
+              "isActiveLiveEditSession" : "",
+              "sourceTemplateEntityId" : "",
+              "simple" : "",
+              "properties" : "",
+              "frontend" : "",
+              "likes" : ""
+            }
+          },
+          "extensions" : {
+            "mediaType" : "text/plain",
+            "fileSize" : 72,
+            "comment" : "live change run",
+            "mediaTypeDescription" : "Text File",
+            "fileId" : "e2018dc8-783f-4aa7-b5bb-f964a46de9cf",
+            "collectionName" : "contentId-30114549"
+          },
+          "_expandable" : {
+            "childTypes" : "",
+            "schedulePublishInfo" : "",
+            "operations" : "",
+            "schedulePublishDate" : "",
+            "children" : "/rest/api/content/att29720893/child",
+            "restrictions" : "/rest/api/content/att29720893/restriction/byOperation",
+            "history" : "/rest/api/content/att29720893/history",
+            "ancestors" : "",
+            "body" : "",
+            "draftVersion" : "",
+            "descendants" : "/rest/api/content/att29720893/descendant",
+            "space" : "/rest/api/space/CLAUDEGRPC"
+          },
+          "_links" : {
+            "webui" : "/pages/viewpageattachments.action?pageId=30114549&preview=%2F30114549%2F29720893%2Fpipestream-live-change-20261122T164350Z-947c4ef2.txt",
+            "self" : "https://site-1.example.invalid/wiki/rest/api/content/att29720893",
+            "download" : "/rest/api/content/30114549/child/attachment/att29720893/download"
+          }
+        } ],
+        "size" : 1,
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki",
+          "context" : "/wiki"
+        }
+      }
+    }
+  }
+}
