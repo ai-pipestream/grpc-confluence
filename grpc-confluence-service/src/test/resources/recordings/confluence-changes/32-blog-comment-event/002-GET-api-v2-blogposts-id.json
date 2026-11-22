@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/blogposts/29884892",
+    "path" : "/wiki/api/v2/blogposts/29885253",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -22,30 +22,30 @@
     "body" : {
       "json" : {
         "authorId" : "User 1",
-        "spaceId" : "7798786",
-        "createdAt" : "2026-11-22T16:45:53.108Z",
+        "createdAt" : "2026-11-22T18:51:22.395Z",
+        "id" : "29885253",
         "version" : {
           "number" : 2,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "User 1",
-          "createdAt" : "2026-11-22T16:46:01.587Z",
+          "createdAt" : "2026-11-22T18:51:30.849Z",
           "ncsStepVersion" : "3"
         },
-        "id" : "29884892",
-        "status" : "current",
+        "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>Change feed blog pipestream-live-change-20261122T164350Z-947c4ef2, edited.</p>"
+            "value" : "<p>Change feed blog pipestream-live-change-20261122T184937Z-04008ed8, edited.</p>"
           }
         },
-        "title" : "pipestream-live-change-20261122T164350Z-947c4ef2",
+        "status" : "current",
+        "title" : "pipestream-live-change-20261122T184937Z-04008ed8",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=29884892",
-          "webui" : "/spaces/CLAUDEGRPC/blog/2026/11/22/29884892/pipestream-live-change-20261122T164350Z-947c4ef2",
-          "edituiv2" : "/spaces/CLAUDEGRPC/blog/edit-v2/29884892",
-          "tinyui" : "/x/3AHIAQ",
+          "editui" : "/pages/resumedraft.action?draftId=29885253",
+          "webui" : "/spaces/CLAUDEGRPC/blog/2026/11/22/29885253/pipestream-live-change-20261122T184937Z-04008ed8",
+          "edituiv2" : "/spaces/CLAUDEGRPC/blog/edit-v2/29885253",
+          "tinyui" : "/x/RQPIAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

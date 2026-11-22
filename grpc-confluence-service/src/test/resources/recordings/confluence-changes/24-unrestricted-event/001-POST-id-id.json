@@ -25,7 +25,7 @@
     "body" : {
       "json" : {
         "events" : [ {
-          "key" : "evt:001795365933676:c6529a12-2a71-4067-97a2-27a9bbb0be41",
+          "key" : "evt:001795373470680:6b5a5591-3eb0-487e-a5b7-f6c14981aeec",
           "event" : {
             "atlassianId" : "User 1",
             "content" : {
@@ -46,7 +46,7 @@
                   "type" : "known",
                   "username" : "User 1"
                 },
-                "createdDate" : "2026-11-22T16:43:55.426Z",
+                "createdDate" : "2026-11-22T18:49:42.470Z",
                 "latest" : true,
                 "ownedBy" : {
                   "accountId" : "account-1",
@@ -65,7 +65,7 @@
                   "username" : "User 1"
                 }
               },
-              "id" : "30114549",
+              "id" : "30573080",
               "metadata" : {
                 "notificationsPlatformEmail" : false
               },
@@ -85,7 +85,7 @@
                 "type" : "global"
               },
               "status" : "current",
-              "title" : "pipestream-live-change-20261122T164350Z-947c4ef2",
+              "title" : "pipestream-live-change-20261122T184937Z-04008ed8",
               "type" : "page",
               "version" : {
                 "by" : {
@@ -105,7 +105,7 @@
                   "username" : "User 1"
                 },
                 "number" : 3,
-                "when" : "2026-11-22T16:44:19.297Z"
+                "when" : "2026-11-22T18:50:02.659Z"
               }
             },
             "context" : {
@@ -115,15 +115,15 @@
                 "enabled" : false
               }
             },
-            "eventCreatedDate" : "2026-11-22T16:45:32.699Z",
+            "eventCreatedDate" : "2026-11-22T18:51:10.110Z",
             "eventType" : "avi:confluence:permissions_updated:page",
             "permissions" : {
-              "scopes" : [ "read:confluence-content.all", "read:confluence-content.summary", "read:confluence-groups", "read:confluence-space.summary", "read:confluence-user", "storage:app", "write:confluence-content", "write:confluence-space" ]
+              "scopes" : [ "read:app-data:confluence", "read:confluence-content.all", "read:confluence-content.summary", "read:confluence-groups", "read:confluence-space.summary", "read:confluence-user", "storage:app", "write:app-data:confluence", "write:confluence-content", "write:confluence-space" ]
             },
             "selfGenerated" : false,
             "suppressNotifications" : false
           },
-          "expireTime" : "2026-11-29T16:45:33.000Z"
+          "expireTime" : "2026-11-29T18:51:10.000Z"
         } ]
       }
     }

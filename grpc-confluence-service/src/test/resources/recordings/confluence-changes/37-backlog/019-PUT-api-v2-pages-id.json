@@ -1,0 +1,71 @@
+{
+  "scenario" : "37-backlog",
+  "sequence" : 19,
+  "request" : {
+    "method" : "PUT",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/29917663",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "id" : "29917663",
+        "status" : "current",
+        "title" : "pipestream-live-change-20261122T184937Z-04008ed8 backlog",
+        "body" : {
+          "representation" : "storage",
+          "value" : "<p>backlog 18</p>"
+        },
+        "version" : {
+          "number" : 19
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "authorId" : "User 1",
+        "parentType" : "page",
+        "parentId" : "7798963",
+        "ownerId" : "User 1",
+        "lastOwnerId" : null,
+        "createdAt" : "2026-11-22T18:52:00.233Z",
+        "version" : {
+          "number" : 19,
+          "message" : null,
+          "minorEdit" : false,
+          "authorId" : "User 1",
+          "createdAt" : "2026-11-22T18:52:06.206Z",
+          "ncsStepVersion" : "1"
+        },
+        "position" : 1465,
+        "spaceId" : "7798786",
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<p>backlog 18</p>"
+          }
+        },
+        "status" : "current",
+        "title" : "pipestream-live-change-20261122T184937Z-04008ed8 backlog",
+        "id" : "29917663",
+        "_links" : {
+          "editui" : "/pages/resumedraft.action?draftId=29917663",
+          "webui" : "/spaces/CLAUDEGRPC/pages/29917663/pipestream-live-change-20261122T184937Z-04008ed8+backlog",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29917663",
+          "tinyui" : "/x/34HIAQ",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

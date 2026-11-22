@@ -2,7 +2,7 @@
   "baseUrl" : "https://site-1.example.invalid/wiki",
   "queueUrl" : "https://site-2.example.invalid/x1/token-1",
   "spaceKey" : "CLAUDEGRPC",
-  "run" : "pipestream-live-change-20261122T164350Z-947c4ef2",
+  "run" : "pipestream-live-change-20261122T184937Z-04008ed8",
   "outcomes" : [ {
     "step" : "01-watch-start",
     "outcome" : "PASS"

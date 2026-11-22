@@ -14,10 +14,10 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-change-20261122T164350Z-947c4ef2 parent",
+        "title" : "pipestream-live-change-20261122T184937Z-04008ed8 parent",
         "body" : {
           "representation" : "storage",
-          "value" : "<p>Parent for pipestream-live-change-20261122T164350Z-947c4ef2.</p>"
+          "value" : "<p>Parent for pipestream-live-change-20261122T184937Z-04008ed8.</p>"
         }
       }
     }
@@ -34,31 +34,31 @@
         "parentId" : "7798963",
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T16:43:54.647Z",
+        "createdAt" : "2026-11-22T18:49:41.799Z",
+        "position" : 742,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T16:43:54.647Z",
+          "createdAt" : "2026-11-22T18:49:41.799Z",
           "ncsStepVersion" : "1"
         },
-        "position" : 575,
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>Parent for pipestream-live-change-20261122T164350Z-947c4ef2.</p>"
+            "value" : "<p>Parent for pipestream-live-change-20261122T184937Z-04008ed8.</p>"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-change-20261122T164350Z-947c4ef2 parent",
-        "id" : "29884865",
+        "title" : "pipestream-live-change-20261122T184937Z-04008ed8 parent",
+        "id" : "30540033",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=29884865",
-          "webui" : "/spaces/CLAUDEGRPC/pages/29884865/pipestream-live-change-20261122T164350Z-947c4ef2+parent",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29884865",
-          "tinyui" : "/x/wQHIAQ",
+          "editui" : "/pages/resumedraft.action?draftId=30540033",
+          "webui" : "/spaces/CLAUDEGRPC/pages/30540033/pipestream-live-change-20261122T184937Z-04008ed8+parent",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30540033",
+          "tinyui" : "/x/AQHSAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

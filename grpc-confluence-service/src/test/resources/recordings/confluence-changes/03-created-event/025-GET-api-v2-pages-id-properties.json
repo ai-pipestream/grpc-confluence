@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30114549/properties",
+    "path" : "/wiki/api/v2/pages/30573080/properties",
     "query" : [ {
       "name" : "limit",
       "value" : "25"
@@ -26,23 +26,23 @@
             "number" : 1,
             "message" : "",
             "minorEdit" : false,
-            "authorId" : "account-1",
-            "createdAt" : "2026-11-22T16:43:55.677Z"
+            "authorId" : "User 1",
+            "createdAt" : "2026-11-22T18:49:42.787Z"
           },
           "value" : "{\"titleLayoutAlignment\":\"LEFT\",\"subtitle\":\"\",\"subtitleEnabled\":false,\"titlePropertyBylineEnabled\":false,\"titlePropertyEmojiEnabled\":false,\"headerImageLayout\":\"ABOVE\",\"headerImageStylingEnabled\":false}",
           "key" : "page-title-property-draft",
-          "id" : "30114565"
+          "id" : "30573096"
         }, {
           "version" : {
             "number" : 1,
             "message" : "",
             "minorEdit" : false,
-            "authorId" : "account-1",
-            "createdAt" : "2026-11-22T16:43:55.685Z"
+            "authorId" : "User 1",
+            "createdAt" : "2026-11-22T18:49:42.799Z"
           },
           "value" : "{\"titleLayoutAlignment\":\"LEFT\",\"subtitle\":\"\",\"subtitleEnabled\":false,\"titlePropertyBylineEnabled\":false,\"titlePropertyEmojiEnabled\":false,\"headerImageLayout\":\"ABOVE\",\"headerImageStylingEnabled\":false}",
           "key" : "page-title-property-published",
-          "id" : "30114567"
+          "id" : "30573098"
         } ],
         "_links" : {
           "base" : "https://site-1.example.invalid/wiki"

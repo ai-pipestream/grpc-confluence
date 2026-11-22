@@ -1,0 +1,47 @@
+{
+  "scenario" : "app-properties",
+  "sequence" : 1,
+  "request" : {
+    "method" : "POST",
+    "host" : "forge-app.example.invalid",
+    "path" : "/x1/forge-trigger",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : false,
+    "body" : {
+      "json" : {
+        "method" : "PUT",
+        "path" : "/wiki/api/v2/app/properties/pipestream-live-app-20261122T185339Z-03c05bff-app",
+        "body" : {
+          "string" : "one",
+          "integer" : 42,
+          "double" : 2.5,
+          "bool" : true,
+          "null" : null,
+          "list" : [ "a", 1 ],
+          "object" : {
+            "nested" : false
+          }
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "status" : 201,
+        "body" : {
+          "title" : "Property created.",
+          "status" : 201
+        }
+      }
+    }
+  }
+}
