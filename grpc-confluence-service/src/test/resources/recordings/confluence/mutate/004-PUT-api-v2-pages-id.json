@@ -1,11 +1,11 @@
 {
   "scenario" : "mutate",
-  "sequence" : 5,
+  "sequence" : 4,
   "unordered" : 1,
   "request" : {
     "method" : "PUT",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/29884417",
+    "path" : "/wiki/api/v2/pages/29917213",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -14,9 +14,9 @@
     "authorized" : true,
     "body" : {
       "json" : {
-        "id" : "29884417",
+        "id" : "29917213",
         "status" : "current",
-        "title" : "pipestream-live-write-20261122T023426Z-430393c8 retitled",
+        "title" : "pipestream-live-write-20261122T125241Z-1bfb10d7 retitled",
         "body" : {
           "representation" : "storage",
           "value" : "<p>stale</p>"

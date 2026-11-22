@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/29884417/properties/29917197",
+    "path" : "/wiki/api/v2/pages/29917213/properties/30048274",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -21,7 +21,7 @@
         "errors" : [ {
           "status" : 404,
           "code" : "NOT_FOUND",
-          "title" : "Could not find property with id [29917197] on page with id [29884417]",
+          "title" : "Could not find property with id [30048274] on page with id [29917213]",
           "detail" : null
         } ]
       }

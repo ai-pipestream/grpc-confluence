@@ -1,7 +1,7 @@
 {
   "baseUrl" : "https://site-1.example.invalid/wiki",
   "spaceKey" : "CLAUDEGRPC",
-  "run" : "pipestream-live-write-20261122T023426Z-430393c8",
+  "run" : "pipestream-live-write-20261122T125241Z-1bfb10d7",
   "admin" : false,
   "customContentType" : null,
   "inviteEmail" : null,
@@ -108,23 +108,23 @@
   }, {
     "rpc" : "AddContentPermissions",
     "step" : "AddContentPermissions",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "SetRestrictionState",
     "step" : "SetRestrictionState",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "SetContentPermissions",
     "step" : "SetContentPermissions",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "SetRestrictionState",
     "step" : "SetRestrictionState (back to OPEN)",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "DeleteContentPermissions",
     "step" : "DeleteContentPermissions",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "SetContentClassificationLevel",
     "step" : "SetContentClassificationLevel",

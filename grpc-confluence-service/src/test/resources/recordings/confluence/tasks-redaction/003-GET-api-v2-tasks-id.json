@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/tasks/155",
+    "path" : "/wiki/api/v2/tasks/188",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -21,24 +21,24 @@
     },
     "body" : {
       "json" : {
-        "pageId" : "29720578",
+        "pageId" : "30441473",
         "assignedTo" : null,
         "dueAt" : null,
         "updatedAt" : null,
-        "completedAt" : "2026-11-22T02:35:10.896Z",
         "completedBy" : "account-1",
-        "localId" : "7ae85d65-c33d-3cb0-8268-484f5281aaaa",
-        "createdAt" : "2026-11-22T02:34:29.853Z",
+        "completedAt" : "2026-11-22T12:53:27.165Z",
         "spaceId" : "7798786",
+        "localId" : "d0d3559f-119c-3f1c-82ed-5b4bd5721142",
+        "createdAt" : "2026-11-22T12:52:43.808Z",
+        "id" : "188",
+        "status" : "complete",
         "body" : {
           "storage" : {
             "representation" : "storage",
             "value" : "<span class=\"placeholder-inline-tasks\">ship it</span>"
           }
         },
-        "status" : "complete",
-        "createdBy" : "account-1",
-        "id" : "155"
+        "createdBy" : "account-1"
       }
     }
   }
