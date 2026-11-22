@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30179776",
+    "path" : "/wiki/api/v2/pages/30114261",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -21,36 +21,36 @@
     },
     "body" : {
       "json" : {
-        "parentType" : "page",
         "authorId" : "account-1",
-        "parentId" : "29851761",
+        "parentType" : "page",
+        "spaceId" : "7798786",
+        "parentId" : "30376427",
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T14:19:03.236Z",
+        "createdAt" : "2026-11-22T15:46:15.115Z",
+        "position" : 281,
         "version" : {
           "number" : 2,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T14:19:54.034Z",
+          "createdAt" : "2026-11-22T15:47:05.146Z",
           "ncsStepVersion" : "1"
         },
-        "position" : 201,
-        "id" : "30179776",
-        "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<h2>Typed heading</h2><p>alpha REDACTME omega</p><ac:task-list ac:task-list-id=\"ed157c21-be8e-3fc8-924d-6f22cfe0af91\">\n<ac:task>\n<ac:task-id>1</ac:task-id>\n<ac:task-uuid>7df63d98-63b9-3895-b278-d023af299399</ac:task-uuid>\n<ac:task-status>complete</ac:task-status>\n<ac:task-body><span class=\"placeholder-inline-tasks\">ship it</span></ac:task-body>\n</ac:task>\n</ac:task-list>"
+            "value" : "<h2>Typed heading</h2><p>alpha REDACTME omega</p><ac:task-list ac:task-list-id=\"290a8679-3bc9-3d4c-a905-226f4a07be26\">\n<ac:task>\n<ac:task-id>1</ac:task-id>\n<ac:task-uuid>2f421fe1-5321-3b8a-9af6-49c9d47d4b67</ac:task-uuid>\n<ac:task-status>complete</ac:task-status>\n<ac:task-body><span class=\"placeholder-inline-tasks\">ship it</span></ac:task-body>\n</ac:task>\n</ac:task-list>"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261122T141900Z-46e204d2 adf",
+        "title" : "pipestream-live-write-20261122T154612Z-76a48fba adf",
+        "id" : "30114261",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=30179776",
-          "webui" : "/spaces/CLAUDEGRPC/pages/30179776/pipestream-live-write-20261122T141900Z-46e204d2+adf",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30179776",
-          "tinyui" : "/x/wIHMAQ",
+          "editui" : "/pages/resumedraft.action?draftId=30114261",
+          "webui" : "/spaces/CLAUDEGRPC/pages/30114261/pipestream-live-write-20261122T154612Z-76a48fba+adf",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30114261",
+          "tinyui" : "/x/1YHLAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

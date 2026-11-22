@@ -1,6 +1,6 @@
 {
   "scenario" : "tenant",
-  "sequence" : 14,
+  "sequence" : 15,
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
@@ -32,6 +32,12 @@
           "principal" : {
             "principalType" : "USER",
             "principalId" : "account-3"
+          }
+        }, {
+          "roleId" : "6820786b-b8db-4102-b789-dcb45cba7c83",
+          "principal" : {
+            "principalType" : "USER",
+            "principalId" : "account-4"
           }
         }, {
           "roleId" : "6820786b-b8db-4102-b789-dcb45cba7c83",

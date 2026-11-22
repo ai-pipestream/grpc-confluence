@@ -4,7 +4,7 @@
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/rest/api/space/LW46E204D2",
+    "path" : "/wiki/rest/api/space/LW76A48FBA",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -18,10 +18,10 @@
     },
     "body" : {
       "json" : {
-        "id" : "30376385",
-        "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:long-running-task/activation/b1593a2f-bf8a-4c2e-a0c6-8b31a89d2389/30376385",
+        "id" : "30441843",
+        "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:long-running-task/activation/b1593a2f-bf8a-4c2e-a0c6-8b31a89d2389/30441843",
         "links" : {
-          "status" : "/rest/api/longtask/30376385"
+          "status" : "/rest/api/longtask/30441843"
         }
       }
     }

@@ -4,13 +4,13 @@
   "request" : {
     "method" : "GET",
     "host" : "api.media.atlassian.com",
-    "path" : "/file/5131afaf-a59a-4ed2-8200-95c87f6ab4fa/binary",
+    "path" : "/file/f21f8e1d-37e9-475b-bf6e-a71c10b6c723/binary",
     "query" : [ {
       "name" : "client",
       "value" : "6dccb467-4095-4617-b5f0-a97bb96d422a"
     }, {
       "name" : "name",
-      "value" : "pipestream-live-write-20261122T141900Z-46e204d2.txt"
+      "value" : "pipestream-live-write-20261122T154612Z-76a48fba.txt"
     }, {
       "name" : "token",
       "value" : "token-2"
@@ -26,7 +26,7 @@
       "content-type" : "text/plain"
     },
     "body" : {
-      "text" : "hello live write pipestream-live-write-20261122T141900Z-46e204d2\n"
+      "text" : "hello live write pipestream-live-write-20261122T154612Z-76a48fba\n"
     }
   }
 }

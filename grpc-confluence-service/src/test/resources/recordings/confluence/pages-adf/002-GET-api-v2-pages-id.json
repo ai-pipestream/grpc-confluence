@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30179776",
+    "path" : "/wiki/api/v2/pages/30114261",
     "query" : [ {
       "name" : "body-format",
       "value" : "atlas_doc_format"
@@ -21,36 +21,36 @@
     },
     "body" : {
       "json" : {
-        "parentType" : "page",
         "authorId" : "account-1",
-        "parentId" : "29851761",
+        "parentType" : "page",
+        "parentId" : "30376427",
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T14:19:03.236Z",
+        "createdAt" : "2026-11-22T15:46:15.115Z",
+        "position" : 281,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T14:19:03.236Z",
+          "createdAt" : "2026-11-22T15:46:15.115Z",
           "ncsStepVersion" : "1"
         },
-        "position" : 201,
-        "id" : "30179776",
+        "id" : "30114261",
         "spaceId" : "7798786",
         "body" : {
           "atlas_doc_format" : {
             "representation" : "atlas_doc_format",
-            "value" : "{\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"text\":\"Typed heading\",\"type\":\"text\"}]},{\"type\":\"paragraph\",\"content\":[{\"text\":\"alpha REDACTME omega\",\"type\":\"text\"}]},{\"type\":\"taskList\",\"attrs\":{\"localId\":\"ed157c21-be8e-3fc8-924d-6f22cfe0af91\"},\"content\":[{\"type\":\"taskItem\",\"attrs\":{\"state\":\"TODO\",\"localId\":\"7df63d98-63b9-3895-b278-d023af299399\"},\"content\":[{\"text\":\"ship it\",\"type\":\"text\"}]}]}],\"version\":1}"
+            "value" : "{\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"text\":\"Typed heading\",\"type\":\"text\"}]},{\"type\":\"paragraph\",\"content\":[{\"text\":\"alpha REDACTME omega\",\"type\":\"text\"}]},{\"type\":\"taskList\",\"attrs\":{\"localId\":\"290a8679-3bc9-3d4c-a905-226f4a07be26\"},\"content\":[{\"type\":\"taskItem\",\"attrs\":{\"state\":\"TODO\",\"localId\":\"2f421fe1-5321-3b8a-9af6-49c9d47d4b67\"},\"content\":[{\"text\":\"ship it\",\"type\":\"text\"}]}]}],\"version\":1}"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261122T141900Z-46e204d2 adf",
+        "title" : "pipestream-live-write-20261122T154612Z-76a48fba adf",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=30179776",
-          "webui" : "/spaces/CLAUDEGRPC/pages/30179776/pipestream-live-write-20261122T141900Z-46e204d2+adf",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30179776",
-          "tinyui" : "/x/wIHMAQ",
+          "editui" : "/pages/resumedraft.action?draftId=30114261",
+          "webui" : "/spaces/CLAUDEGRPC/pages/30114261/pipestream-live-write-20261122T154612Z-76a48fba+adf",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30114261",
+          "tinyui" : "/x/1YHLAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

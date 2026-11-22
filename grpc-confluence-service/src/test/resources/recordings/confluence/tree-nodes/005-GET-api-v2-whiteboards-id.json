@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/whiteboards/30441730",
+    "path" : "/wiki/api/v2/whiteboards/29851886",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -18,29 +18,29 @@
     },
     "body" : {
       "json" : {
-        "id" : "30441730",
+        "id" : "29851886",
         "type" : "whiteboard",
-        "parentId" : "29851761",
-        "title" : "pipestream-live-write-20261122T141900Z-46e204d2 whiteboard",
+        "parentId" : "30376427",
+        "title" : "pipestream-live-write-20261122T154612Z-76a48fba whiteboard",
         "parentType" : "page",
-        "position" : 1183,
+        "position" : 1734,
         "authorId" : "account-1",
         "ownerId" : "account-1",
-        "createdAt" : 1795357200136,
+        "createdAt" : 1795362430791,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T14:20:00.186Z"
+          "createdAt" : "2026-11-22T15:47:10.839Z"
         },
         "status" : "current",
         "spaceId" : "7798786",
         "_links" : {
-          "editui" : "/spaces/CLAUDEGRPC/whiteboard/30441730",
-          "webui" : "/spaces/CLAUDEGRPC/whiteboard/30441730",
-          "edituiv2" : "/spaces/CLAUDEGRPC/whiteboard/30441730",
-          "tinyui" : "/x/AoHQAQ",
+          "editui" : "/spaces/CLAUDEGRPC/whiteboard/29851886",
+          "webui" : "/spaces/CLAUDEGRPC/whiteboard/29851886",
+          "edituiv2" : "/spaces/CLAUDEGRPC/whiteboard/29851886",
+          "tinyui" : "/x/7oDHAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }
