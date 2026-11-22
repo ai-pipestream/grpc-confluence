@@ -66,7 +66,8 @@ class ConfluenceWriteRpcTest {
     void startStack() throws Exception {
         fake = FakeConfluenceServer.start();
         ConfluenceConnectorConfig config = ConfluenceConnectorConfig.builder()
-                .baseUrl(fake.baseUrl()).email("bot@pipestream.ai").apiToken("token-123").build();
+                .baseUrl(fake.baseUrl()).email("bot@pipestream.ai").apiToken("token-123")
+                .maxAttachmentBytes(1_000_000).build();
         ConfluenceClient client = new ConfluenceClient(config.baseUrl(), config.email(),
                 config.apiToken(), Duration.ZERO);
         server = InProcessServerBuilder.forName("confluence-write-test")
@@ -844,6 +845,28 @@ class ConfluenceWriteRpcTest {
                 .isEqualTo(Status.Code.INVALID_ARGUMENT);
         assertThat(uploadFailure(header("", "x.txt").build(), List.of(), true))
                 .isEqualTo(Status.Code.INVALID_ARGUMENT);
+    }
+
+    @Test
+    void anUploadOverTheConfiguredLimitIsRefused() throws Exception {
+        fake.stub("POST", "/wiki/rest/api/content/501/child/attachment", 200, "{\"results\":[]}");
+        assertThat(uploadFailure(header("501", "big.bin").build(),
+                List.of("x".repeat(600_000), "x".repeat(400_001)), true))
+                .isEqualTo(Status.Code.INVALID_ARGUMENT);
+    }
+
+    @Test
+    void aServerFaultOnAnUploadNamesTheSizeLimit() throws Exception {
+        fake.stub("POST", "/wiki/rest/api/content/501/child/attachment", 500,
+                "{\"message\":\"Internal Server Error\"}");
+        try {
+            upload(header("501", "big.bin").build(), List.of("xyz"), true);
+            throw new AssertionError("the upload was accepted");
+        } catch (StatusRuntimeException e) {
+            assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.INTERNAL);
+            assertThat(e.getStatus().getDescription()).contains("upload of 3 bytes")
+                    .contains("attachment size limit");
+        }
     }
 
     // ======================================================================

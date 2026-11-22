@@ -82,6 +82,8 @@ CONFLUENCE_EMAIL=bot@example.com
 CONFLUENCE_API_TOKEN=...
 # aliases: CONFLUENCE_USER / CONFLUENCE_TOKEN
 CONFLUENCE_SPACES=ENG,DOCS          # optional allowlist
+# optional: the site's attachment size limit; larger uploads are refused before they are sent
+# CONFLUENCE_MAX_ATTACHMENT_BYTES=104857600
 CONFLUENCE_GRPC_PORT=9095
 # optional raw-bytes Kafka sink
 CONFLUENCE_KAFKA_BOOTSTRAP_SERVERS=localhost:9092

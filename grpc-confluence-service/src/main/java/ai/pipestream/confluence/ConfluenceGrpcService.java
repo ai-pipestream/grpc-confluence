@@ -1972,7 +1972,8 @@ public final class ConfluenceGrpcService
                     ? session.config
                     : new ConfluenceConnectorConfig(session.config.baseUrl(), session.config.email(),
                             session.config.apiToken(), request.getSpaceKeysList(),
-                            session.config.pageSize(), session.config.bodyFormat());
+                            session.config.pageSize(), session.config.bodyFormat(),
+                            session.config.maxAttachmentBytes());
             Object lock = new Object();
             AtomicReference<String> newestSnapshotCursor = new AtomicReference<>("");
             AtomicReference<String> runId = new AtomicReference<>("");
@@ -2637,6 +2638,11 @@ public final class ConfluenceGrpcService
                     case HEADER -> start(frame.getHeader());
                     case CHUNK -> {
                         requireStarted();
+                        long limit = session.config().maxAttachmentBytes();
+                        if (limit > 0 && received + frame.getChunk().size() > limit) {
+                            throw invalid("the attachment is larger than the site's limit of "
+                                    + limit + " bytes");
+                        }
                         pipe.write(frame.getChunk(), upload);
                         received += frame.getChunk().size();
                         observer.onNext(UploadAttachmentResponse.newBuilder()
@@ -2698,6 +2704,14 @@ public final class ConfluenceGrpcService
             try {
                 stored = upload.get().path("results").path(0);
             } catch (java.util.concurrent.ExecutionException e) {
+                if (e.getCause() instanceof ConfluenceClient.ConfluenceApiException api
+                        && api.status() == 500) {
+                    throw Status.INTERNAL.withDescription("Confluence answered 500 to an upload of "
+                            + received + " bytes; it answers this way to a file over the site's"
+                            + " attachment size limit (" + ConfluenceConnectorConfig
+                                    .ENV_MAX_ATTACHMENT_BYTES + " names that limit): "
+                            + api.getMessage()).asRuntimeException();
+                }
                 throw e.getCause() instanceof Exception cause ? cause : e;
             }
             done = true;
