@@ -998,6 +998,8 @@ final class WriteScenarios {
             ownSpace.set(null);
             return "task " + task;
         });
+        // Confluence refuses a role name as long as the run's own name.
+        String roleName = "lw-" + run.substring(run.length() - 8);
         AtomicReference<SpaceRole> role = new AtomicReference<>();
         step("CreateSpaceRole", "CreateSpaceRole", () -> {
             List<String> permissions = new ArrayList<>();
@@ -1007,20 +1009,20 @@ final class WriteScenarios {
                 permissions.add(available.next().getPermission().getId());
             }
             SpaceRole created = stub().createSpaceRole(CreateSpaceRoleRequest.newBuilder()
-                    .setName(run).setDescription("live write run").addAllSpacePermissions(permissions)
-                    .build()).getRole();
+                    .setName(roleName).setDescription("live write run")
+                    .addAllSpacePermissions(permissions).build()).getRole();
             role.set(created);
             cleanups.add(() -> remove("space role " + created.getId(), () -> stub().deleteSpaceRole(
                     DeleteSpaceRoleRequest.newBuilder().setId(created.getId()).build())));
             SpaceRole read = stub().getSpaceRole(GetSpaceRoleRequest.newBuilder()
                     .setId(created.getId()).build()).getRole();
-            check(read.getName().equals(run), "the name read back is " + read.getName());
+            check(read.getName().equals(roleName), "the name read back is " + read.getName());
             return "role " + created.getId();
         });
         step("UpdateSpaceRole", "UpdateSpaceRole", () -> {
             SpaceRole created = require(role.get(), "no space role was created");
             UpdateSpaceRoleResponse updated = stub().updateSpaceRole(UpdateSpaceRoleRequest.newBuilder()
-                    .setId(created.getId()).setName(run).setDescription("live write run, edited")
+                    .setId(created.getId()).setName(roleName).setDescription("live write run, edited")
                     .addAllSpacePermissions(created.getSpacePermissionsList()).build());
             return "task " + updated.getTaskId();
         });
