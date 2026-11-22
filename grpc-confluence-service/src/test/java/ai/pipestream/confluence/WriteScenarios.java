@@ -1024,8 +1024,12 @@ final class WriteScenarios {
                     .setName(roleName).setDescription("live write run")
                     .addAllSpacePermissions(permissions).build()).getRole();
             role.set(created);
-            cleanups.add(() -> remove("space role " + created.getId(), () -> stub().deleteSpaceRole(
-                    DeleteSpaceRoleRequest.newBuilder().setId(created.getId()).build())));
+            cleanups.add(() -> {
+                if (role.get() != null) {
+                    remove("space role " + created.getId(), () -> stub().deleteSpaceRole(
+                            DeleteSpaceRoleRequest.newBuilder().setId(created.getId()).build()));
+                }
+            });
             SpaceRole read = stub().getSpaceRole(GetSpaceRoleRequest.newBuilder()
                     .setId(created.getId()).build()).getRole();
             check(read.getName().equals(roleName), "the name read back is " + read.getName());
@@ -1052,8 +1056,23 @@ final class WriteScenarios {
         });
         step("DeleteSpaceRole", "DeleteSpaceRole", () -> {
             SpaceRole created = require(role.get(), "no space role was created");
-            return "task " + stub().deleteSpaceRole(DeleteSpaceRoleRequest.newBuilder()
+            String task = stub().deleteSpaceRole(DeleteSpaceRoleRequest.newBuilder()
                     .setId(created.getId()).build()).getTaskId();
+            role.set(null);
+            for (int attempt = 0; attempt < 30; attempt++) {
+                try {
+                    stub().getSpaceRole(GetSpaceRoleRequest.newBuilder().setId(created.getId()).build());
+                } catch (StatusRuntimeException e) {
+                    Status.Code code = e.getStatus().getCode();
+                    if (code == Status.Code.NOT_FOUND || code == Status.Code.INVALID_ARGUMENT) {
+                        return "task " + task + "; the role is gone";
+                    }
+                    throw e;
+                }
+                backend.tape().pause(Duration.ofSeconds(2));
+            }
+            leftBehind.add("space role " + created.getId() + ": still there a minute after task " + task);
+            throw new AssertionError("the role is still there a minute after the delete");
         });
         step("InviteByEmail", "InviteByEmail", () -> {
             String invitee = backend.inviteEmail();
