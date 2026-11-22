@@ -57,11 +57,17 @@ modules:
       function: queue
       response:
         type: dynamic
+    - key: app-api
+      function: app-api
+      response:
+        type: dynamic
   function:
     - key: on-event
       handler: index.onEvent
     - key: queue
       handler: index.queue
+    - key: app-api
+      handler: app.appApi
 app:
   id: ari:cloud:ecosystem::app/d16971ce-921a-40d5-a97b-84b84a4cbfe1
   runtime:
@@ -76,3 +82,5 @@ permissions:
     - read:confluence-groups
     - write:confluence-content
     - write:confluence-space
+    - read:app-data:confluence
+    - write:app-data:confluence

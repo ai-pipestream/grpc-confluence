@@ -22,6 +22,10 @@ on:
         description: Deploy the Forge app to the test site, run the live change feed test and record it
         type: boolean
         default: false
+      live_app_properties_task:
+        description: Gradle task run after the change run with the app-api trigger URL and secret (empty = none)
+        type: string
+        default: ""
       probe_confluence_account:
         description: Report whether the Confluence test account is an admin (read-only, prints no names)
         type: boolean
@@ -309,6 +313,20 @@ jobs:
           echo "::add-mask::${url}"
           printf '%s' "${url}" > "$RUNNER_TEMP/queue.url"
           printf '%s' "${secret}" > "$RUNNER_TEMP/queue.secret"
+          app=$(forge webtrigger create -e development -f app-api -s "${site}" -p confluence | grep -o 'https://[^[:space:]]*' | head -1)
+          if [ -z "${app}" ]; then
+            echo "no app-api web trigger URL"
+            exit 1
+          fi
+          echo "::add-mask::${app}"
+          printf '%s' "${app}" > "$RUNNER_TEMP/app.url"
+          # The app-api trigger lists app properties as the app; only the status is printed.
+          status=$(curl -sS -X POST "${app}" -H "x-pipestream-queue-secret: ${secret}" \
+            -H 'content-type: application/json' \
+            -d '{"method":"GET","path":"/wiki/api/v2/app/properties","body":null}' \
+            | python3 -c 'import json,sys;print(json.load(sys.stdin).get("status"))')
+          echo "app-api GET /wiki/api/v2/app/properties answered ${status}"
+          [ "${status}" = "200" ] || { echo "the app-api trigger did not list app properties"; exit 1; }
       - name: Live Confluence change run
         working-directory: grpc-confluence
         env:
@@ -330,6 +348,18 @@ jobs:
           if int(suite.get("skipped", "0")) or int(suite.get("tests", "0")) == 0:
               raise SystemExit("The live change test was skipped; no live evidence.")
           PY
+      - name: Live app property run through the app-api trigger
+        if: inputs.live_app_properties_task != ''
+        working-directory: grpc-confluence
+        env:
+          CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
+          CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          CONFLUENCE_SPACE_KEY: CLAUDEGRPC
+          TASK: ${{ inputs.live_app_properties_task }}
+        run: |
+          export CONFLUENCE_FORGE_APP_URL="$(cat "$RUNNER_TEMP/app.url")"
+          export CONFLUENCE_FORGE_APP_SECRET="$(cat "$RUNNER_TEMP/queue.secret")"
+          ./gradlew --no-daemon -PintegrationDir=../grpc-integration "${TASK}"
       - name: Forge logs
         if: failure()
         working-directory: grpc-confluence/grpc-confluence-forge
