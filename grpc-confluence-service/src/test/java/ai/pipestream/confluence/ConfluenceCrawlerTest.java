@@ -1,5 +1,6 @@
 package ai.pipestream.confluence;
 
+import ai.pipestream.confluence.v1.ContentType;
 import ai.pipestream.confluence.v1.ChangeSource;
 import ai.pipestream.confluence.v1.CommentKind;
 import ai.pipestream.confluence.v1.ContentRestrictionState;
@@ -124,7 +125,10 @@ class ConfluenceCrawlerTest {
                         ConfluenceEntity.EntityCase.BLOG_POST,
                         // The per-owner security marker of the page and the blog post.
                         ConfluenceEntity.EntityCase.RESTRICTION_STATE,
-                        ConfluenceEntity.EntityCase.RESTRICTION_STATE);
+                        ConfluenceEntity.EntityCase.RESTRICTION_STATE,
+                        // The owner chain of the page and the blog post.
+                        ConfluenceEntity.EntityCase.ACCESS_CHAIN,
+                        ConfluenceEntity.EntityCase.ACCESS_CHAIN);
         // No security route is stubbed: 404 everywhere = not served = complete.
         assertThat(changes).filteredOn(c -> c.getEntity().hasSpace() || c.getEntity().hasPage()
                         || c.getEntity().hasBlogPost() || c.getEntity().hasRestrictionState())
@@ -202,6 +206,19 @@ class ConfluenceCrawlerTest {
         fake.stub("/wiki/api/v2/databases/d1/entries", ConfluenceFixtures.listJson(null, "",
                 "{\"id\":\"row1\",\"databaseId\":\"d1\",\"values\":{\"fld1\":{\"type\":\"checkbox\","
                         + "\"value\":true}}}"));
+        // Page 200 sits in folder f1; root first, as the API lists ancestors.
+        fake.stub("/wiki/api/v2/pages/200/ancestors", ConfluenceFixtures.listJson(null, "",
+                "{\"id\":\"500\",\"type\":\"page\"}", "{\"id\":\"e9\",\"type\":\"embed\"}",
+                "{\"id\":\"f1\",\"type\":\"folder\"}"));
+        // Group g1 resolves with members; g2 is refused; user abc comes from users-bulk.
+        fake.stub("/wiki/rest/api/group/by-id?id=g1", "{\"type\":\"group\",\"name\":\"staff\",\"id\":\"g1\"}");
+        fake.stub("/wiki/rest/api/group/g1/membersByGroupId", "{\"results\":[{\"accountId\":\"m1\","
+                + "\"accountType\":\"atlassian\",\"email\":\"m1@example.com\",\"displayName\":\"M\"},"
+                + "{\"accountId\":\"m2\",\"accountType\":\"atlassian\",\"displayName\":\"N\"}]}");
+        fake.stub("/wiki/rest/api/group/by-id?id=g2", new FakeConfluenceServer.Stub(403,
+                "{\"message\":\"not allowed\"}", Map.of()));
+        fake.stub("/wiki/api/v2/users-bulk", "{\"results\":[{\"accountId\":\"abc\","
+                + "\"accountType\":\"atlassian\",\"email\":\"abc@example.com\"}]}");
 
         crawler(config()).crawl();
 
@@ -255,6 +272,30 @@ class ConfluenceCrawlerTest {
                         .containsEntry("database_field", 1L)
                         .containsEntry("database_entry", 1L)
                         .doesNotContainKey("space_role_assignment"));
+        // The owner chain: the item, then restrictable ancestors nearest first (the embed is skipped).
+        assertThat(byId.get("page:200/access").getAccessChain().getSpaceId()).isEqualTo("100");
+        assertThat(byId.get("page:200/access").getAccessChain().getOwnersList())
+                .extracting(o -> o.getType() + ":" + o.getId())
+                .containsExactly("CONTENT_TYPE_PAGE:200", "CONTENT_TYPE_FOLDER:f1", "CONTENT_TYPE_PAGE:500");
+        assertThat(byId.get("blogpost:300/access").getAccessChain().getOwnersList()).singleElement()
+                .satisfies(o -> assertThat(o.getType()).isEqualTo(ContentType.CONTENT_TYPE_BLOG_POST));
+        assertThat(fake.requestsTo("/wiki/api/v2/blogposts/300/ancestors")).isEmpty();
+        assertThat(byId).containsKeys("whiteboard:w1/access", "folder:f1/access", "database:d1/access");
+        // Every group a permission named, with its members; a refused group is UNAVAILABLE.
+        assertThat(byId.get("g1").getGroup().getName()).isEqualTo("staff");
+        assertThat(byId.get("g1").getSecurityCompleteness())
+                .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE);
+        assertThat(byId.get("group:g1/member/m1").getGroupMember().getUser().getEmail())
+                .isEqualTo("m1@example.com");
+        assertThat(byId.get("group:g1/member/m2").getGroupMember().getUser().getEmail()).isEmpty();
+        assertThat(byId.get("g2").getSecurityCompleteness())
+                .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_UNAVAILABLE);
+        assertThat(byId).doesNotContainKey("group:g2/member/m1");
+        // Users: the members, and the user a permission named directly.
+        assertThat(byId.get("m1").getUser().getEmail()).isEqualTo("m1@example.com");
+        assertThat(byId.get("abc").getUser().getEmail()).isEqualTo("abc@example.com");
+        assertThat(fake.lastTo("POST", "/wiki/api/v2/users-bulk").body()).contains("abc")
+                .doesNotContain("m1");
         sink.changes().forEach(change -> ConfluenceValidator.create().requireValid(change));
     }
 
@@ -425,7 +466,8 @@ class ConfluenceCrawlerTest {
 
         // No content is re-emitted; only the space and the page's security marker are.
         assertThat(sink.changes()).extracting(c -> c.getEntity().getEntityId())
-                .containsExactlyInAnyOrder("100", "page:202/restriction-state");
+                .containsExactlyInAnyOrder("100", "page:202/restriction-state",
+                        "page:202/access");
         assertThat(Instant.parse(newCursor)).isEqualTo(T2);
     }
 }

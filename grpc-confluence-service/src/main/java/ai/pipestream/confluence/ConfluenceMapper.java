@@ -1,5 +1,6 @@
 package ai.pipestream.confluence;
 
+import ai.pipestream.confluence.v1.Group;
 import ai.pipestream.confluence.v1.AccountStatus;
 import ai.pipestream.confluence.v1.DetailedVersion;
 import ai.pipestream.confluence.v1.SpacePermission;
@@ -461,6 +462,17 @@ public final class ConfluenceMapper {
         setTimestamp(node, "dueAt", b::setDueAt);
         setTimestamp(node, "completedAt", b::setCompletedAt);
         return b.build();
+    }
+
+    /**
+     * A v1 group JSON object as a {@link Group}.
+     *
+     * @param node the group JSON
+     * @return the group
+     */
+    public static Group toGroup(JsonNode node) {
+        return Group.newBuilder().setId(node.path("id").asText(""))
+                .setName(node.path("name").asText("")).setType(node.path("type").asText("")).build();
     }
 
     /**

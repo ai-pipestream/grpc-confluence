@@ -4,6 +4,7 @@ import ai.pipestream.confluence.v1.*;
 import io.grpc.Channel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
+import com.google.protobuf.Timestamp;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -25,7 +26,7 @@ final class AclScenarios {
     static final String CLEANUP = "cleanup";
     /** The rpcs these scenarios prove. */
     static final List<String> RPCS = List.of("GetContentAccess", "GetGroup", "ListGroupMembers",
-            "ListUserGroups");
+            "ListUserGroups", "Sync");
     private static final long CALL_DEADLINE_SECONDS = 120;
 
     /**
@@ -34,8 +35,9 @@ final class AclScenarios {
      * @param spaceKey the space everything is created in
      * @param run the title of the parent page, and the prefix of every name the run creates
      * @param secrets values that must never reach a row
+     * @param tape the recording or replay the calls go through
      */
-    record Backend(String spaceKey, String run, List<String> secrets) {
+    record Backend(String spaceKey, String run, List<String> secrets, ExchangeTape tape) {
     }
 
     /** One report row. */
@@ -59,6 +61,7 @@ final class AclScenarios {
     private Space space;
     private Page parent;
     private Page child;
+    private String callerGroup;
 
     AclScenarios(Channel channel, Backend backend) {
         this.channel = channel;
@@ -67,7 +70,7 @@ final class AclScenarios {
 
     /** The scenario names, in the order they run; {@link #CLEANUP} is last. */
     static List<String> names() {
-        return List.of("setup", "content-access", "groups", CLEANUP);
+        return List.of("setup", "content-access", "groups", "sync", CLEANUP);
     }
 
     /** The scenarios in the order of {@link #names()}. */
@@ -81,6 +84,11 @@ final class AclScenarios {
                 new Scenario("groups", () -> {
                     if (parent != null) {
                         groups();
+                    }
+                }),
+                new Scenario("sync", () -> {
+                    if (child != null) {
+                        sync();
                     }
                 }),
                 new Scenario(CLEANUP, this::cleanUp));
@@ -159,6 +167,7 @@ final class AclScenarios {
             return callerGroups.size() + " groups";
         });
         String groupId = callerGroups.stream().sorted().findFirst().orElse(null);
+        callerGroup = groupId;
         if (groupId == null) {
             for (String rpc : List.of("GetGroup", "ListGroupMembers")) {
                 rows.add(new Row(rpc, rpc, "SKIPPED", "the caller's groups could not be read"));
@@ -179,6 +188,76 @@ final class AclScenarios {
             check(members.stream().anyMatch(u -> u.getAccountId().equals(caller)),
                     "the members do not include the caller");
             return members.size() + " members, including the caller";
+        });
+    }
+
+    private void sync() {
+        step("Sync", "Sync (incremental, after granting one of the caller's groups READ on the parent)", () -> {
+            String caller = parent.getAuthorId();
+            ContentRef ref = page(parent.getId());
+            if (callerGroup != null) {
+                stub().addContentPermissions(AddContentPermissionsRequest.newBuilder().setContent(ref)
+                        .addPermissions(ContentPermissionGrant.newBuilder()
+                                .setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_READ)
+                                .addPrincipals(ContentPermissionPrincipal.newBuilder()
+                                        .setPrincipalType(ContentPermissionPrincipalType
+                                                .CONTENT_PERMISSION_PRINCIPAL_TYPE_GROUP)
+                                        .setPrincipalId(callerGroup))).build());
+            }
+            Timestamp created = parent.getCreatedAt();
+            String since = java.time.Instant.ofEpochSecond(created.getSeconds() - 120).toString();
+            Map<String, ConfluenceEntity> byId = new java.util.HashMap<>();
+            String cursor = null;
+            backend.tape().unordered(true);
+            try {
+                java.util.Iterator<SyncResponse> stream = stub().sync(SyncRequest.newBuilder()
+                        .addSpaceKeys(backend.spaceKey()).setSinceCursor(since).build());
+                while (stream.hasNext()) {
+                    SyncResponse response = stream.next();
+                    if (response.hasChange()) {
+                        ConfluenceEntity entity = response.getChange().getEntity();
+                        byId.put(entity.getEntityId(), entity);
+                    } else if (response.getEventCase() == SyncResponse.EventCase.RESUME_CURSOR) {
+                        cursor = response.getResumeCursor();
+                    }
+                }
+            } finally {
+                backend.tape().unordered(false);
+            }
+            check(cursor != null, "no resume cursor");
+            ConfluenceEntity chain = byId.get("page:" + child.getId() + "/access");
+            check(chain != null, "no access chain for the child");
+            List<String> owners = chain.getAccessChain().getOwnersList().stream().map(ContentRef::getId).toList();
+            check(chain.getAccessChain().getSpaceId().equals(space.getId()), "chain space "
+                    + chain.getAccessChain().getSpaceId());
+            check(owners.size() >= 2 && owners.get(0).equals(child.getId()) && owners.get(1).equals(parent.getId()),
+                    "chain owners " + owners);
+            check(chain.getSecurityCompleteness() == SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE,
+                    "chain completeness " + chain.getSecurityCompleteness());
+            ConfluenceEntity state = byId.get("page:" + parent.getId() + "/restriction-state");
+            check(state != null && state.getRestrictionState().getState()
+                    == ContentRestrictionState.CONTENT_RESTRICTION_STATE_VIEW_RESTRICTED, "parent state " + state);
+            check(byId.containsKey("page:" + parent.getId() + "/permission/read/user/" + caller),
+                    "no read permission record for the caller on the parent");
+            String groups = "no caller group";
+            if (callerGroup != null) {
+                check(byId.containsKey("page:" + parent.getId() + "/permission/read/group/" + callerGroup),
+                        "no read permission record for the group on the parent");
+                ConfluenceEntity group = byId.get(callerGroup);
+                check(group != null && group.hasGroup() && !group.getGroup().getName().isEmpty(),
+                        "no group record");
+                check(group.getSecurityCompleteness() == SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE,
+                        "group completeness " + group.getSecurityCompleteness());
+                check(byId.containsKey("group:" + callerGroup + "/member/" + caller),
+                        "the group's members do not include the caller");
+                groups = "the group with the caller as member";
+            }
+            List<User> users = byId.values().stream().filter(ConfluenceEntity::hasUser)
+                    .map(ConfluenceEntity::getUser).toList();
+            check(users.stream().anyMatch(u -> u.getAccountId().equals(caller)), "no user record for the caller");
+            long withEmail = users.stream().filter(u -> !u.getEmail().isEmpty()).count();
+            return "chain of " + owners.size() + " owners, parent VIEW_RESTRICTED, " + groups + ", "
+                    + users.size() + " users of which " + withEmail + " with an email";
         });
     }
 

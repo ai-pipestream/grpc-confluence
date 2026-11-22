@@ -114,3 +114,25 @@ message GetContentAccessResponse {
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
+
+// The access-control owners of one content item, as Sync emits it under
+// the entity id `<kind>:<id>/access`. Read access needs a space permission
+// and a grant on every owner in the list whose restriction state limits
+// viewing; the owners' restriction states and permissions are emitted as
+// their own records.
+message ContentAccessChain {
+  // ID of the space the item is in.
+  string space_id = 1;
+  // The item first, then each ancestor that can carry restrictions,
+  // nearest first.
+  repeated ContentRef owners = 2;
+}
+
+// One member of a group, as Sync emits it under the entity id
+// `group:<group id>/member/<account id>`.
+message GroupMember {
+  // ID of the group.
+  string group_id = 1;
+  // The member. `email` is empty when the user's profile hides it.
+  User user = 2;
+}

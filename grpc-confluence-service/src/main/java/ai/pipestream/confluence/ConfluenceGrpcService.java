@@ -1636,7 +1636,7 @@ public final class ConfluenceGrpcService
             Session session = session(request.getConnectionId());
             JsonNode node = session.client.get("/rest/api/group/by-id",
                     Map.of("id", requireId(request.getGroupId(), "group_id")));
-            reply(observer, GetGroupResponse.newBuilder().setGroup(toGroup(node)).build());
+            reply(observer, GetGroupResponse.newBuilder().setGroup(ConfluenceMapper.toGroup(node)).build());
         });
     }
 
@@ -1659,7 +1659,7 @@ public final class ConfluenceGrpcService
             Session session = session(request.getConnectionId());
             walkOffsets(session, "/rest/api/user/memberof",
                     Map.of("accountId", requireId(request.getAccountId(), "account_id")), node ->
-                    observer.onNext(ListUserGroupsResponse.newBuilder().setGroup(toGroup(node)).build()));
+                    observer.onNext(ListUserGroupsResponse.newBuilder().setGroup(ConfluenceMapper.toGroup(node)).build()));
             observer.onCompleted();
         });
     }
@@ -1726,12 +1726,6 @@ public final class ConfluenceGrpcService
             case ANCESTOR_TYPE_FOLDER -> ContentType.CONTENT_TYPE_FOLDER;
             default -> null;
         };
-    }
-
-    /** A v1 group JSON object as a {@link Group}. */
-    private static Group toGroup(JsonNode node) {
-        return Group.newBuilder().setId(node.path("id").asText(""))
-                .setName(node.path("name").asText("")).setType(node.path("type").asText("")).build();
     }
 
     /** Walks a v1 offset-paged list route ({@code start}/{@code limit}) until a short page. */
