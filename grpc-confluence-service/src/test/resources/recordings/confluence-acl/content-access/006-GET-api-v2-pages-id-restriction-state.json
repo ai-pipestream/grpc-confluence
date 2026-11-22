@@ -1,0 +1,28 @@
+{
+  "scenario" : "content-access",
+  "sequence" : 6,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/30376394/restriction-state",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "state" : "VIEW_RESTRICTED",
+        "createdAt" : "2026-11-22T14:27:03.438Z",
+        "createdByAaid" : "account-1",
+        "createdBy" : "account-1"
+      }
+    }
+  }
+}

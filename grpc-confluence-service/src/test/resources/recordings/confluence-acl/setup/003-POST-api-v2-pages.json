@@ -1,0 +1,67 @@
+{
+  "scenario" : "setup",
+  "sequence" : 3,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "spaceId" : "7798786",
+        "title" : "pipestream-live-acl-20261122T142659Z-a98ba6ed",
+        "body" : {
+          "representation" : "storage",
+          "value" : "<p>Parent of the ACL run.</p>"
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "parentType" : "page",
+        "authorId" : "account-1",
+        "parentId" : "7798963",
+        "ownerId" : "account-1",
+        "lastOwnerId" : null,
+        "createdAt" : "2026-11-22T14:27:01.475Z",
+        "position" : 1141,
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-22T14:27:01.475Z",
+          "ncsStepVersion" : "1"
+        },
+        "id" : "30376394",
+        "spaceId" : "7798786",
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<p>Parent of the ACL run.</p>"
+          }
+        },
+        "status" : "current",
+        "title" : "pipestream-live-acl-20261122T142659Z-a98ba6ed",
+        "_links" : {
+          "editui" : "/pages/resumedraft.action?draftId=30376394",
+          "webui" : "/spaces/CLAUDEGRPC/pages/30376394/pipestream-live-acl-20261122T142659Z-a98ba6ed",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30376394",
+          "tinyui" : "/x/yoHPAQ",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

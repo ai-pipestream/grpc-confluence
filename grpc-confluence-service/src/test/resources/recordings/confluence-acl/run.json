@@ -1,0 +1,27 @@
+{
+  "baseUrl" : "https://site-1.example.invalid/wiki",
+  "spaceKey" : "CLAUDEGRPC",
+  "run" : "pipestream-live-acl-20261122T142659Z-a98ba6ed",
+  "outcomes" : [ {
+    "rpc" : "CreatePage",
+    "step" : "parent page restricted to the caller, open child page",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "GetContentAccess",
+    "step" : "GetContentAccess (child under a view-restricted parent)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "ListUserGroups",
+    "step" : "ListUserGroups (the caller)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "GetGroup",
+    "step" : "GetGroup (a group of the caller)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "ListGroupMembers",
+    "step" : "ListGroupMembers (same group)",
+    "outcome" : "PASS"
+  } ],
+  "scenarios" : [ "setup", "content-access", "groups", "cleanup" ]
+}
