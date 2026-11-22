@@ -124,6 +124,8 @@ message ConfluenceEntity {
     GroupMember group_member = 43;
     // Set when the wrapped entity is the access-control owners of a content item.
     ContentAccessChain access_chain = 44;
+    // Set when the wrapped entity is the space-level grants of a space.
+    SpaceAccess space_access = 45;
   }
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;

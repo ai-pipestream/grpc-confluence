@@ -241,6 +241,11 @@ final class AclScenarios {
                     "the chain's parent state " + chainParent.getRestrictionState().getState());
             check(chainParent.getPermissionsList().stream().anyMatch(p ->
                     p.getPrincipal().getPrincipalId().equals(caller)), "the chain's parent does not list the caller");
+            ConfluenceEntity spaceAccess = byId.get("space:" + space.getId() + "/access");
+            check(spaceAccess != null && spaceAccess.getSpaceAccess().getPermissionsCount() > 0,
+                    "no space grants record");
+            check(spaceAccess.getSecurityCompleteness() == SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE,
+                    "space grants completeness " + spaceAccess.getSecurityCompleteness());
             ConfluenceEntity state = byId.get("page:" + parent.getId() + "/restriction-state");
             check(state != null && state.getRestrictionState().getState()
                     == ContentRestrictionState.CONTENT_RESTRICTION_STATE_VIEW_RESTRICTED, "parent state " + state);

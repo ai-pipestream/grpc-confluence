@@ -126,6 +126,17 @@ message ContentAccessChain {
   repeated ContentAccessOwner owners = 2;
 }
 
+// The space-level grants of one space, as Sync emits it under the entity id
+// `space:<id>/access`.
+message SpaceAccess {
+  // ID of the space.
+  string space_id = 1;
+  // The space permission assignments.
+  repeated SpacePermissionAssignment permissions = 2;
+  // The space role assignments (role-based-access tenants only).
+  repeated SpaceRoleAssignment role_assignments = 3;
+}
+
 // One member of a group, as Sync emits it under the entity id
 // `group:<group id>/member/<account id>`.
 message GroupMember {

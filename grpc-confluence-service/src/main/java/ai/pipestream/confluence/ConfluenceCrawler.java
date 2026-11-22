@@ -26,6 +26,7 @@ import ai.pipestream.confluence.v1.PrincipalType;
 import ai.pipestream.confluence.v1.RestrictionState;
 import ai.pipestream.confluence.v1.SecurityCompleteness;
 import ai.pipestream.confluence.v1.Space;
+import ai.pipestream.confluence.v1.SpaceAccess;
 import ai.pipestream.confluence.v1.SpacePermissionAssignment;
 import ai.pipestream.confluence.v1.SpacePermissionPrincipalType;
 import ai.pipestream.confluence.v1.SpaceProperty;
@@ -84,7 +85,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * identity, for example {@code page:123/permission/read/user/abc}. Each
  * owner also gets its owner chain ({@code page:123/access}: the item, then
  * its restrictable ancestors, nearest first, each with its restriction
- * state and direct permissions, read once per run), and every group a permission
+ * state and direct permissions, read once per run), each space its grants
+ * in one record ({@code space:<id>/access}), and every group a permission
  * names is emitted with its members ({@code group:<id>/member/<account id>})
  * and every named user with what the API shows of them, email included.</p>
  *
@@ -478,6 +480,7 @@ public final class ConfluenceCrawler {
     private SecurityCompleteness crawlSpaceSecurity(Space space, ChangeSource source,
             String changeCursor, Map<String, Long> counts) throws IOException, InterruptedException {
         String owner = "space:" + space.getId();
+        SpaceAccess.Builder access = SpaceAccess.newBuilder().setSpaceId(space.getId());
         Map<String, String> limit = Map.of("limit", String.valueOf(config.pageSize()));
         SecurityRead<List<JsonNode>> permissions = listSecurity(
                 "/api/v2/spaces/" + space.getId() + "/permissions", limit, "space permissions");
@@ -497,6 +500,7 @@ public final class ConfluenceCrawler {
                                     "SPACE_PERMISSION_OPERATION_TARGET_TYPE_");
             emit(entity(owner + "/permission/" + identity)
                     .setSpacePermissionAssignment(assignment).build(), source, changeCursor);
+            access.addPermissions(assignment);
             count(counts, "space_permission_assignment");
         }
         // Role-based-access tenants only; classic tenants answer 404 (not served).
@@ -514,9 +518,13 @@ public final class ConfluenceCrawler {
                     + wire(assignment.getPrincipal().getPrincipalType().name(), "PRINCIPAL_TYPE_")
                     + "/" + assignment.getPrincipal().getPrincipalId())
                     .setSpaceRoleAssignment(assignment).build(), source, changeCursor);
+            access.addRoleAssignments(assignment);
             count(counts, "space_role_assignment");
         }
-        return completeness(permissions.complete() && roles.complete());
+        SecurityCompleteness completeness = completeness(permissions.complete() && roles.complete());
+        emit(entity(owner + "/access").setSpaceAccess(access).setSecurityCompleteness(completeness).build(),
+                source, changeCursor);
+        return completeness;
     }
 
     /**

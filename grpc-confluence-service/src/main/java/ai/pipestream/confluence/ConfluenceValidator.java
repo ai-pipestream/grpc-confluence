@@ -658,6 +658,7 @@ public final class ConfluenceValidator {
             case GROUP -> "group";
             case GROUP_MEMBER -> "group_member";
             case ACCESS_CHAIN -> "access_chain";
+            case SPACE_ACCESS -> "space_access";
             case ENTITY_NOT_SET -> "entity";
         };
     }
@@ -699,6 +700,7 @@ public final class ConfluenceValidator {
             case GROUP -> entity.getGroup();
             case GROUP_MEMBER -> entity.getGroupMember();
             case ACCESS_CHAIN -> entity.getAccessChain();
+            case SPACE_ACCESS -> entity.getSpaceAccess();
             case ENTITY_NOT_SET -> entity;
         };
     }

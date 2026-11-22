@@ -126,9 +126,10 @@ class ConfluenceCrawlerTest {
                         // The per-owner security marker of the page and the blog post.
                         ConfluenceEntity.EntityCase.RESTRICTION_STATE,
                         ConfluenceEntity.EntityCase.RESTRICTION_STATE,
-                        // The owner chain of the page and the blog post.
+                        // The owner chain of the page and the blog post, and the space's grants.
                         ConfluenceEntity.EntityCase.ACCESS_CHAIN,
-                        ConfluenceEntity.EntityCase.ACCESS_CHAIN);
+                        ConfluenceEntity.EntityCase.ACCESS_CHAIN,
+                        ConfluenceEntity.EntityCase.SPACE_ACCESS);
         // No security route is stubbed: 404 everywhere = not served = complete.
         assertThat(changes).filteredOn(c -> c.getEntity().hasSpace() || c.getEntity().hasPage()
                         || c.getEntity().hasBlogPost() || c.getEntity().hasRestrictionState())
@@ -273,6 +274,10 @@ class ConfluenceCrawlerTest {
                         .containsEntry("database_entry", 1L)
                         .doesNotContainKey("space_role_assignment"));
         // The owner chain: the item, then restrictable ancestors nearest first (the embed is skipped).
+        assertThat(byId.get("space:100/access").getSpaceAccess().getPermissionsList()).singleElement()
+                .satisfies(p -> assertThat(p.getPrincipal().getId()).isEqualTo("g1"));
+        assertThat(byId.get("space:100/access").getSecurityCompleteness())
+                .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_UNAVAILABLE);
         assertThat(byId.get("page:200/access").getAccessChain().getSpaceId()).isEqualTo("100");
         assertThat(byId.get("page:200/access").getAccessChain().getOwnersList())
                 .extracting(o -> o.getContent().getType() + ":" + o.getContent().getId())
@@ -472,7 +477,7 @@ class ConfluenceCrawlerTest {
 
         // No content is re-emitted; only the space and the page's security marker are.
         assertThat(sink.changes()).extracting(c -> c.getEntity().getEntityId())
-                .containsExactlyInAnyOrder("100", "page:202/restriction-state",
+                .containsExactlyInAnyOrder("100", "space:100/access", "page:202/restriction-state",
                         "page:202/access");
         assertThat(Instant.parse(newCursor)).isEqualTo(T2);
     }
