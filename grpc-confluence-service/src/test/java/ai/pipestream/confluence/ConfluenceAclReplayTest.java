@@ -59,7 +59,7 @@ class ConfluenceAclReplayTest {
                 .build().start();
         channel = InProcessChannelBuilder.forName(name).build();
         AclScenarios scenarios = new AclScenarios(channel, new AclScenarios.Backend(
-                run.path("spaceKey").asText(), run.path("run").asText(), List.of(), tape));
+                run.path("spaceKey").asText(), run.path("run").asText(), List.of(), tape, ""));
         for (AclScenarios.Scenario scenario : scenarios.scenarios()) {
             tape.scenario(scenario.name());
             scenario.body().run();

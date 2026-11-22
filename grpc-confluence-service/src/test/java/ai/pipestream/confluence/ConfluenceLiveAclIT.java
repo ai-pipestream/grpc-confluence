@@ -63,7 +63,7 @@ class ConfluenceLiveAclIT {
         scrubber.secret(token);
         RecordingTape tape = new RecordingTape(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).build(),
                 recordings, scrubber);
-        AclScenarios.Backend backend = new AclScenarios.Backend(spaceKey, run, List.of(token, email), tape);
+        AclScenarios.Backend backend = new AclScenarios.Backend(spaceKey, run, List.of(token, email), tape, email);
         ConfluenceConnectorConfig config = ConfluenceConnectorConfig.builder()
                 .baseUrl(baseUrl).email(email).apiToken(token).pageSize(25).build();
         ConfluenceClient client = new ConfluenceClient(config.baseUrl(), config.email(), config.apiToken(),

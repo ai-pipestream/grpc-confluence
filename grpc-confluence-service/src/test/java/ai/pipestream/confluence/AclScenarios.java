@@ -36,8 +36,9 @@ final class AclScenarios {
      * @param run the title of the parent page, and the prefix of every name the run creates
      * @param secrets values that must never reach a row
      * @param tape the recording or replay the calls go through
+     * @param loginEmail the email the run signs in with, or empty when replaying
      */
-    record Backend(String spaceKey, String run, List<String> secrets, ExchangeTape tape) {
+    record Backend(String spaceKey, String run, List<String> secrets, ExchangeTape tape, String loginEmail) {
     }
 
     /** One report row. */
@@ -287,11 +288,20 @@ final class AclScenarios {
                     .map(ConfluenceEntity::getUser).toList();
             check(users.stream().anyMatch(u -> u.getAccountId().equals(caller)), "no user record for the caller");
             long withEmail = users.stream().filter(u -> !u.getEmail().isEmpty()).count();
+            String callerEmail = users.stream().filter(u -> u.getAccountId().equals(caller)).findFirst()
+                    .map(User::getEmail).orElse("");
+            check(!callerEmail.isEmpty(), "the caller's user record has no email");
+            String login = "";
+            if (!backend.loginEmail().isEmpty()) {
+                check(callerEmail.equalsIgnoreCase(backend.loginEmail()),
+                        "the caller's email is not the login email");
+                login = ", the caller's email is the login email";
+            }
             var domains = new java.util.TreeMap<String, Integer>();
             users.stream().map(User::getEmail).filter(e -> e.indexOf('@') > 0)
                     .forEach(e -> domains.merge(domainClass(e), 1, Integer::sum));
             return "chain of " + owners.size() + " owners, parent VIEW_RESTRICTED, " + groups + ", "
-                    + users.size() + " users of which " + withEmail + " with an email (domains " + domains + ")";
+                    + users.size() + " users of which " + withEmail + " with an email (domains " + domains + ")" + login;
         });
     }
 
