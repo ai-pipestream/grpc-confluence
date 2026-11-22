@@ -316,7 +316,7 @@ public final class ConfluenceChangeGrpcService
                 }
             }
             case CONFLUENCE_EVENT_OBJECT_TASK -> {
-                String container = event.getContainerId();
+                String container = container(event);
                 if (container.isBlank()) {
                     out.unresolved(event);
                 } else {

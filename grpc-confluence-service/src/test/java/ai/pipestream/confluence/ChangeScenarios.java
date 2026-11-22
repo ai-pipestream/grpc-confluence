@@ -288,26 +288,28 @@ final class ChangeScenarios {
         throw new AssertionError("the created event was not in its drain");
     }
 
-    private String updatePage() {
+    private String updatePage() throws InterruptedException {
         page = update(page, UpdatePageRequest.newBuilder().setTitle(run).setBody(storage(pageBody(
                 ", edited"))));
         check(page.getVersion().getNumber() == 2, "version is " + page.getVersion().getNumber());
         return "version " + page.getVersion().getNumber();
     }
 
-    private String movePage() {
+    private String movePage() throws InterruptedException {
         page = update(page, UpdatePageRequest.newBuilder().setTitle(run).setParentId(parent.getId())
                 .setBody(storage(pageBody(", edited"))));
         return "parent " + parent.getId();
     }
 
+    /** A move through the API arrives as a moved or an updated page event. */
     private String movedEvent() throws Exception {
-        ConfluenceChange change = expect(event -> isAbout(event,
+        ConfluenceChange change = expect(event -> (isAbout(event,
                 ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_PAGE,
-                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_MOVED, page.getId()),
-                c -> c.getEntity().hasPage() && c.getEntity().getEntityId().equals(page.getId()));
-        check(change.getEntity().getPage().getParentId().equals(parent.getId()),
-                "re-read parent " + change.getEntity().getPage().getParentId());
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_MOVED, page.getId())
+                || isAbout(event, ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_PAGE,
+                        ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_UPDATED, page.getId())),
+                c -> c.getEntity().hasPage() && c.getEntity().getEntityId().equals(page.getId())
+                        && c.getEntity().getPage().getParentId().equals(parent.getId()));
         return event(change) + " -> page upsert under the new parent";
     }
 
@@ -393,7 +395,9 @@ final class ChangeScenarios {
                         .setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_UPDATE)
                         .addPrincipals(self()))
                 .build());
-        return "update permission for the page author";
+        stub().setRestrictionState(SetRestrictionStateRequest.newBuilder().setContent(pageRef())
+                .setState(ContentRestrictionState.CONTENT_RESTRICTION_STATE_EDIT_RESTRICTED).build());
+        return "update permission for the page author; edit restricted";
     }
 
     private Predicate<ConfluenceEvent> permissionsEvent() {
@@ -412,9 +416,11 @@ final class ChangeScenarios {
     }
 
     private String unrestrictPage() {
+        stub().setRestrictionState(SetRestrictionStateRequest.newBuilder().setContent(pageRef())
+                .setState(ContentRestrictionState.CONTENT_RESTRICTION_STATE_OPEN).build());
         stub().deleteContentPermissions(DeleteContentPermissionsRequest.newBuilder()
                 .setContent(pageRef()).setAllowSelfLockout(true).build());
-        return "direct permissions removed";
+        return "open; direct permissions removed";
     }
 
     private String unrestrictedEvent() throws Exception {
@@ -559,8 +565,9 @@ final class ChangeScenarios {
         return "trashed";
     }
 
-    private String restorePage() throws Skip {
+    private String restorePage() throws Skip, InterruptedException {
         try {
+            page = stub().getPage(GetPageRequest.newBuilder().setId(page.getId()).build()).getPage();
             page = update(page, UpdatePageRequest.newBuilder().setTitle(run)
                     .setStatus(ContentStatus.CONTENT_STATUS_CURRENT)
                     .setBody(storage(pageBody(", restored"))));
@@ -763,9 +770,22 @@ final class ChangeScenarios {
 
     // --- helpers ---------------------------------------------------------------------------
 
-    private Page update(Page current, UpdatePageRequest.Builder request) {
-        return stub().updatePage(request.setId(current.getId())
-                .setExpectedVersion(current.getVersion().getNumber()).build()).getPage();
+    /** Updates a page; a conflict re-reads the version and retries, at most five times. */
+    private Page update(Page current, UpdatePageRequest.Builder request) throws InterruptedException {
+        int version = current.getVersion().getNumber();
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return stub().updatePage(request.setId(current.getId()).setExpectedVersion(version)
+                        .build()).getPage();
+            } catch (StatusRuntimeException e) {
+                if (e.getStatus().getCode() != Status.Code.ABORTED || attempt == 5) {
+                    throw e;
+                }
+                events.pause(Duration.ofSeconds(attempt));
+                version = stub().getPage(GetPageRequest.newBuilder().setId(current.getId()).build())
+                        .getPage().getVersion().getNumber();
+            }
+        }
     }
 
     private ContentPermissionPrincipal self() {
