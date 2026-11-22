@@ -63,7 +63,7 @@ modules:
     - key: queue
       handler: index.queue
 app:
-  id: ari:cloud:ecosystem::app/00000000-0000-0000-0000-000000000000
+  id: ari:cloud:ecosystem::app/d16971ce-921a-40d5-a97b-84b84a4cbfe1
   runtime:
     name: nodejs22.x
 permissions:

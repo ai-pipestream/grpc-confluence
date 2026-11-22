@@ -298,7 +298,7 @@ jobs:
           echo "::add-mask::${secret}"
           forge variables set -e development --encrypt QUEUE_SECRET "${secret}"
           forge deploy -e development --non-interactive
-          if ! forge install -e development --product confluence --site "${site}" --non-interactive --confirm-scopes; then
+          if ! forge install -e development --product confluence --site "${site}" --non-interactive --confirm-scopes --verbose; then
             forge install -e development --product confluence --site "${site}" --non-interactive --confirm-scopes --upgrade
           fi
           url=$(forge webtrigger create -e development -f event-queue -s "${site}" -p confluence | grep -o 'https://[^[:space:]]*' | head -1)
