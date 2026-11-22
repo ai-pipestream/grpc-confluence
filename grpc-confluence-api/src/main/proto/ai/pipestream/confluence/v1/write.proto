@@ -844,6 +844,20 @@ message CreateSpaceResponse {
   Space space = 1;
 }
 
+// Request of DeleteSpace.
+message DeleteSpaceRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // Key of the space.
+  string key = 2;
+}
+
+// Response of DeleteSpace.
+message DeleteSpaceResponse {
+  // ID of the background task applying the deletion.
+  string task_id = 1;
+}
+
 // Request of UpdateTask.
 message UpdateTaskRequest {
   // Catalog connection to use; empty for the process default.

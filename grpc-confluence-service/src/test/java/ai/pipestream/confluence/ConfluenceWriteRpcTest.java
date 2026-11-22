@@ -356,6 +356,16 @@ class ConfluenceWriteRpcTest {
     }
 
     @Test
+    void deleteSpaceReturnsTheTask() throws Exception {
+        fake.stub("DELETE", "/wiki/rest/api/space/ENG", 202,
+                "{\"id\":\"task-9\",\"links\":{\"status\":\"/rest/api/longtask/task-9\"}}");
+        assertThat(stub.deleteSpace(DeleteSpaceRequest.newBuilder().setKey("ENG").build())
+                .getTaskId()).isEqualTo("task-9");
+        assertThat(fake.requests()).extracting(r -> r.method() + " " + r.path())
+                .containsExactly("DELETE /wiki/rest/api/space/ENG");
+    }
+
+    @Test
     void createSpaceSendsRoleAssignments() throws Exception {
         fake.stub("POST", "/wiki/api/v2/spaces", 201,
                 ConfluenceFixtures.spaceJson("100", "ENG", "Engineering"));

@@ -170,7 +170,9 @@ final class ConfluenceWriteRoutes {
             Map.entry("AddLabels", List.of(
                     "POST /rest/api/content/{id}/label")),
             Map.entry("RemoveLabel", List.of(
-                    "DELETE /rest/api/content/{id}/label")));
+                    "DELETE /rest/api/content/{id}/label")),
+            Map.entry("DeleteSpace", List.of(
+                    "DELETE /rest/api/space/{spaceKey}")));
 
     /** The streaming write rpcs. */
     static final Set<String> STREAMING = Set.of("UploadAttachment", "Mutate");

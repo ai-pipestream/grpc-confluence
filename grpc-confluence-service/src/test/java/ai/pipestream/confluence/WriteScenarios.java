@@ -967,22 +967,31 @@ final class WriteScenarios {
 
     private void tenantLevel(Space space, boolean admin) {
         if (!admin) {
-            skipAll("tenant-level, not run", "CreateSpace", "CreateSpaceRole", "UpdateSpaceRole",
-                    "DeleteSpaceRole", "SetSpaceRoleAssignments", "InviteByEmail", "EnableAdminKey",
-                    "DisableAdminKey");
+            skipAll("tenant-level, not run", "CreateSpace", "DeleteSpace", "CreateSpaceRole",
+                    "UpdateSpaceRole", "DeleteSpaceRole", "SetSpaceRoleAssignments", "InviteByEmail",
+                    "EnableAdminKey", "DisableAdminKey");
             return;
         }
+        AtomicReference<Space> ownSpace = new AtomicReference<>();
         step("CreateSpace", "CreateSpace", () -> {
             String key = "LW" + run.substring(run.length() - 8).toUpperCase(java.util.Locale.ROOT);
             Space created = stub().createSpace(CreateSpaceRequest.newBuilder().setName(run)
                     .setKey(key).setDescription("Created by the live write run " + run).build())
                     .getSpace();
-            leftBehind.add("space " + created.getKey() + " (id " + created.getId()
-                    + "): REST API v2 has no route that deletes a space");
+            ownSpace.set(created);
+            cleanups.add(() -> remove("space " + created.getKey(), () -> stub().deleteSpace(
+                    DeleteSpaceRequest.newBuilder().setKey(created.getKey()).build())));
             Space read = stub().getSpace(GetSpaceRequest.newBuilder().setId(created.getId()).build())
                     .getSpace();
             check(read.getKey().equals(key), "the key read back is " + read.getKey());
             return "space " + created.getKey();
+        });
+        step("DeleteSpace", "DeleteSpace", () -> {
+            Space created = require(ownSpace.get(), "no space was created");
+            String task = stub().deleteSpace(DeleteSpaceRequest.newBuilder()
+                    .setKey(created.getKey()).build()).getTaskId();
+            check(!task.isEmpty(), "no task id was answered");
+            return "task " + task;
         });
         AtomicReference<SpaceRole> role = new AtomicReference<>();
         step("CreateSpaceRole", "CreateSpaceRole", () -> {

@@ -105,6 +105,7 @@ final class ConfluenceWriter {
         register(ops, DeleteSmartLinkRequest.class, ConfluenceWriter::deleteSmartLink);
         register(ops, DeleteAttachmentRequest.class, ConfluenceWriter::deleteAttachment);
         register(ops, CreateSpaceRequest.class, ConfluenceWriter::createSpace);
+        register(ops, DeleteSpaceRequest.class, ConfluenceWriter::deleteSpace);
         register(ops, UpdateTaskRequest.class, ConfluenceWriter::updateTask);
         register(ops, CreateContentPropertyRequest.class, ConfluenceWriter::createContentProperty);
         register(ops, UpdateContentPropertyRequest.class, ConfluenceWriter::updateContentProperty);
@@ -462,6 +463,13 @@ final class ConfluenceWriter {
         JsonNode node = session.client().post("/api/v2/spaces", NO_QUERY, body);
         return CreateSpaceResponse.newBuilder().setSpace(valid(session.mapper().toSpace(node)))
                 .build();
+    }
+
+    static DeleteSpaceResponse deleteSpace(Session session, DeleteSpaceRequest request)
+            throws IOException, InterruptedException {
+        JsonNode node = session.client().delete("/rest/api/space/" + id(request.getKey(), "key"),
+                NO_QUERY);
+        return DeleteSpaceResponse.newBuilder().setTaskId(node.path("id").asText("")).build();
     }
 
     static UpdateTaskResponse updateTask(Session session, UpdateTaskRequest request)

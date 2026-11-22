@@ -535,6 +535,10 @@ service ConfluenceService {
   // v2: POST /spaces.
   rpc CreateSpace(CreateSpaceRequest) returns (CreateSpaceResponse);
 
+  // Deletes a space with everything in it.
+  // v1: DELETE /wiki/rest/api/space/{spaceKey}.
+  rpc DeleteSpace(DeleteSpaceRequest) returns (DeleteSpaceResponse);
+
   // Updates a task.
   // v2: PUT /tasks/{id}.
   rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse);
@@ -2565,6 +2569,8 @@ message MutateRequest {
     EnableAdminKeyRequest enable_admin_key = 64;
     // A DisableAdminKey operation.
     DisableAdminKeyRequest disable_admin_key = 65;
+    // A DeleteSpace operation.
+    DeleteSpaceRequest delete_space = 66;
   }
 }
 
@@ -2688,5 +2694,7 @@ message MutateResponse {
     EnableAdminKeyResponse enable_admin_key = 64;
     // The DisableAdminKey operation succeeded.
     DisableAdminKeyResponse disable_admin_key = 65;
+    // The DeleteSpace operation succeeded.
+    DeleteSpaceResponse delete_space = 66;
   }
 }

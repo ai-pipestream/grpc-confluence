@@ -2463,6 +2463,12 @@ public final class ConfluenceGrpcService
     }
 
     @Override
+    public void deleteSpace(DeleteSpaceRequest request,
+            StreamObserver<DeleteSpaceResponse> observer) {
+        write(request, observer, ConfluenceWriter::deleteSpace);
+    }
+
+    @Override
     public void deleteSpaceRole(DeleteSpaceRoleRequest request,
             StreamObserver<DeleteSpaceRoleResponse> observer) {
         write(request, observer, ConfluenceWriter::deleteSpaceRole);
