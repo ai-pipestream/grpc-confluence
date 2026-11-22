@@ -996,7 +996,19 @@ final class WriteScenarios {
                     .setKey(created.getKey()).build()).getTaskId();
             check(!task.isEmpty(), "no task id was answered");
             ownSpace.set(null);
-            return "task " + task;
+            for (int attempt = 0; attempt < 30; attempt++) {
+                try {
+                    stub().getSpace(GetSpaceRequest.newBuilder().setId(created.getId()).build());
+                } catch (StatusRuntimeException e) {
+                    if (e.getStatus().getCode() == Status.Code.NOT_FOUND) {
+                        return "task " + task + "; the space is gone";
+                    }
+                    throw e;
+                }
+                backend.tape().pause(Duration.ofSeconds(2));
+            }
+            leftBehind.add("space " + created.getKey() + ": still there a minute after task " + task);
+            throw new AssertionError("the space is still there a minute after the delete");
         });
         // Confluence refuses a role name as long as the run's own name.
         String roleName = "lw-" + run.substring(run.length() - 8);
