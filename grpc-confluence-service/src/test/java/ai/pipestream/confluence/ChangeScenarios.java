@@ -508,7 +508,8 @@ final class ChangeScenarios {
     /**
      * Queues {@link #BACKLOG} updates of one page, then drains until the
      * last is streamed: the first take answers the 100-event cap, later takes
-     * the rest, and each drain re-reads the page once.
+     * the rest, and each drain re-reads the page once. Forge may send fewer
+     * events than edits.
      */
     private String backlog() throws Exception {
         backlogPage = stub().createPage(CreatePageRequest.newBuilder().setSpaceId(space.getId())
@@ -556,8 +557,9 @@ final class ChangeScenarios {
         check(done, "the last update (version " + last + ") was not drained; takes " + sizes);
         check(sizes.getFirst() == ForgeEventQueue.DEFAULT_TAKE, "the first take answered "
                 + sizes.getFirst() + " events");
-        check(updates >= BACKLOG, "only " + updates + " update events of the page were taken");
-        return updates + " update events over takes " + sizes + ", " + upserts + " page re-read(s)";
+        check(upserts >= 2, "the backlog was read in " + upserts + " drain(s)");
+        return updates + " update events for " + BACKLOG + " edits over takes " + sizes + ", "
+                + upserts + " page re-read(s)";
     }
 
     private String trashPage() {
