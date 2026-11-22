@@ -90,7 +90,12 @@ export async function ack(keys, store = kvs) {
 
 /** Web trigger: {"action":"take","max":n} or {"action":"ack","keys":[...]}. */
 export async function queue(request) {
-  return handle(request, kvs, process.env.QUEUE_SECRET);
+  try {
+    return await handle(request, kvs, process.env.QUEUE_SECRET);
+  } catch (error) {
+    console.error(error);
+    return answer(500, { error: `${error?.name ?? 'Error'}: ${error?.message ?? error}` });
+  }
 }
 
 /** Answers one queue request against {@code store} with {@code secret}. */

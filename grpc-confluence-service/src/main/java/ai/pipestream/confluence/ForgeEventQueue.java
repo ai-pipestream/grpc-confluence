@@ -111,7 +111,9 @@ final class ForgeEventQueue {
                 .POST(HttpRequest.BodyPublishers.ofString(body.toString())).build();
         HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() / 100 != 2) {
-            throw new IOException("the Forge event queue answered HTTP " + response.statusCode());
+            String text = response.body() == null ? "" : response.body().strip();
+            throw new IOException("the Forge event queue answered HTTP " + response.statusCode()
+                    + (text.isEmpty() ? "" : ": " + text.substring(0, Math.min(500, text.length()))));
         }
         String text = response.body();
         return text == null || text.isBlank() ? JSON.createObjectNode() : JSON.readTree(text);

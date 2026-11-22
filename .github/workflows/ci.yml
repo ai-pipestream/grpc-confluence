@@ -333,7 +333,9 @@ jobs:
       - name: Forge logs
         if: failure()
         working-directory: grpc-confluence/grpc-confluence-forge
-        run: forge logs -e development --since 30m --limit 200 || true
+        run: |
+          sleep 60
+          forge logs -e development --since 15m --limit 200 || true
       - name: Report
         if: always()
         working-directory: grpc-confluence
