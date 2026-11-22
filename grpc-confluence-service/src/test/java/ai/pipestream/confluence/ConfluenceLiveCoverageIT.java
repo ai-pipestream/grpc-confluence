@@ -1,5 +1,6 @@
 package ai.pipestream.confluence;
 
+import ai.pipestream.sync.v1.AclCompleteness;
 import ai.pipestream.confluence.v1.*;
 import com.google.protobuf.Message;
 import io.grpc.Context;
@@ -947,7 +948,7 @@ class ConfluenceLiveCoverageIT {
                                         "MAPPING", clip(v.toString()), true));
                             }
                             if (SECURITY_OWNERS.contains(kind) && entity.getSecurityCompleteness()
-                                    != SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE
+                                    != AclCompleteness.ACL_COMPLETENESS_COMPLETE
                                     && incomplete.size() < 50) {
                                 incomplete.add(kind.name().toLowerCase(java.util.Locale.ROOT) + " "
                                         + entity.getEntityId() + ": " + entity.getSecurityCompleteness().name());

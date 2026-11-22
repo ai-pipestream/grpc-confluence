@@ -1,5 +1,6 @@
 package ai.pipestream.confluence;
 
+import ai.pipestream.sync.v1.AclCompleteness;
 import ai.pipestream.confluence.v1.*;
 import io.grpc.Channel;
 import io.grpc.Status;
@@ -143,7 +144,7 @@ final class AclScenarios {
                     .setContent(page(child.getId())).build());
             check(access.getSpaceId().equals(space.getId()), "space " + access.getSpaceId());
             check(access.getSpacePermissionsCount() > 0, "no space permissions");
-            check(access.getCompleteness() == SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE,
+            check(access.getCompleteness() == AclCompleteness.ACL_COMPLETENESS_COMPLETE,
                     "completeness " + access.getCompleteness());
             List<String> owners = access.getOwnersList().stream().map(o -> o.getContent().getId()).toList();
             check(owners.size() >= 2 && owners.get(0).equals(child.getId()) && owners.get(1).equals(parent.getId()),
@@ -245,7 +246,7 @@ final class AclScenarios {
                     + chain.getAccessChain().getSpaceId());
             check(owners.size() >= 2 && owners.get(0).equals(child.getId()) && owners.get(1).equals(parent.getId()),
                     "chain owners " + owners);
-            check(chain.getSecurityCompleteness() == SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE,
+            check(chain.getSecurityCompleteness() == AclCompleteness.ACL_COMPLETENESS_COMPLETE,
                     "chain completeness " + chain.getSecurityCompleteness());
             ContentAccessOwner chainParent = chain.getAccessChain().getOwners(1);
             check(chainParent.getRestrictionState().getState()
@@ -256,7 +257,7 @@ final class AclScenarios {
             ConfluenceEntity spaceAccess = byId.get("space:" + space.getId() + "/access");
             check(spaceAccess != null && spaceAccess.getSpaceAccess().getPermissionsCount() > 0,
                     "no space grants record");
-            check(spaceAccess.getSecurityCompleteness() == SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE,
+            check(spaceAccess.getSecurityCompleteness() == AclCompleteness.ACL_COMPLETENESS_COMPLETE,
                     "space grants completeness " + spaceAccess.getSecurityCompleteness());
             ConfluenceEntity state = byId.get("page:" + parent.getId() + "/restriction-state");
             check(state != null && state.getRestrictionState().getState()
@@ -278,7 +279,7 @@ final class AclScenarios {
                 ConfluenceEntity group = byId.get(callerGroup);
                 check(group != null && group.hasGroup() && !group.getGroup().getName().isEmpty(),
                         "no group record");
-                check(group.getSecurityCompleteness() == SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE,
+                check(group.getSecurityCompleteness() == AclCompleteness.ACL_COMPLETENESS_COMPLETE,
                         "group completeness " + group.getSecurityCompleteness());
                 check(byId.containsKey("group:" + callerGroup + "/member/" + caller),
                         "the group's members do not include the caller");

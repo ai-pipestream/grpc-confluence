@@ -1,5 +1,6 @@
 package ai.pipestream.confluence;
 
+import ai.pipestream.sync.v1.AclCompleteness;
 import ai.pipestream.confluence.ConfluenceRoutes.Query;
 import ai.pipestream.confluence.v1.*;
 import ai.pipestream.sync.v1.Connection;
@@ -1712,7 +1713,7 @@ public final class ConfluenceGrpcService
                 }
                 response.addOwners(entry);
             }
-            reply(observer, response.setCompleteness(SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE)
+            reply(observer, response.setCompleteness(AclCompleteness.ACL_COMPLETENESS_COMPLETE)
                     .build());
         });
     }

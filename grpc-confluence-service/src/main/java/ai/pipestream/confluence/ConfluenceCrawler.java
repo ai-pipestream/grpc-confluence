@@ -24,7 +24,7 @@ import ai.pipestream.confluence.v1.Label;
 import ai.pipestream.confluence.v1.Page;
 import ai.pipestream.confluence.v1.PrincipalType;
 import ai.pipestream.confluence.v1.RestrictionState;
-import ai.pipestream.confluence.v1.SecurityCompleteness;
+import ai.pipestream.sync.v1.AclCompleteness;
 import ai.pipestream.confluence.v1.Space;
 import ai.pipestream.confluence.v1.SpaceAccess;
 import ai.pipestream.confluence.v1.SpacePermissionAssignment;
@@ -89,7 +89,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * and every named user with what the API shows of them, email included.</p>
  *
  * <p>Security data fails closed: each owner is emitted with a
- * {@link SecurityCompleteness} on its envelope, and every security read
+ * {@link AclCompleteness} on its envelope, and every security read
  * also emits the owner's {@code restriction-state} record carrying the
  * same marker. A security route answering 404 is not served (complete,
  * nothing to emit); any other 4xx, on the first page or a later one,
@@ -210,7 +210,7 @@ public final class ConfluenceCrawler {
      * incremental: content lists walk newest-first and stop at that
      * timestamp, and the security data of the unchanged content is re-read.
      * The space itself is emitted after its security data, carrying its
-     * {@link SecurityCompleteness}. Returns the newest modification
+     * {@link AclCompleteness}. Returns the newest modification
      * timestamp observed.
      */
     private Timestamp crawlSpace(Space space, String runId, ChangeSource source, Timestamp stopAt,
@@ -221,7 +221,7 @@ public final class ConfluenceCrawler {
         AtomicReference<Throwable> failure = new AtomicReference<>();
         Set<String> seenTree = ConcurrentHashMap.newKeySet();
 
-        SecurityCompleteness spaceSecurity = crawlSpaceSecurity(space, source, changeCursor, counts);
+        AclCompleteness spaceSecurity = crawlSpaceSecurity(space, source, changeCursor, counts);
         emit(entity(space.getId()).setSpace(space).setSecurityCompleteness(spaceSecurity).build(),
                 source, changeCursor);
 
@@ -389,7 +389,7 @@ public final class ConfluenceCrawler {
             Map<String, Long> counts, Set<String> seenTree, Timestamp stopAt)
             throws IOException, InterruptedException {
         Page page = mapper.toPage(node);
-        SecurityCompleteness security = crawlSecurity("pages", "page", page.getId(),
+        AclCompleteness security = crawlSecurity("pages", "page", page.getId(),
                 page.getSpaceId(), source, changeCursor, counts);
         emit(entity(page.getId()).setPage(page).setSecurityCompleteness(security).build(), source,
                 changeCursor);
@@ -404,7 +404,7 @@ public final class ConfluenceCrawler {
     private void crawlBlogPost(JsonNode node, ChangeSource source, String changeCursor,
             Map<String, Long> counts) throws IOException, InterruptedException {
         BlogPost blogPost = mapper.toBlogPost(node);
-        SecurityCompleteness security = crawlSecurity("blogposts", "blogpost", blogPost.getId(),
+        AclCompleteness security = crawlSecurity("blogposts", "blogpost", blogPost.getId(),
                 blogPost.getSpaceId(), source, changeCursor, counts);
         emit(entity(blogPost.getId()).setBlogPost(blogPost).setSecurityCompleteness(security)
                 .build(), source, changeCursor);
@@ -472,7 +472,7 @@ public final class ConfluenceCrawler {
      *
      * @return whether both lists were read in full
      */
-    private SecurityCompleteness crawlSpaceSecurity(Space space, ChangeSource source,
+    private AclCompleteness crawlSpaceSecurity(Space space, ChangeSource source,
             String changeCursor, Map<String, Long> counts) throws IOException, InterruptedException {
         String owner = "space:" + space.getId();
         SpaceAccess.Builder access = SpaceAccess.newBuilder().setSpaceId(space.getId());
@@ -516,7 +516,7 @@ public final class ConfluenceCrawler {
             access.addRoleAssignments(assignment);
             count(counts, "space_role_assignment");
         }
-        SecurityCompleteness completeness = completeness(permissions.complete() && roles.complete());
+        AclCompleteness completeness = completeness(permissions.complete() && roles.complete());
         emit(entity(owner + "/access").setSpaceAccess(access).setSecurityCompleteness(completeness).build(),
                 source, changeCursor);
         return completeness;
@@ -526,7 +526,7 @@ public final class ConfluenceCrawler {
      * Direct permissions and restriction state of one page, blog post,
      * whiteboard, database or folder. The restriction-state record is
      * emitted on every call, after the permission entries and even when
-     * its route failed, as the owner's per-run {@link SecurityCompleteness}
+     * its route failed, as the owner's per-run {@link AclCompleteness}
      * marker; a failed read leaves its state UNSPECIFIED.
      *
      * @param segment the v2 route segment ({@code pages}, ...)
@@ -534,7 +534,7 @@ public final class ConfluenceCrawler {
      * @param spaceId the space the owner is in
      * @return whether every security read of the owner was complete
      */
-    private SecurityCompleteness crawlSecurity(String segment, String kind, String id,
+    private AclCompleteness crawlSecurity(String segment, String kind, String id,
             String spaceId, ChangeSource source, String changeCursor, Map<String, Long> counts)
             throws IOException, InterruptedException {
         String owner = kind + ":" + id;
@@ -556,7 +556,7 @@ public final class ConfluenceCrawler {
                     .setContentPermission(permission).build(), source, changeCursor);
             count(counts, "content_permission");
         }
-        SecurityCompleteness completeness = completeness(read.complete());
+        AclCompleteness completeness = completeness(read.complete());
         emit(entity(owner + "/restriction-state").setRestrictionState(read.state())
                 .setSecurityCompleteness(completeness).build(), source, changeCursor);
         count(counts, "restriction_state");
@@ -760,7 +760,7 @@ public final class ConfluenceCrawler {
     /**
      * The non-page direct children of a tree node: each whiteboard,
      * database, folder or Smart Link is read, given its security data,
-     * emitted (with its {@link SecurityCompleteness}) and, for databases,
+     * emitted (with its {@link AclCompleteness}) and, for databases,
      * its fields and entries, then descended into. Pages are skipped: the
      * space's page list already crawls them. When {@code stopAt} is set
      * (incremental), a node whose version is not newer than it is not
@@ -792,8 +792,8 @@ public final class ConfluenceCrawler {
                     node.path("version").path("createdAt").asText(""));
             boolean changed = stopAt == null || modified == null || compare(modified, stopAt) > 0;
             // Smart Links have no restriction or permission routes.
-            SecurityCompleteness security = "embed".equals(type)
-                    ? SecurityCompleteness.SECURITY_COMPLETENESS_UNSPECIFIED
+            AclCompleteness security = "embed".equals(type)
+                    ? AclCompleteness.ACL_COMPLETENESS_UNSPECIFIED
                     : crawlSecurity(childSegment, type, childId, spaceId, source, changeCursor, counts);
             if (changed) {
                 ConfluenceEntity.Builder entity = entity(childId).setSecurityCompleteness(security);
@@ -845,9 +845,9 @@ public final class ConfluenceCrawler {
         return e.status() >= 400 && e.status() < 500 && e.status() != 429;
     }
 
-    private static SecurityCompleteness completeness(boolean complete) {
-        return complete ? SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE
-                : SecurityCompleteness.SECURITY_COMPLETENESS_UNAVAILABLE;
+    private static AclCompleteness completeness(boolean complete) {
+        return complete ? AclCompleteness.ACL_COMPLETENESS_COMPLETE
+                : AclCompleteness.ACL_COMPLETENESS_UNAVAILABLE;
     }
 
     /**

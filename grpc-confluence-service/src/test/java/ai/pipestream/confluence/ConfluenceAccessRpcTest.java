@@ -1,5 +1,6 @@
 package ai.pipestream.confluence;
 
+import ai.pipestream.sync.v1.AclCompleteness;
 import ai.pipestream.confluence.v1.*;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
@@ -146,7 +147,7 @@ class ConfluenceAccessRpcTest {
         assertThat(access.getOwners(1).getPermissions(0).getPrincipal().getPrincipalId()).isEqualTo("g-hr");
         assertThat(access.getOwners(2).getPermissions(0).getOperation())
                 .isEqualTo(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_UPDATE);
-        assertThat(access.getCompleteness()).isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE);
+        assertThat(access.getCompleteness()).isEqualTo(AclCompleteness.ACL_COMPLETENESS_COMPLETE);
     }
 
     @Test

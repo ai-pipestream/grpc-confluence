@@ -7,7 +7,7 @@ import ai.pipestream.confluence.v1.ContentRestrictionState;
 import ai.pipestream.confluence.v1.DatabaseFieldType;
 import ai.pipestream.confluence.v1.ConfluenceChange;
 import ai.pipestream.confluence.v1.ConfluenceEntity;
-import ai.pipestream.confluence.v1.SecurityCompleteness;
+import ai.pipestream.sync.v1.AclCompleteness;
 import ai.pipestream.confluence.v1.ConfluenceSnapshot;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -134,10 +134,10 @@ class ConfluenceCrawlerTest {
         assertThat(changes).filteredOn(c -> c.getEntity().hasSpace() || c.getEntity().hasPage()
                         || c.getEntity().hasBlogPost() || c.getEntity().hasRestrictionState())
                 .allSatisfy(c -> assertThat(c.getEntity().getSecurityCompleteness())
-                        .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE));
+                        .isEqualTo(AclCompleteness.ACL_COMPLETENESS_COMPLETE));
         assertThat(changes).filteredOn(c -> c.getEntity().hasComment())
                 .allSatisfy(c -> assertThat(c.getEntity().getSecurityCompleteness())
-                        .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_UNSPECIFIED));
+                        .isEqualTo(AclCompleteness.ACL_COMPLETENESS_UNSPECIFIED));
 
         ConfluenceEntity page = changes.stream()
                 .map(ConfluenceChange::getEntity)
@@ -250,13 +250,13 @@ class ConfluenceCrawlerTest {
         assertThat(byId.get("c2").getComment().getKind()).isEqualTo(CommentKind.COMMENT_KIND_INLINE);
         // A 403 on a security route fails closed: the space is UNAVAILABLE, the crawl goes on.
         assertThat(byId.get("100").getSecurityCompleteness())
-                .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_UNAVAILABLE);
+                .isEqualTo(AclCompleteness.ACL_COMPLETENESS_UNAVAILABLE);
         assertThat(byId.get("200").getSecurityCompleteness())
-                .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE);
+                .isEqualTo(AclCompleteness.ACL_COMPLETENESS_COMPLETE);
         assertThat(byId.get("page:200/restriction-state").getSecurityCompleteness())
-                .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE);
+                .isEqualTo(AclCompleteness.ACL_COMPLETENESS_COMPLETE);
         assertThat(byId.get("e1").getSecurityCompleteness())
-                .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_UNSPECIFIED);
+                .isEqualTo(AclCompleteness.ACL_COMPLETENESS_UNSPECIFIED);
         // Smart Links have no permission routes; role assignments were refused yet the crawl finished.
         assertThat(fake.requestsTo("/wiki/api/v2/embeds/e1/permissions")).isEmpty();
         assertThat(fake.requestsTo("/wiki/api/v2/spaces/100/role-assignments")).hasSize(1);
@@ -277,7 +277,7 @@ class ConfluenceCrawlerTest {
         assertThat(byId.get("space:100/access").getSpaceAccess().getPermissionsList()).singleElement()
                 .satisfies(p -> assertThat(p.getPrincipal().getId()).isEqualTo("g1"));
         assertThat(byId.get("space:100/access").getSecurityCompleteness())
-                .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_UNAVAILABLE);
+                .isEqualTo(AclCompleteness.ACL_COMPLETENESS_UNAVAILABLE);
         assertThat(byId.get("page:200/access").getAccessChain().getSpaceId()).isEqualTo("100");
         assertThat(byId.get("page:200/access").getAccessChain().getOwnersList())
                 .extracting(o -> o.getContent().getType() + ":" + o.getContent().getId())
@@ -295,12 +295,12 @@ class ConfluenceCrawlerTest {
         // Every group a permission named, with its members; a refused group is UNAVAILABLE.
         assertThat(byId.get("g1").getGroup().getName()).isEqualTo("staff");
         assertThat(byId.get("g1").getSecurityCompleteness())
-                .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE);
+                .isEqualTo(AclCompleteness.ACL_COMPLETENESS_COMPLETE);
         assertThat(byId.get("group:g1/member/m1").getGroupMember().getUser().getEmail())
                 .isEqualTo("m1@example.com");
         assertThat(byId.get("group:g1/member/m2").getGroupMember().getUser().getEmail()).isEmpty();
         assertThat(byId.get("g2").getSecurityCompleteness())
-                .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_UNAVAILABLE);
+                .isEqualTo(AclCompleteness.ACL_COMPLETENESS_UNAVAILABLE);
         assertThat(byId).doesNotContainKey("group:g2/member/m1");
         // Users: the members, and the user a permission named directly.
         assertThat(byId.get("m1").getUser().getEmail()).isEqualTo("m1@example.com");
@@ -405,7 +405,7 @@ class ConfluenceCrawlerTest {
         // The space is re-emitted with its re-read security marker.
         assertThat(changes).filteredOn(c -> c.getEntity().hasSpace()).singleElement()
                 .satisfies(c -> assertThat(c.getEntity().getSecurityCompleteness())
-                        .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE));
+                        .isEqualTo(AclCompleteness.ACL_COMPLETENESS_COMPLETE));
     }
 
     @Test
@@ -443,7 +443,7 @@ class ConfluenceCrawlerTest {
         // The partial permission list is kept but cannot pass for complete.
         assertThat(byId).containsKey("page:202/permission/read/user/abc");
         assertThat(byId.get("page:202/restriction-state").getSecurityCompleteness())
-                .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_UNAVAILABLE);
+                .isEqualTo(AclCompleteness.ACL_COMPLETENESS_UNAVAILABLE);
         assertThat(byId).doesNotContainKey("202");
         // The changed whiteboard is emitted; the unchanged folder only has its security re-read.
         assertThat(byId.get("w1").getWhiteboard().getTitle()).isEqualTo("Board");

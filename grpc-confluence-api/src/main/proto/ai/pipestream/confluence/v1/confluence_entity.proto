@@ -20,6 +20,7 @@ import "ai/pipestream/confluence/v1/redaction.proto";
 import "ai/pipestream/confluence/v1/space.proto";
 import "ai/pipestream/confluence/v1/task.proto";
 import "ai/pipestream/confluence/v1/user.proto";
+import "ai/pipestream/sync/v1/acl.proto";
 import "google/protobuf/timestamp.proto";
 
 option java_multiple_files = true;
@@ -46,8 +47,8 @@ message ConfluenceEntity {
   // database, folder) and on the `restriction_state` record Sync emits for
   // each owner on every run, which is the per-run marker for owners whose
   // content did not change. UNSPECIFIED on every other entity and outside
-  // Sync. See SecurityCompleteness: consumers should deny unless COMPLETE.
-  SecurityCompleteness security_completeness = 3;
+  // Sync. See ai.pipestream.sync.v1.AclCompleteness: consumers should deny unless COMPLETE.
+  ai.pipestream.sync.v1.AclCompleteness security_completeness = 3;
   // The wrapped entity. Exactly one arm is set; the set arm identifies the
   // entity kind.
   oneof entity {
