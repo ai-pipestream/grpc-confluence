@@ -1,0 +1,50 @@
+{
+  "scenario" : "sync",
+  "sequence" : 14,
+  "unordered" : 1,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/29851840/permissions",
+    "query" : [ {
+      "name" : "limit",
+      "value" : "25"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "operation" : "update",
+          "principal" : {
+            "principalType" : "user",
+            "principalId" : "account-1"
+          },
+          "createdAt" : "2026-11-22T14:58:27.608Z",
+          "createdByAaid" : "account-1",
+          "createdBy" : "account-1"
+        }, {
+          "operation" : "read",
+          "principal" : {
+            "principalType" : "group",
+            "principalId" : "7c989546-0d14-4a91-99ec-a0afdaaedc22"
+          },
+          "createdAt" : "2026-11-22T14:58:33.677Z",
+          "createdByAaid" : "account-1",
+          "createdBy" : "account-1"
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

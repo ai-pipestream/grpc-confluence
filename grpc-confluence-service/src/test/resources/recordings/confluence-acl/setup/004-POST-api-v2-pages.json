@@ -14,8 +14,8 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-acl-20261122T142659Z-a98ba6ed child",
-        "parentId" : "30376394",
+        "title" : "pipestream-live-acl-20261122T145825Z-7450e835 child",
+        "parentId" : "29851840",
         "body" : {
           "representation" : "storage",
           "value" : "<p>Child of the ACL run.</p>"
@@ -33,33 +33,33 @@
         "authorId" : "account-1",
         "parentType" : "page",
         "spaceId" : "7798786",
-        "parentId" : "30376394",
+        "parentId" : "29851840",
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T14:27:02.243Z",
-        "position" : 696,
+        "createdAt" : "2026-11-22T14:58:28.390Z",
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T14:27:02.243Z",
+          "createdAt" : "2026-11-22T14:58:28.390Z",
           "ncsStepVersion" : "1"
         },
+        "id" : "30048452",
+        "position" : 698,
+        "status" : "current",
         "body" : {
           "storage" : {
             "representation" : "storage",
             "value" : "<p>Child of the ACL run.</p>"
           }
         },
-        "status" : "current",
-        "title" : "pipestream-live-acl-20261122T142659Z-a98ba6ed child",
-        "id" : "30572798",
+        "title" : "pipestream-live-acl-20261122T145825Z-7450e835 child",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=30572798",
-          "webui" : "/spaces/CLAUDEGRPC/pages/30572798/pipestream-live-acl-20261122T142659Z-a98ba6ed+child",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30572798",
-          "tinyui" : "/x/-oDSAQ",
+          "editui" : "/pages/resumedraft.action?draftId=30048452",
+          "webui" : "/spaces/CLAUDEGRPC/pages/30048452/pipestream-live-acl-20261122T145825Z-7450e835+child",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30048452",
+          "tinyui" : "/x/xIDKAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

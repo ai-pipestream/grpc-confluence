@@ -1,7 +1,7 @@
 {
   "baseUrl" : "https://site-1.example.invalid/wiki",
   "spaceKey" : "CLAUDEGRPC",
-  "run" : "pipestream-live-acl-20261122T142659Z-a98ba6ed",
+  "run" : "pipestream-live-acl-20261122T145825Z-7450e835",
   "outcomes" : [ {
     "rpc" : "CreatePage",
     "step" : "parent page restricted to the caller, open child page",
@@ -22,6 +22,10 @@
     "rpc" : "ListGroupMembers",
     "step" : "ListGroupMembers (same group)",
     "outcome" : "PASS"
+  }, {
+    "rpc" : "Sync",
+    "step" : "Sync (incremental, after granting one of the caller's groups READ on the parent)",
+    "outcome" : "PASS"
   } ],
-  "scenarios" : [ "setup", "content-access", "groups", "cleanup" ]
+  "scenarios" : [ "setup", "content-access", "groups", "sync", "cleanup" ]
 }

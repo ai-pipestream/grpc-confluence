@@ -1,0 +1,50 @@
+{
+  "scenario" : "sync",
+  "sequence" : 32,
+  "unordered" : 1,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/7798963/direct-children",
+    "query" : [ {
+      "name" : "limit",
+      "value" : "25"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "id" : "7864321",
+          "status" : "current",
+          "title" : "Sync Probe Page",
+          "childPosition" : 9,
+          "type" : "page"
+        }, {
+          "id" : "28409901",
+          "status" : "current",
+          "title" : "Document Analytics probe 2026-11-15T21:13:47Z",
+          "childPosition" : 336,
+          "type" : "page"
+        }, {
+          "id" : "29851840",
+          "status" : "current",
+          "title" : "pipestream-live-acl-20261122T145825Z-7450e835",
+          "childPosition" : 822,
+          "type" : "page"
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}
