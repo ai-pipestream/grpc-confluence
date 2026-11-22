@@ -1,0 +1,21 @@
+{
+  "scenario" : "permissions",
+  "sequence" : 9,
+  "request" : {
+    "method" : "DELETE",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/29917213/permissions",
+    "query" : [ {
+      "name" : "allow-self-lockout",
+      "value" : "true"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 204,
+    "headers" : { }
+  }
+}

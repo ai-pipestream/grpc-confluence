@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/29720627",
+    "path" : "/wiki/api/v2/pages/29720700",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -23,20 +23,19 @@
       "json" : {
         "authorId" : "account-1",
         "parentType" : "page",
-        "parentId" : "29851649",
+        "parentId" : "29720674",
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T02:35:20.470Z",
+        "createdAt" : "2026-11-22T12:53:34.622Z",
+        "position" : 2174,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T02:35:20.470Z",
+          "createdAt" : "2026-11-22T12:53:34.622Z",
           "ncsStepVersion" : "1"
         },
-        "position" : 2124,
-        "id" : "29720627",
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
@@ -45,12 +44,13 @@
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261122T023426Z-430393c8 mutate a",
+        "title" : "pipestream-live-write-20261122T125241Z-1bfb10d7 mutate a",
+        "id" : "29720700",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=29720627",
-          "webui" : "/spaces/CLAUDEGRPC/pages/29720627/pipestream-live-write-20261122T023426Z-430393c8+mutate+a",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29720627",
-          "tinyui" : "/x/M4DFAQ",
+          "editui" : "/pages/resumedraft.action?draftId=29720700",
+          "webui" : "/spaces/CLAUDEGRPC/pages/29720700/pipestream-live-write-20261122T125241Z-1bfb10d7+mutate+a",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29720700",
+          "tinyui" : "/x/fIDFAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

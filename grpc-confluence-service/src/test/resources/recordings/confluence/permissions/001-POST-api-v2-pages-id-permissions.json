@@ -4,7 +4,7 @@
   "request" : {
     "method" : "POST",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/29884417/permissions",
+    "path" : "/wiki/api/v2/pages/29917213/permissions",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -24,18 +24,25 @@
     }
   },
   "response" : {
-    "status" : 404,
+    "status" : 200,
     "headers" : {
       "content-type" : "application/json"
     },
     "body" : {
       "json" : {
-        "errors" : [ {
-          "status" : 404,
-          "code" : "NOT_FOUND",
-          "title" : "User must have permissions to update restrictions on the content for contentId: 29884417",
-          "detail" : null
-        } ]
+        "results" : [ {
+          "operation" : "update",
+          "principal" : {
+            "principalType" : "user",
+            "principalId" : "account-1"
+          },
+          "createdAt" : "2026-11-22T12:52:44.681Z",
+          "createdByAaid" : "account-1",
+          "createdBy" : "account-1"
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
       }
     }
   }

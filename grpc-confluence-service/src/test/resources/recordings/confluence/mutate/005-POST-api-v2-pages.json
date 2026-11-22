@@ -1,6 +1,6 @@
 {
   "scenario" : "mutate",
-  "sequence" : 3,
+  "sequence" : 5,
   "unordered" : 1,
   "request" : {
     "method" : "POST",
@@ -15,8 +15,8 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-write-20261122T023426Z-430393c8 mutate a",
-        "parentId" : "29851649",
+        "title" : "pipestream-live-write-20261122T125241Z-1bfb10d7 mutate a",
+        "parentId" : "29720674",
         "body" : {
           "representation" : "storage",
           "value" : "<p>mutate a</p>"
@@ -33,20 +33,20 @@
       "json" : {
         "authorId" : "account-1",
         "parentType" : "page",
-        "parentId" : "29851649",
+        "parentId" : "29720674",
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T02:35:20.470Z",
-        "position" : 2124,
+        "createdAt" : "2026-11-22T12:53:34.622Z",
+        "position" : 2174,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T02:35:20.470Z",
+          "createdAt" : "2026-11-22T12:53:34.622Z",
           "ncsStepVersion" : "1"
         },
-        "id" : "29720627",
+        "id" : "29720700",
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
@@ -55,12 +55,12 @@
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261122T023426Z-430393c8 mutate a",
+        "title" : "pipestream-live-write-20261122T125241Z-1bfb10d7 mutate a",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=29720627",
-          "webui" : "/spaces/CLAUDEGRPC/pages/29720627/pipestream-live-write-20261122T023426Z-430393c8+mutate+a",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29720627",
-          "tinyui" : "/x/M4DFAQ",
+          "editui" : "/pages/resumedraft.action?draftId=29720700",
+          "webui" : "/spaces/CLAUDEGRPC/pages/29720700/pipestream-live-write-20261122T125241Z-1bfb10d7+mutate+a",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29720700",
+          "tinyui" : "/x/fIDFAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

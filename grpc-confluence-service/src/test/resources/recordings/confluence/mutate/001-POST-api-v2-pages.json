@@ -15,8 +15,8 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-write-20261122T023426Z-430393c8 mutate b",
-        "parentId" : "29851649",
+        "title" : "pipestream-live-write-20261122T125241Z-1bfb10d7 mutate b",
+        "parentId" : "29720674",
         "body" : {
           "representation" : "storage",
           "value" : "<p>mutate b</p>"
@@ -33,20 +33,20 @@
       "json" : {
         "authorId" : "account-1",
         "parentType" : "page",
-        "parentId" : "29851649",
+        "parentId" : "29720674",
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T02:35:20.116Z",
-        "position" : 1293,
+        "createdAt" : "2026-11-22T12:53:34.177Z",
+        "position" : 1888,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T02:35:20.116Z",
+          "createdAt" : "2026-11-22T12:53:34.177Z",
           "ncsStepVersion" : "1"
         },
-        "id" : "30179346",
+        "id" : "30179385",
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
@@ -55,12 +55,12 @@
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261122T023426Z-430393c8 mutate b",
+        "title" : "pipestream-live-write-20261122T125241Z-1bfb10d7 mutate b",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=30179346",
-          "webui" : "/spaces/CLAUDEGRPC/pages/30179346/pipestream-live-write-20261122T023426Z-430393c8+mutate+b",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30179346",
-          "tinyui" : "/x/EoDMAQ",
+          "editui" : "/pages/resumedraft.action?draftId=30179385",
+          "webui" : "/spaces/CLAUDEGRPC/pages/30179385/pipestream-live-write-20261122T125241Z-1bfb10d7+mutate+b",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30179385",
+          "tinyui" : "/x/OYDMAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

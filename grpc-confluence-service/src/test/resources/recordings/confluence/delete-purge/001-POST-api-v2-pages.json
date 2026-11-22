@@ -14,8 +14,8 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-write-20261122T023426Z-430393c8 to delete",
-        "parentId" : "29851649",
+        "title" : "pipestream-live-write-20261122T125241Z-1bfb10d7 to delete",
+        "parentId" : "29720674",
         "body" : {
           "representation" : "storage",
           "value" : "<p>delete me</p>"
@@ -32,20 +32,20 @@
       "json" : {
         "authorId" : "account-1",
         "parentType" : "page",
-        "parentId" : "29851649",
+        "parentId" : "29720674",
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T02:35:21.597Z",
-        "position" : 2835,
+        "createdAt" : "2026-11-22T12:53:35.463Z",
+        "position" : 2510,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T02:35:21.597Z",
+          "createdAt" : "2026-11-22T12:53:35.463Z",
           "ncsStepVersion" : "1"
         },
-        "id" : "29720649",
+        "id" : "29720720",
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
@@ -54,12 +54,12 @@
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261122T023426Z-430393c8 to delete",
+        "title" : "pipestream-live-write-20261122T125241Z-1bfb10d7 to delete",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=29720649",
-          "webui" : "/spaces/CLAUDEGRPC/pages/29720649/pipestream-live-write-20261122T023426Z-430393c8+to+delete",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29720649",
-          "tinyui" : "/x/SYDFAQ",
+          "editui" : "/pages/resumedraft.action?draftId=29720720",
+          "webui" : "/spaces/CLAUDEGRPC/pages/29720720/pipestream-live-write-20261122T125241Z-1bfb10d7+to+delete",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29720720",
+          "tinyui" : "/x/kIDFAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

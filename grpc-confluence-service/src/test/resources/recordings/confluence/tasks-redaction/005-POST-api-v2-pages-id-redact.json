@@ -4,7 +4,7 @@
   "request" : {
     "method" : "POST",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/29720578/redact",
+    "path" : "/wiki/api/v2/pages/30441473/redact",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -13,7 +13,7 @@
     "authorized" : true,
     "body" : {
       "json" : {
-        "createdAt" : "2026-11-22T02:35:10.820Z",
+        "createdAt" : "2026-11-22T12:53:27.108Z",
         "body" : {
           "redactions" : [ {
             "pointer" : "/content/1/content/0",

@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/29884417/labels",
+    "path" : "/wiki/api/v2/pages/29917213/labels",
     "query" : [ {
       "name" : "limit",
       "value" : "25"
@@ -23,12 +23,12 @@
       "json" : {
         "results" : [ {
           "prefix" : "global",
-          "name" : "live-write-430393c8",
-          "id" : "29982721"
+          "name" : "live-write-1bfb10d7",
+          "id" : "30375951"
         }, {
           "prefix" : "global",
-          "name" : "live-write-430393c8-b",
-          "id" : "29982723"
+          "name" : "live-write-1bfb10d7-b",
+          "id" : "30375953"
         } ],
         "_links" : {
           "base" : "https://site-1.example.invalid/wiki"
