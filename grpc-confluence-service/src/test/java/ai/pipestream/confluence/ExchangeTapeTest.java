@@ -196,7 +196,7 @@ class ExchangeTapeTest {
         fake.stub("GET", "/wiki/api/v2/pages/100", 200, page);
         RecordingTape recording = recording();
         WriteScenarios.Backend backend = new WriteScenarios.Backend("DEMO", "pipestream-live-write-test",
-                true, "ac:demo:thing", "invitee@acme.example", List.of(TOKEN, EMAIL), recording);
+                true, "ac:demo:thing", "invitee@acme.example", List.of(TOKEN, EMAIL), recording, 0);
         List<WriteScenarios.Row> live = runScenarios(fake.baseUrl(), recording, backend, true);
         fake.close();
 
@@ -237,6 +237,126 @@ class ExchangeTapeTest {
             }
             if (tape instanceof RecordingTape recording) {
                 recording.finish(ConfluenceLiveWriteIT.runFile(baseUrl, backend, scenarios));
+            } else if (tape instanceof ReplayTape replay) {
+                replay.finish();
+            }
+            return scenarios.rows();
+        } finally {
+            channel.shutdownNow();
+            server.shutdownNow();
+        }
+    }
+
+    @Test
+    void theAppPropertyScenariosReplayFromTheirRecording() throws Exception {
+        String secret = "s3cretS3cretS3cretS3cretS3cretS3cret";
+        Map<String, JsonNode> stored = new java.util.concurrent.ConcurrentHashMap<>();
+        com.sun.net.httpserver.HttpServer trigger = com.sun.net.httpserver.HttpServer.create(
+                new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        trigger.createContext("/x1/", exchange -> {
+            JsonNode call = RecordedExchange.JSON.readTree(exchange.getRequestBody().readAllBytes());
+            ObjectNode answer = RecordedExchange.JSON.createObjectNode();
+            boolean known = secret.equals(exchange.getRequestHeaders()
+                    .getFirst(ConfluenceClient.ForgeApp.SECRET_HEADER));
+            if (known) {
+                appProperties(stored, call, answer);
+            }
+            byte[] body = answer.toString().getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(known ? 200 : 401, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        trigger.start();
+        String triggerUrl = "http://127.0.0.1:" + trigger.getAddress().getPort()
+                + "/x1/AbCdEf0123456789AbCdEf0123456789";
+        List<WriteScenarios.Row> live;
+        try {
+            RecordingScrubber scrubber = new RecordingScrubber();
+            scrubber.site(java.net.URI.create(fake.baseUrl()).getAuthority());
+            scrubber.secret(secret);
+            scrubber.forgeTrigger(triggerUrl);
+            RecordingTape recording = new RecordingTape(HttpClient.newHttpClient(), recordings, scrubber);
+            WriteScenarios.Backend backend = new WriteScenarios.Backend("", "pipestream-live-app-test",
+                    false, null, null, List.of(secret), recording, 0);
+            live = runAppProperties(fake.baseUrl(), recording, backend, triggerUrl, secret);
+        } finally {
+            trigger.stop(0);
+        }
+        assertThat(live).isNotEmpty().allMatch(row -> row.outcome().equals("PASS"));
+        assertThat(stored).isEmpty();
+        try (Stream<Path> files = Files.walk(recordings)) {
+            for (Path file : files.filter(Files::isRegularFile).toList()) {
+                assertThat(Files.readString(file)).doesNotContain(secret, "AbCdEf0123456789", "127.0.0.1");
+            }
+        }
+
+        ReplayTape replay = new ReplayTape(recordings);
+        JsonNode run = replay.run();
+        assertThat(run.path("forgeAppUrl").asText())
+                .isEqualTo("http://forge-app.example.invalid/x1/forge-trigger");
+        List<WriteScenarios.Row> replayed = runAppProperties(run.path("baseUrl").asText(), replay,
+                ConfluenceWriteReplayTest.backend(replay, run), run.path("forgeAppUrl").asText(), "replay");
+        assertThat(replay.violations()).isEmpty();
+        assertThat(replayed).extracting(WriteScenarios.Row::rpc, WriteScenarios.Row::label,
+                WriteScenarios.Row::outcome).isEqualTo(live.stream().map(row ->
+                org.assertj.core.groups.Tuple.tuple(row.rpc(), row.label(), row.outcome())).toList());
+    }
+
+    /** Answers one forwarded app property call the way Confluence does. */
+    private static void appProperties(Map<String, JsonNode> stored, JsonNode call, ObjectNode answer) {
+        String path = call.path("path").asText();
+        String route = path.contains("?") ? path.substring(0, path.indexOf('?')) : path;
+        String root = "/wiki/api/v2/app/properties";
+        String key = route.length() > root.length() ? route.substring(root.length() + 1) : null;
+        switch (call.path("method").asText()) {
+            case "PUT" -> {
+                answer.put("status", stored.put(key, call.path("body")) == null ? 201 : 200);
+                answer.putObject("body").put("key", key).set("value", call.path("body"));
+            }
+            case "DELETE" -> answer.put("status", stored.remove(key) == null ? 404 : 204).putNull("body");
+            default -> {
+                if (key == null) {
+                    answer.put("status", 200);
+                    com.fasterxml.jackson.databind.node.ArrayNode results =
+                            answer.putObject("body").putArray("results");
+                    stored.forEach((name, value) -> results.addObject().put("key", name).set("value", value));
+                } else if (stored.containsKey(key)) {
+                    answer.put("status", 200);
+                    answer.putObject("body").put("key", key).set("value", stored.get(key));
+                } else {
+                    answer.put("status", 404).putObject("body").put("message", "not found");
+                }
+            }
+        }
+    }
+
+    private List<WriteScenarios.Row> runAppProperties(String baseUrl, ExchangeTape tape,
+            WriteScenarios.Backend backend, String triggerUrl, String secret) throws Exception {
+        ConfluenceConnectorConfig config = ConfluenceConnectorConfig.builder().baseUrl(baseUrl)
+                .email("replay@example.invalid").apiToken("replay").pageSize(25).build();
+        ConfluenceClient client = new ConfluenceClient(config.baseUrl(), config.email(),
+                config.apiToken(), Duration.ZERO, tape);
+        client.forgeApp(new ConfluenceClient.ForgeApp(triggerUrl, secret));
+        String name = InProcessServerBuilder.generateName();
+        Server server = InProcessServerBuilder.forName(name)
+                .executor(Executors.newVirtualThreadPerTaskExecutor())
+                .addService(new ConfluenceGrpcService(config, client,
+                        ConfluenceGrpcService.DEFAULT_ATTACHMENT_MAX_BYTES))
+                .build().start();
+        ManagedChannel channel = InProcessChannelBuilder.forName(name).build();
+        try {
+            WriteScenarios scenarios = WriteScenarios.appProperties(channel, backend);
+            assertThat(scenarios.scenarios()).extracting(WriteScenarios.Scenario::name)
+                    .isEqualTo(WriteScenarios.appPropertyNames());
+            for (WriteScenarios.Scenario scenario : scenarios.scenarios()) {
+                tape.scenario(scenario.name());
+                scenario.body().run();
+            }
+            if (tape instanceof RecordingTape recording) {
+                ObjectNode run = ConfluenceLiveWriteIT.runFile(baseUrl, backend, scenarios);
+                run.put("forgeAppUrl", triggerUrl);
+                recording.finish(run);
             } else if (tape instanceof ReplayTape replay) {
                 replay.finish();
             }

@@ -42,6 +42,8 @@ final class WriteScenarios {
     private static final long CALL_DEADLINE_SECONDS = 120;
     private static final int LARGE_UPLOAD_BYTES = 5 * 1024 * 1024;
     private static final int UPLOAD_CHUNK_BYTES = 256 * 1024;
+    /** The label of the step that is run live only and never recorded. */
+    static final String OVERSIZE_STEP = "UploadAttachment (over the site's size limit)";
 
     /**
      * What the steps run against.
@@ -53,10 +55,14 @@ final class WriteScenarios {
      * @param inviteEmail the address InviteByEmail invites, or null
      * @param secrets values that must never reach a row
      * @param tape the HTTP transport of the service under test
+     * @param oversizeBytes size of an upload the site must refuse as too large; 0 = no such step
      */
     record Backend(String spaceKey, String run, boolean admin, String customContentType,
-            String inviteEmail, List<String> secrets, ExchangeTape tape) {
+            String inviteEmail, List<String> secrets, ExchangeTape tape, long oversizeBytes) {
     }
+
+    /** The scenario of the app property rpcs, which needs a Forge app. */
+    static final String APP_PROPERTIES = "app-properties";
 
     /** One report row. */
     record Row(String rpc, String label, String outcome, String detail) {
@@ -89,6 +95,7 @@ final class WriteScenarios {
     private final Channel channel;
     private final Backend backend;
     private final String run;
+    private final boolean appProperties;
     private int localIds;
     private Space space;
     private Page parent;
@@ -96,9 +103,24 @@ final class WriteScenarios {
     private Page page;
 
     WriteScenarios(Channel channel, Backend backend) {
+        this(channel, backend, false);
+    }
+
+    private WriteScenarios(Channel channel, Backend backend, boolean appProperties) {
         this.channel = channel;
         this.backend = backend;
         this.run = backend.run();
+        this.appProperties = appProperties;
+    }
+
+    /** The suite of the app property rpcs alone; its service must reach a Forge app. */
+    static WriteScenarios appProperties(Channel channel, Backend backend) {
+        return new WriteScenarios(channel, backend, true);
+    }
+
+    /** The scenario names of {@link #appProperties}, in the order they run. */
+    static List<String> appPropertyNames() {
+        return List.of(APP_PROPERTIES, CLEANUP);
     }
 
     /** The scenario names, in the order they run; {@link #CLEANUP} is last. */
@@ -111,6 +133,10 @@ final class WriteScenarios {
 
     /** The scenarios in the order of {@link #names()}; each one needs those before it. */
     List<Scenario> scenarios() {
+        if (appProperties) {
+            return List.of(new Scenario(APP_PROPERTIES, this::appProperties),
+                    new Scenario(CLEANUP, this::cleanUp));
+        }
         return List.of(
                 new Scenario("setup", this::setup),
                 new Scenario("pages-adf", () -> inRun(() -> adfPage = pagesWithAdf(space, parent))),
@@ -142,7 +168,7 @@ final class WriteScenarios {
                     tenantLevel(space, backend.admin());
                     skipAll("tenant-wide permission transition, never run", "BulkAssignSpaceRoles",
                             "BulkRemoveSpaceAccess");
-                    skipAll("served to Forge app credentials only", "SetAppProperty",
+                    skipAll("needs a Forge app; run by the app property suite", "SetAppProperty",
                             "DeleteAppProperty");
                 })),
                 new Scenario(CLEANUP, this::cleanUp));
@@ -537,6 +563,17 @@ final class WriteScenarios {
                     "the SHA-256 of the bytes read back differs");
             return "attachment " + attachment.getId() + "; " + large.length + " bytes, SHA-256 identical";
         });
+        if (backend.oversizeBytes() > 0) {
+            step("UploadAttachment", OVERSIZE_STEP, () -> {
+                // Not recorded: a replay would have to produce the same bytes again.
+                backend.tape().mute(true);
+                try {
+                    return refusedAsTooLarge(page.getId(), run + "-oversize.bin", backend.oversizeBytes());
+                } finally {
+                    backend.tape().mute(false);
+                }
+            });
+        }
         step("UploadAttachment", "UploadAttachment (replace_existing adds a version)", () -> {
             require(small.get(), "no attachment was uploaded");
             byte[] next = ("second version " + run + "\n").getBytes(StandardCharsets.UTF_8);
@@ -1107,6 +1144,78 @@ final class WriteScenarios {
                 () -> stub().deletePage(DeletePageRequest.newBuilder().setId(id).setPurge(true).build())));
     }
 
+    /** Sets, reads, lists, replaces and deletes one app property of the Forge app. */
+    private void appProperties() {
+        String key = run + "-app";
+        java.util.concurrent.atomic.AtomicBoolean stored =
+                new java.util.concurrent.atomic.AtomicBoolean();
+        cleanups.add(() -> {
+            if (stored.get()) {
+                try {
+                    stub().deleteAppProperty(DeleteAppPropertyRequest.newBuilder().setKey(key).build());
+                } catch (StatusRuntimeException e) {
+                    if (e.getStatus().getCode() != Status.Code.NOT_FOUND) {
+                        leftBehind.add("app property " + key + ": " + describe(e));
+                    }
+                }
+            }
+        });
+        step("SetAppProperty", "SetAppProperty (create)", () -> {
+            SetAppPropertyResponse set = stub().setAppProperty(SetAppPropertyRequest.newBuilder()
+                    .setKey(key).setValue(plainValue("one")).build());
+            stored.set(true);
+            check(set.getCreated(), "the property was not reported as created");
+            return "created";
+        });
+        step("GetAppProperty", "GetAppProperty", () -> {
+            AppProperty read = stub().getAppProperty(GetAppPropertyRequest.newBuilder()
+                    .setKey(key).build()).getProperty();
+            check(read.getCustomKey().equals(key), "the key read back differs: " + read.getCustomKey());
+            check(read.getValue().equals(plainValue("one")), "the value read back differs: " + read.getValue());
+            return "value identical";
+        });
+        step("ListAppProperties", "ListAppProperties", () -> {
+            List<AppProperty> listed = new ArrayList<>();
+            stub().listAppProperties(ListAppPropertiesRequest.getDefaultInstance())
+                    .forEachRemaining(response -> listed.add(response.getProperty()));
+            check(listed.stream().anyMatch(property -> property.getCustomKey().equals(key)
+                    && property.getValue().equals(plainValue("one"))),
+                    "the property is not listed with its value");
+            return "listed among " + listed.size();
+        });
+        step("SetAppProperty", "SetAppProperty (replace)", () -> {
+            SetAppPropertyResponse set = stub().setAppProperty(SetAppPropertyRequest.newBuilder()
+                    .setKey(key).setValue(plainValue("two")).build());
+            check(!set.getCreated(), "the replaced property was reported as created");
+            AppProperty read = stub().getAppProperty(GetAppPropertyRequest.newBuilder()
+                    .setKey(key).build()).getProperty();
+            check(read.getValue().equals(plainValue("two")), "the value read back differs: " + read.getValue());
+            return "replaced; value identical";
+        });
+        step("SetAppProperty", "SetAppProperty (exact decimal is INVALID_ARGUMENT)", () -> {
+            expectCode(Status.Code.INVALID_ARGUMENT, () -> stub().setAppProperty(
+                    SetAppPropertyRequest.newBuilder().setKey(key + "-decimal")
+                            .setValue(PropertyValue.newBuilder()
+                                    .setDecimalValue("1.00000000000000000001")).build()));
+            return "INVALID_ARGUMENT, nothing sent";
+        });
+        step("DeleteAppProperty", "DeleteAppProperty", () -> {
+            stub().deleteAppProperty(DeleteAppPropertyRequest.newBuilder().setKey(key).build());
+            stored.set(false);
+            return "deleted";
+        });
+        step("GetAppProperty", "GetAppProperty (deleted is NOT_FOUND)", () -> {
+            expectCode(Status.Code.NOT_FOUND, () -> stub().getAppProperty(
+                    GetAppPropertyRequest.newBuilder().setKey(key).build()));
+            return "NOT_FOUND";
+        });
+        step("DeleteAppProperty", "DeleteAppProperty (missing is NOT_FOUND)", () -> {
+            expectCode(Status.Code.NOT_FOUND, () -> stub().deleteAppProperty(
+                    DeleteAppPropertyRequest.newBuilder().setKey(key).build()));
+            return "NOT_FOUND";
+        });
+    }
+
     /** Deletes what the run created, then adds a row for every rpc that has none. */
     private void cleanUp() {
         for (int i = cleanups.size() - 1; i >= 0; i--) {
@@ -1115,6 +1224,9 @@ final class WriteScenarios {
             } catch (RuntimeException e) {
                 leftBehind.add("a clean-up step failed: " + scrub(String.valueOf(e.getMessage())));
             }
+        }
+        if (appProperties) {
+            return;
         }
         Set<String> seen = new LinkedHashSet<>();
         rows.forEach(row -> seen.add(row.rpc()));
@@ -1411,6 +1523,53 @@ final class WriteScenarios {
                     + bytes.length + " bytes");
             return last.getAttachment();
         }
+    }
+
+    /** Streams {@code size} bytes as an attachment and expects the upload to fail as too large. */
+    private String refusedAsTooLarge(String contentId, String fileName, long size) throws Exception {
+        List<UploadAttachmentResponse> events = new ArrayList<>();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        CountDownLatch done = new CountDownLatch(1);
+        StreamObserver<UploadAttachmentRequest> frames = ConfluenceServiceGrpc.newStub(channel)
+                .uploadAttachment(collector(events, failure, done));
+        frames.onNext(UploadAttachmentRequest.newBuilder().setHeader(UploadAttachmentHeader.newBuilder()
+                .setContentId(contentId).setFileName(fileName).setMediaType("application/octet-stream")
+                .setComment("live write run").setMinorEdit(true)).build());
+        byte[] chunk = new byte[UPLOAD_CHUNK_BYTES];
+        Random random = new Random(7);
+        long sent = 0;
+        int frame = 0;
+        while (sent < size && done.getCount() > 0) {
+            int length = (int) Math.min(chunk.length, size - sent);
+            random.nextBytes(chunk);
+            frames.onNext(UploadAttachmentRequest.newBuilder()
+                    .setChunk(ByteString.copyFrom(chunk, 0, length)).build());
+            sent += length;
+            frame++;
+            // Stay a few frames ahead of what the service has taken, no more.
+            long waitUntil = System.nanoTime() + TimeUnit.MINUTES.toNanos(5);
+            while (done.getCount() > 0 && System.nanoTime() < waitUntil) {
+                synchronized (events) {
+                    if (events.size() >= frame - 8) {
+                        break;
+                    }
+                }
+                Thread.sleep(5);
+            }
+        }
+        if (done.getCount() > 0) {
+            frames.onNext(UploadAttachmentRequest.newBuilder()
+                    .setEnd(UploadAttachmentEnd.getDefaultInstance()).build());
+            frames.onCompleted();
+        }
+        check(done.await(10, TimeUnit.MINUTES), "the upload did not finish in time");
+        check(failure.get() != null, "the site stored an upload of " + size
+                + " bytes; its limit is higher than that");
+        Status status = Status.fromThrowable(failure.get());
+        check(status.getCode() == Status.Code.INTERNAL && String.valueOf(status.getDescription())
+                        .contains(ConfluenceConnectorConfig.ENV_MAX_ATTACHMENT_BYTES),
+                "expected the size-limit error, got " + status.getCode() + " " + status.getDescription());
+        return "refused after " + sent + " of " + size + " bytes: " + status.getCode();
     }
 
     private List<MutateResponse> mutateAll(List<MutateRequest> operations) throws Exception {

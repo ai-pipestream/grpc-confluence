@@ -27,6 +27,17 @@ Authorization header was sent, the body) and the response (status, the `content-
 body as text. A multipart request is stored as its parts, a file part as SHA-256 and
 length. A binary response is stored as SHA-256 and length.
 
+## App properties
+
+`confluence-app-properties/` holds the run of the app property rpcs (`SetAppProperty`,
+`GetAppProperty`, `ListAppProperties`, `DeleteAppProperty`). Confluence serves these to a
+Forge app only, so the service sends them through the app's web trigger and the recording
+holds the exchanges with the trigger. `ConfluenceLiveAppPropertyIT`
+(`liveAppPropertiesTest`) records it with `CONFLUENCE_FORGE_APP_URL` and
+`CONFLUENCE_FORGE_APP_SECRET` set; `ConfluenceWriteReplayTest` replays it. The trigger's
+host and path are stored as `forge-app.example.invalid/x1/forge-trigger`, and the secret
+header is never stored.
+
 ## Record
 
 ```

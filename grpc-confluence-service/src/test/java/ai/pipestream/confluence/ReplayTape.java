@@ -112,6 +112,11 @@ final class ReplayTape extends ExchangeTape {
     }
 
     @Override
+    void mute(boolean on) {
+        // Nothing was recorded while muted, so there is nothing to serve.
+    }
+
+    @Override
     void pause(Duration time) {
         // The recording has already waited.
     }

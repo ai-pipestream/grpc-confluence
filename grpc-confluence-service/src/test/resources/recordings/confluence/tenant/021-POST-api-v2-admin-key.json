@@ -2,14 +2,20 @@
   "scenario" : "tenant",
   "sequence" : 21,
   "request" : {
-    "method" : "GET",
+    "method" : "POST",
     "host" : "site-1.example.invalid",
     "path" : "/wiki/api/v2/admin-key",
     "query" : [ ],
     "headers" : {
-      "accept" : "application/json"
+      "accept" : "application/json",
+      "content-type" : "application/json"
     },
-    "authorized" : true
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "durationInMinutes" : 1
+      }
+    }
   },
   "response" : {
     "status" : 200,
@@ -19,7 +25,7 @@
     "body" : {
       "json" : {
         "accountId" : "account-1",
-        "expirationTime" : "2026-11-22T14:21:24.811Z"
+        "expirationTime" : "2026-11-22T15:48:29.706Z"
       }
     }
   }

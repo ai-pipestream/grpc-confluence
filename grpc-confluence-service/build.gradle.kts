@@ -38,6 +38,7 @@ tasks.named<Test>("test") {
     exclude("**/ConfluenceLiveCoverageIT.class")
     exclude("**/ConfluenceLiveWriteIT.class")
     exclude("**/ConfluenceLiveChangeIT.class")
+    exclude("**/ConfluenceLiveAppPropertyIT.class")
 }
 
 tasks.register<Test>("liveSmokeTest") {
@@ -92,6 +93,23 @@ tasks.register<Test>("liveWriteTest") {
     }
     systemProperty("liveWrite.report", layout.buildDirectory.file("live-write.md").get().asFile.path)
     systemProperty("liveWrite.recordings", layout.projectDirectory.dir("src/test/resources/recordings/confluence").asFile.path)
+    // A live run is never up to date, and the report goes to stdout too.
+    outputs.upToDateWhen { false }
+    testLogging {
+        showStandardStreams = true
+    }
+}
+
+tasks.register<Test>("liveAppPropertiesTest") {
+    description = "Runs the app property rpcs against the real Confluence site through a deployed Forge app, writes build/live-app-properties.md and records the exchanges under src/test/resources/recordings/confluence-app-properties; needs the liveSmokeTest credentials plus CONFLUENCE_FORGE_APP_URL and CONFLUENCE_FORGE_APP_SECRET, skips otherwise"
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    filter {
+        includeTestsMatching("ai.pipestream.confluence.ConfluenceLiveAppPropertyIT")
+    }
+    systemProperty("liveAppProperties.report", layout.buildDirectory.file("live-app-properties.md").get().asFile.path)
+    systemProperty("liveAppProperties.recordings", layout.projectDirectory.dir("src/test/resources/recordings/confluence-app-properties").asFile.path)
     // A live run is never up to date, and the report goes to stdout too.
     outputs.upToDateWhen { false }
     testLogging {
