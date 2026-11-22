@@ -167,6 +167,9 @@ enum SpacePermissionPrincipalType {
   SPACE_PERMISSION_PRINCIPAL_TYPE_GROUP = 2;
   // A space role.
   SPACE_PERMISSION_PRINCIPAL_TYPE_ROLE = 3;
+  // An access class, such as `ALL_LICENSED_USERS` or `ALL_PRODUCT_ADMINS`
+  // (wire `access-class`).
+  SPACE_PERMISSION_PRINCIPAL_TYPE_ACCESS_CLASS = 4;
 }
 
 // The entity a space permission corresponds to (an inline object in the
