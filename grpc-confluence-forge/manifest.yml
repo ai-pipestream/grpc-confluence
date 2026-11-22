@@ -58,7 +58,7 @@ modules:
       response:
         type: dynamic
     - key: app-api
-      function: app-api
+      function: app-forward
       response:
         type: dynamic
   function:
@@ -66,7 +66,7 @@ modules:
       handler: index.onEvent
     - key: queue
       handler: index.queue
-    - key: app-api
+    - key: app-forward
       handler: app.appApi
 app:
   id: ari:cloud:ecosystem::app/d16971ce-921a-40d5-a97b-84b84a4cbfe1
