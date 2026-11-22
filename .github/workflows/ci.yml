@@ -301,7 +301,8 @@ jobs:
           secret=$(openssl rand -hex 32)
           echo "::add-mask::${secret}"
           forge variables set -e development --encrypt QUEUE_SECRET "${secret}"
-          forge deploy -e development --non-interactive
+          # A scope change is a major version; the install --upgrade below consents to it.
+          forge deploy -e development --non-interactive --approve MAJOR_VERSION_RULE
           if ! forge install -e development --product confluence --site "${site}" --non-interactive --confirm-scopes --verbose; then
             forge install -e development --product confluence --site "${site}" --non-interactive --confirm-scopes --upgrade
           fi
