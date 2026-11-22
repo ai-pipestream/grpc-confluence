@@ -45,8 +45,9 @@ final class ForgeEventQueue {
      *
      * @param key the queue key (acknowledge with it)
      * @param event the typed event
+     * @param expiresAt when the queue drops the event uncollected; {@code null} if not answered
      */
-    record Queued(String key, ConfluenceEvent event) {
+    record Queued(String key, ConfluenceEvent event, Instant expiresAt) {
     }
 
     private final URI url;
@@ -87,7 +88,8 @@ final class ForgeEventQueue {
         for (JsonNode item : answer.path("events")) {
             String key = item.path("key").asText("");
             if (!key.isBlank()) {
-                out.add(new Queued(key, event(key, item.path("event"))));
+                out.add(new Queued(key, event(key, item.path("event")),
+                        instant(item.path("expireTime").asText(""))));
             }
         }
         return out;
@@ -138,6 +140,7 @@ final class ForgeEventQueue {
                 .setActorAccountId(event.path("atlassianId").asText(""))
                 .setSelfGenerated(event.path("selfGenerated").asBoolean(false))
                 .setContainerId(text(subject.path("container").path("id")))
+                .setContainerType(subject.path("container").path("type").asText(""))
                 .setLabelName(event.path("label").path("name").asText(""))
                 .setOriginContentId(text(event.path("originContentId")))
                 .setPreviousParentId(text(event.path("prevContent").path("parentId")));
@@ -209,13 +212,17 @@ final class ForgeEventQueue {
     }
 
     private static Timestamp timestamp(String text) {
+        Instant at = instant(text);
+        return at == null ? null
+                : Timestamp.newBuilder().setSeconds(at.getEpochSecond()).setNanos(at.getNano()).build();
+    }
+
+    private static Instant instant(String text) {
         if (text.isBlank()) {
             return null;
         }
         try {
-            Instant at = Instant.parse(text);
-            return Timestamp.newBuilder().setSeconds(at.getEpochSecond()).setNanos(at.getNano())
-                    .build();
+            return Instant.parse(text);
         } catch (DateTimeParseException e) {
             return null;
         }

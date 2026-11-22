@@ -1,4 +1,4 @@
-import { kvs, WhereConditions } from '@forge/kvs';
+import { kvs, MetadataField, WhereConditions } from '@forge/kvs';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 
 /** Key prefix of queued events. */
@@ -17,9 +17,10 @@ export function eventKey(now = Date.now(), id = randomUUID()) {
   return `${PREFIX}${String(now).padStart(15, '0')}:${id}`;
 }
 
-/** Stores one product event in {@code store}. */
+/** Stores one product event in {@code target}, without its short-lived context token. */
 export async function store(event, target) {
-  await target.set(eventKey(), event, { ttl: { value: TTL_DAYS, unit: 'DAYS' } });
+  const { contextToken: _token, ...kept } = event ?? {};
+  await target.set(eventKey(), kept, { ttl: { value: TTL_DAYS, unit: 'DAYS' } });
 }
 
 /** Trigger: stores one product event in the queue. */
@@ -58,20 +59,23 @@ function answer(statusCode, body) {
   };
 }
 
-/** Takes up to {@code max} of the oldest queued events without removing them. */
+/** Takes up to {@code max} of the oldest queued events, with their expiry, without removing them. */
 export async function take(max, store = kvs) {
   const limit = Math.max(1, Math.min(MAX_TAKE, Number.isInteger(max) ? max : MAX_TAKE));
   const events = [];
   let cursor;
   do {
-    let query = store.query().where('key', WhereConditions.beginsWith(PREFIX))
+    let query = store.query({ metadataFields: [MetadataField.EXPIRE_TIME] })
+      .where('key', WhereConditions.beginsWith(PREFIX))
       .limit(Math.min(PAGE, limit - events.length));
     if (cursor) {
       query = query.cursor(cursor);
     }
     const page = await query.getMany();
     for (const item of page.results) {
-      events.push({ key: item.key, event: item.value });
+      events.push(item.expireTime
+        ? { key: item.key, event: item.value, expireTime: item.expireTime }
+        : { key: item.key, event: item.value });
     }
     cursor = page.nextCursor;
   } while (cursor && events.length < limit);

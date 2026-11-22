@@ -1,5 +1,6 @@
 package ai.pipestream.confluence;
 
+import ai.pipestream.confluence.v1.ConfluenceEvent;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
@@ -50,7 +51,22 @@ class ConfluenceChangeReplayTest {
                 .addService(read).addService(service).build().start();
         ManagedChannel channel = InProcessChannelBuilder.forName(name).build();
         ChangeScenarios scenarios = new ChangeScenarios(channel, service,
-                run.path("spaceKey").asText(), run.path("run").asText(), match -> { });
+                run.path("spaceKey").asText(), run.path("run").asText(), new ChangeScenarios.Events() {
+                    @Override
+                    public void await(java.util.function.Predicate<ConfluenceEvent> match) {
+                        // The recorded take answers already hold the event.
+                    }
+
+                    @Override
+                    public void awaitQueued(int count) {
+                        // The recorded take answers already hold the events.
+                    }
+
+                    @Override
+                    public void pause(java.time.Duration time) {
+                        // Replay does not wait.
+                    }
+                });
         try {
             for (ChangeScenarios.Scenario scenario : scenarios.all()) {
                 tape.scenario(scenario.id());

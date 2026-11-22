@@ -7,13 +7,16 @@ function memoryStore() {
   const data = new Map();
   return {
     data,
-    async set(key, value) {
+    options: new Map(),
+    async set(key, value, options) {
       data.set(key, value);
+      this.options.set(key, options);
     },
     async batchDelete(items) {
       items.forEach(({ key }) => data.delete(key));
     },
-    query() {
+    query(options) {
+      const expiry = options?.metadataFields?.includes('EXPIRE_TIME');
       let prefix = '';
       let limit = 10;
       let start = 0;
@@ -34,7 +37,10 @@ function memoryStore() {
           const keys = [...data.keys()].filter((k) => k.startsWith(prefix)).sort();
           const slice = keys.slice(start, start + limit);
           const next = start + limit < keys.length ? String(start + limit) : undefined;
-          return { results: slice.map((key) => ({ key, value: data.get(key) })), nextCursor: next };
+          const results = slice.map((key) => (expiry
+            ? { key, value: data.get(key), expireTime: '2026-11-29T00:00:00Z' }
+            : { key, value: data.get(key) }));
+          return { results, nextCursor: next };
         },
       };
       return builder;
@@ -70,6 +76,7 @@ test('take answers oldest first across pages and ack removes', async () => {
   assert.equal(events.length, 30);
   assert.equal(events[0].event.n, 0);
   assert.equal(events[29].event.n, 29);
+  assert.equal(events[0].expireTime, '2026-11-29T00:00:00Z');
   const acked = await handle(request({ action: 'ack', keys: [...events.map((e) => e.key), 'other'] }),
     store, 's3cret');
   assert.equal(JSON.parse(acked.body).acked, 30);
@@ -77,11 +84,13 @@ test('take answers oldest first across pages and ack removes', async () => {
   assert.ok(store.data.has('other'));
 });
 
-test('store keeps the event under a queue key', async () => {
+test('store keeps the event under a queue key for 7 days, without its context token', async () => {
   const store = memoryStore();
-  await put({ eventType: 'avi:confluence:created:page' }, store);
+  await put({ eventType: 'avi:confluence:created:page', contextToken: 'jwt' }, store);
   const [key] = store.data.keys();
   assert.ok(key.startsWith('evt:'));
+  assert.deepEqual(store.data.get(key), { eventType: 'avi:confluence:created:page' });
+  assert.deepEqual(store.options.get(key), { ttl: { value: 7, unit: 'DAYS' } });
 });
 
 test('rejects bad bodies and actions', async () => {

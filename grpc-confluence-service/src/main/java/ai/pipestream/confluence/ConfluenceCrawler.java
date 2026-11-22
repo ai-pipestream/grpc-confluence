@@ -394,6 +394,40 @@ public final class ConfluenceCrawler {
                 source, cursor);
     }
 
+    /**
+     * Re-reads one whiteboard, database, folder or Smart Link and its security data.
+     *
+     * @param type the item type ({@code whiteboard}, {@code database}, {@code folder} or {@code embed})
+     * @param id the item id
+     * @param source the change source to stamp
+     * @param cursor the cursor to stamp
+     * @throws IOException if a REST call fails (404 when the item is gone)
+     * @throws InterruptedException if the calling thread is interrupted while waiting
+     */
+    public void rereadTreeItem(String type, String id, ChangeSource source, String cursor)
+            throws IOException, InterruptedException {
+        String segment = switch (type) {
+            case "whiteboard" -> "whiteboards";
+            case "database" -> "databases";
+            case "folder" -> "folders";
+            case "embed" -> "embeds";
+            default -> throw new IllegalArgumentException("not a tree item type: " + type);
+        };
+        JsonNode node = client.get("/api/v2/" + segment + "/" + id, Map.of());
+        Map<String, Long> counts = new java.util.HashMap<>();
+        SecurityCompleteness security = "embed".equals(type)
+                ? SecurityCompleteness.SECURITY_COMPLETENESS_UNSPECIFIED
+                : crawlSecurity(segment, type, id, source, cursor, counts);
+        ConfluenceEntity.Builder entity = entity(id).setSecurityCompleteness(security);
+        switch (type) {
+            case "whiteboard" -> entity.setWhiteboard(mapper.toWhiteboard(node));
+            case "database" -> entity.setDatabase(mapper.toDatabase(node));
+            case "folder" -> entity.setFolder(mapper.toFolder(node));
+            default -> entity.setSmartLink(mapper.toSmartLink(node));
+        }
+        emit(entity.build(), source, cursor);
+    }
+
     private void crawlPage(JsonNode node, ChangeSource source, String changeCursor,
             Map<String, Long> counts, Set<String> seenTree, Timestamp stopAt)
             throws IOException, InterruptedException {

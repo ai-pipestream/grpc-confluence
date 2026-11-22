@@ -182,4 +182,6 @@ message ConfluenceEvent {
   string container_id = 16;
   // True when the app itself caused the event.
   bool self_generated = 17;
+  // Content type of the container: page or blogpost.
+  string container_type = 18;
 }

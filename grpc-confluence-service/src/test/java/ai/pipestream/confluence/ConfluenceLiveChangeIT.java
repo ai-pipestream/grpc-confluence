@@ -102,7 +102,22 @@ class ConfluenceLiveChangeIT {
         // Peeks at the queue off the recording, so a step can wait for Forge.
         ForgeEventQueue peek = new ForgeEventQueue(queueUrl, queueSecret, http);
         purge(peek);
-        ChangeScenarios.Events events = match -> await(peek, match);
+        ChangeScenarios.Events events = new ChangeScenarios.Events() {
+            @Override
+            public void await(Predicate<ConfluenceEvent> match) throws Exception {
+                ConfluenceLiveChangeIT.await(peek, match);
+            }
+
+            @Override
+            public void awaitQueued(int count) throws Exception {
+                ConfluenceLiveChangeIT.awaitQueued(peek, count);
+            }
+
+            @Override
+            public void pause(Duration time) throws InterruptedException {
+                TimeUnit.MILLISECONDS.sleep(time.toMillis());
+            }
+        };
 
         ConfluenceConnectorConfig config = ConfluenceConnectorConfig.builder()
                 .baseUrl(baseUrl).email(email).apiToken(token).pageSize(25).build();
@@ -177,13 +192,27 @@ class ConfluenceLiveChangeIT {
                 + ChangeScenarios.EVENT_WAIT);
     }
 
+    private static void awaitQueued(ForgeEventQueue queue, int count) throws Exception {
+        Instant until = Instant.now().plus(ChangeScenarios.EVENT_WAIT);
+        int queued = 0;
+        while (Instant.now().isBefore(until)) {
+            queued = queue.take(ForgeEventQueue.DEFAULT_TAKE).size();
+            if (queued >= count) {
+                return;
+            }
+            TimeUnit.SECONDS.sleep(5);
+        }
+        throw new AssertionError("only " + queued + " events were queued within "
+                + ChangeScenarios.EVENT_WAIT);
+    }
+
     private static String report(ChangeScenarios scenarios, Instant started) {
         StringBuilder out = new StringBuilder("# Confluence live change run\n\n- Run: ")
                 .append(started).append(" (")
                 .append(Duration.between(started, Instant.now()).toSeconds()).append(" s)\n\n")
                 .append("| step | outcome | detail |\n|---|---|---|\n");
         scenarios.rows().forEach(row -> out.append("| ").append(row.label()).append(" | ")
-                .append(row.outcome().equals("PASS") ? "PASS" : "**" + row.outcome() + "**")
+                .append(row.outcome().equals("FAIL") ? "**FAIL**" : row.outcome())
                 .append(" | ").append(row.detail().replace("|", "\\|").replace("\n", " "))
                 .append(" |\n"));
         return out.toString();

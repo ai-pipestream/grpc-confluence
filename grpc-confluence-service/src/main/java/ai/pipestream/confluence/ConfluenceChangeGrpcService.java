@@ -55,7 +55,8 @@ public final class ConfluenceChangeGrpcService
     private final ForgeEventQueue queue;
     private final Clock clock;
     private final AtomicLong drainRequests = new AtomicLong();
-    private volatile java.util.function.IntConsumer drainListener = taken -> { };
+    private volatile java.util.function.Consumer<List<ForgeEventQueue.Queued>> drainListener =
+            taken -> { };
 
     /**
      * Creates the service.
@@ -136,8 +137,8 @@ public final class ConfluenceChangeGrpcService
         }
     }
 
-    /** Sets what is told the number of events each drain took, after the drain. */
-    void onDrain(java.util.function.IntConsumer listener) {
+    /** Sets what is told the events each drain took, after the drain. */
+    void onDrain(java.util.function.Consumer<List<ForgeEventQueue.Queued>> listener) {
         this.drainListener = listener;
     }
 
@@ -192,16 +193,29 @@ public final class ConfluenceChangeGrpcService
     }
 
     /**
-     * Takes queued events, resolves each, and acknowledges those resolved. A
-     * failed read leaves the event and every later one in the queue, so the
-     * next drain retries them in order.
+     * Takes queued events, resolves them, and acknowledges those handled. An
+     * event followed in the same batch by one of the same type about the same
+     * object is acknowledged without its own re-read, since the later re-read
+     * answers the same state. A failed read leaves the event and every later
+     * one in the queue, so the next drain retries them in order.
      */
     private void drain(SyncRequest scope, Emitter out) throws Exception {
         List<ForgeEventQueue.Queued> batch = queue.take(ForgeEventQueue.DEFAULT_TAKE);
+        java.util.Map<String, Integer> last = new java.util.HashMap<>();
+        for (int i = 0; i < batch.size(); i++) {
+            String key = coalesceKey(batch.get(i).event());
+            if (key != null) {
+                last.put(key, i);
+            }
+        }
         List<String> handled = new ArrayList<>();
         try {
-            for (ForgeEventQueue.Queued queued : batch) {
-                resolve(scope, queued.event(), out);
+            for (int i = 0; i < batch.size(); i++) {
+                ForgeEventQueue.Queued queued = batch.get(i);
+                String key = coalesceKey(queued.event());
+                if (key == null || last.get(key) == i) {
+                    resolve(scope, queued.event(), out);
+                }
                 handled.add(queued.key());
             }
         } catch (Exception e) {
@@ -209,8 +223,19 @@ public final class ConfluenceChangeGrpcService
                     batch.get(handled.size()).event().getEventType(), e.toString());
         } finally {
             queue.ack(handled);
-            drainListener.accept(batch.size());
+            drainListener.accept(List.copyOf(batch));
         }
+    }
+
+    /** The key under which events of one type about one object coalesce; {@code null} = never. */
+    static String coalesceKey(ConfluenceEvent event) {
+        String target = event.getObject()
+                == ai.pipestream.confluence.v1.ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_SPACE
+                && !event.getSpaceId().isBlank() ? event.getSpaceId() : event.getContentId();
+        if (target.isBlank() || event.getEventType().isBlank()) {
+            return null;
+        }
+        return event.getEventType() + "|" + target;
     }
 
     /** Re-reads what one event names and emits it, stamped with the event; skips other spaces. */
@@ -290,8 +315,49 @@ public final class ConfluenceChangeGrpcService
                                     .setSpace(Space.newBuilder().setId(spaceId)), cursor);
                 }
             }
+            case CONFLUENCE_EVENT_OBJECT_TASK -> {
+                String container = event.getContainerId();
+                if (container.isBlank()) {
+                    out.unresolved(event);
+                } else {
+                    boolean blog = containerType(event).equals("blogpost");
+                    rereadOrDelete(() -> crawler.reread(blog, container, source, cursor), sink,
+                            null, cursor);
+                }
+            }
+            case CONFLUENCE_EVENT_OBJECT_WHITEBOARD, CONFLUENCE_EVENT_OBJECT_DATABASE,
+                    CONFLUENCE_EVENT_OBJECT_FOLDER, CONFLUENCE_EVENT_OBJECT_EMBED -> {
+                String type = switch (event.getObject()) {
+                    case CONFLUENCE_EVENT_OBJECT_WHITEBOARD -> "whiteboard";
+                    case CONFLUENCE_EVENT_OBJECT_DATABASE -> "database";
+                    case CONFLUENCE_EVENT_OBJECT_FOLDER -> "folder";
+                    default -> "embed";
+                };
+                ConfluenceEntity.Builder item = treeItem(type, id);
+                if (id.isBlank()) {
+                    out.unresolved(event);
+                } else if (gone) {
+                    sink.emit(delete(item, cursor));
+                } else {
+                    rereadOrDelete(() -> crawler.rereadTreeItem(type, id, source, cursor), sink,
+                            item, cursor);
+                }
+            }
             default -> out.unresolved(event);
         }
+    }
+
+    /** An entity naming one whiteboard, database, folder or Smart Link by id. */
+    private static ConfluenceEntity.Builder treeItem(String type, String id) {
+        ConfluenceEntity.Builder entity = ConfluenceEntity.newBuilder().setEntityId(id);
+        return switch (type) {
+            case "whiteboard" -> entity.setWhiteboard(
+                    ai.pipestream.confluence.v1.Whiteboard.newBuilder().setId(id));
+            case "database" -> entity.setDatabase(
+                    ai.pipestream.confluence.v1.Database.newBuilder().setId(id));
+            case "folder" -> entity.setFolder(ai.pipestream.confluence.v1.Folder.newBuilder().setId(id));
+            default -> entity.setSmartLink(ai.pipestream.confluence.v1.SmartLink.newBuilder().setId(id));
+        };
     }
 
     /** The page or blog post an attachment, comment or label event belongs to. */
@@ -304,7 +370,7 @@ public final class ConfluenceChangeGrpcService
     }
 
     private static String containerType(ConfluenceEvent event) {
-        return event.getContainerId().isBlank() ? event.getContentType() : "";
+        return event.getContainerId().isBlank() ? event.getContentType() : event.getContainerType();
     }
 
     @FunctionalInterface
