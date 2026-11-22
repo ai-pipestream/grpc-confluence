@@ -1586,6 +1586,23 @@ class ConfluenceGrpcServiceTest {
     }
 
     @Test
+    void aLongRunningTaskIsReadWithItsState() {
+        fake.stub("/wiki/rest/api/longtask/77", "{\"id\":\"77\",\"name\":{\"key\":\"space.delete\","
+                + "\"args\":[]},\"elapsedTime\":1234,\"percentageComplete\":100,\"successful\":true,"
+                + "\"finished\":true,\"status\":\"done\","
+                + "\"messages\":[{\"translation\":\"Space removed\",\"args\":[]}],"
+                + "\"errors\":[{\"translation\":\"one page skipped\",\"args\":[]}]}");
+
+        LongRunningTask task = stub.getLongRunningTask(GetLongRunningTaskRequest.newBuilder()
+                .setTaskId("77").build()).getTask();
+
+        assertThat(task).isEqualTo(LongRunningTask.newBuilder().setId("77").setNameKey("space.delete")
+                .setElapsedTimeMs(1234).setPercentageComplete(100).setSuccessful(true).setFinished(true)
+                .setStatus("done").addMessages("Space removed").addErrors("one page skipped").build());
+        assertInvalid(() -> stub.getLongRunningTask(GetLongRunningTaskRequest.getDefaultInstance()));
+    }
+
+    @Test
     void resolveContentTypesChunksAndTypesTheResults() throws Exception {
         fake.stub("/wiki/api/v2/content/convert-ids-to-types", "{\"results\":{\"1\":\"page\","
                 + "\"2\":\"inline-comment\",\"3\":\"ac:my-app:thing\"}}");

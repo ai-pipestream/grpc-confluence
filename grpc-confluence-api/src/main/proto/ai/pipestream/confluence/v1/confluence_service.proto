@@ -393,6 +393,11 @@ service ConfluenceService {
   // transition. v2: GET /space-role-mode.
   rpc GetSpaceRoleMode(GetSpaceRoleModeRequest) returns (GetSpaceRoleModeResponse);
 
+  // The state of a long-running task, such as the one a space delete or a
+  // space role delete answers.
+  // v1: GET /wiki/rest/api/longtask/{id}.
+  rpc GetLongRunningTask(GetLongRunningTaskRequest) returns (GetLongRunningTaskResponse);
+
   // ----------------------------------------------------------- admin key --
 
   // The calling user's active admin key, if any (NOT_FOUND when none is
@@ -1993,6 +1998,48 @@ message ListSpaceRoleAssignmentsRequest {
 message ListSpaceRoleAssignmentsResponse {
   // The streamed assignment.
   SpaceRoleAssignment assignment = 1;
+}
+
+// Request to read one long-running task.
+message GetLongRunningTaskRequest {
+  // ID of the task.
+  string task_id = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One long-running task.
+message GetLongRunningTaskResponse {
+  // The task.
+  LongRunningTask task = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// A long-running task of the site.
+message LongRunningTask {
+  // ID of the task.
+  string id = 1;
+  // Message key naming the kind of task.
+  string name_key = 2;
+  // Time the task has run, in milliseconds.
+  int64 elapsed_time_ms = 3;
+  // How far the task is, 0 to 100.
+  int32 percentage_complete = 4;
+  // Whether the task has ended.
+  bool finished = 5;
+  // Whether the task ended without an error. Meaningful once finished.
+  bool successful = 6;
+  // Status text of the task.
+  string status = 7;
+  // Progress messages of the task.
+  repeated string messages = 8;
+  // Error messages of the task.
+  repeated string errors = 9;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
 }
 
 // Request to read the tenant's space role mode.

@@ -996,6 +996,7 @@ final class WriteScenarios {
                     .setKey(created.getKey()).build()).getTaskId();
             check(!task.isEmpty(), "no task id was answered");
             ownSpace.set(null);
+            awaitTask(task);
             for (int attempt = 0; attempt < 30; attempt++) {
                 try {
                     stub().getSpace(GetSpaceRequest.newBuilder().setId(created.getId()).build());
@@ -1059,20 +1060,16 @@ final class WriteScenarios {
             String task = stub().deleteSpaceRole(DeleteSpaceRoleRequest.newBuilder()
                     .setId(created.getId()).build()).getTaskId();
             role.set(null);
-            for (int attempt = 0; attempt < 30; attempt++) {
-                try {
-                    stub().getSpaceRole(GetSpaceRoleRequest.newBuilder().setId(created.getId()).build());
-                } catch (StatusRuntimeException e) {
-                    Status.Code code = e.getStatus().getCode();
-                    if (code == Status.Code.NOT_FOUND || code == Status.Code.INVALID_ARGUMENT) {
-                        return "task " + task + "; the role is gone";
-                    }
-                    throw e;
+            String state = awaitTask(task);
+            Iterator<ListSpaceRolesResponse> roles = stub().listSpaceRoles(
+                    ListSpaceRolesRequest.getDefaultInstance());
+            while (roles.hasNext()) {
+                if (roles.next().getRole().getId().equals(created.getId())) {
+                    leftBehind.add("space role " + created.getId() + ": still listed after task " + task);
+                    throw new AssertionError("the role is still listed after " + state);
                 }
-                backend.tape().pause(Duration.ofSeconds(2));
             }
-            leftBehind.add("space role " + created.getId() + ": still there a minute after task " + task);
-            throw new AssertionError("the role is still there a minute after the delete");
+            return state + "; the role is no longer listed";
         });
         step("InviteByEmail", "InviteByEmail", () -> {
             String invitee = backend.inviteEmail();
@@ -1147,6 +1144,21 @@ final class WriteScenarios {
                 leftBehind.add(what + " (in the trash, not purged): " + describe(e));
             }
         }
+    }
+
+    /** Waits until a long-running task has ended well; answers a line describing it. */
+    private String awaitTask(String taskId) throws InterruptedException {
+        check(!taskId.isEmpty(), "no task id was answered");
+        for (int attempt = 0; attempt < 60; attempt++) {
+            LongRunningTask task = stub().getLongRunningTask(GetLongRunningTaskRequest.newBuilder()
+                    .setTaskId(taskId).build()).getTask();
+            if (task.getFinished()) {
+                check(task.getSuccessful(), "task " + taskId + " ended with errors " + task.getErrorsList());
+                return "task " + taskId + " finished";
+            }
+            backend.tape().pause(Duration.ofSeconds(2));
+        }
+        throw new AssertionError("task " + taskId + " did not finish in two minutes");
     }
 
     private void remove(String what, Runnable delete) {
