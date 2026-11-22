@@ -132,7 +132,95 @@ public final class ConfluenceClient {
     private final HttpClient http;
     private final Duration minRequestInterval;
 
+    private volatile ForgeApp forgeApp = ForgeApp.fromEnvironment(System.getenv());
+
     private long lastRequestNanos;
+
+    /**
+     * A Forge app's web trigger that makes Confluence calls as the app.
+     * Confluence serves app properties to a Forge app only.
+     *
+     * @param triggerUrl the web trigger's URL
+     * @param secret value of the {@link #SECRET_HEADER} header the trigger expects
+     */
+    public record ForgeApp(String triggerUrl, String secret) {
+
+        /** Environment variable holding the web trigger's URL. */
+        public static final String ENV_URL = "CONFLUENCE_FORGE_APP_URL";
+        /** Environment variable holding the trigger's secret. */
+        public static final String ENV_SECRET = "CONFLUENCE_FORGE_APP_SECRET";
+        /** Header the secret is sent in. */
+        public static final String SECRET_HEADER = "x-pipestream-queue-secret";
+
+        /** Requires both values. */
+        public ForgeApp {
+            if (triggerUrl == null || triggerUrl.isBlank() || secret == null || secret.isBlank()) {
+                throw new IllegalArgumentException(ENV_URL + " and " + ENV_SECRET
+                        + " must both be set");
+            }
+        }
+
+        /**
+         * Reads the trigger from the environment.
+         *
+         * @param env the environment
+         * @return the trigger, or {@code null} when neither variable is set
+         */
+        static ForgeApp fromEnvironment(Map<String, String> env) {
+            String url = env.get(ENV_URL);
+            String secret = env.get(ENV_SECRET);
+            boolean noUrl = url == null || url.isBlank();
+            boolean noSecret = secret == null || secret.isBlank();
+            return noUrl && noSecret ? null : new ForgeApp(url, secret);
+        }
+    }
+
+    /**
+     * Sets the Forge app that app property calls go through.
+     *
+     * @param forgeApp the app's trigger; {@code null} sends them to Confluence directly
+     */
+    public void forgeApp(ForgeApp forgeApp) {
+        this.forgeApp = forgeApp;
+    }
+
+    /** Whether a URL is an app property route, which only a Forge app may call. */
+    private boolean throughForge(String url) {
+        return forgeApp != null && onOrigin(url)
+                && URI.create(url).getRawPath().startsWith(basePath + "/api/v2/app/properties");
+    }
+
+    /** Makes one call through the Forge app's trigger and answers as Confluence did. */
+    private JsonResponse viaForge(String method, String url, JsonNode body)
+            throws IOException, InterruptedException {
+        ForgeApp app = forgeApp;
+        URI target = URI.create(url);
+        com.fasterxml.jackson.databind.node.ObjectNode call = JSON.createObjectNode();
+        call.put("method", method);
+        call.put("path", target.getRawQuery() == null ? target.getRawPath()
+                : target.getRawPath() + "?" + target.getRawQuery());
+        call.set("body", body == null ? JSON.nullNode() : body);
+        HttpResponse<String> response = send(HttpRequest.newBuilder(URI.create(app.triggerUrl()))
+                .timeout(Duration.ofSeconds(60))
+                .header(ForgeApp.SECRET_HEADER, app.secret())
+                .header("content-type", "application/json")
+                .header("accept", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(call))).build(),
+                HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 400) {
+            throw new IOException("the Forge app trigger answered " + response.statusCode());
+        }
+        JsonNode answer = JSON.readTree(response.body() == null || response.body().isBlank()
+                ? "{}" : response.body());
+        int status = answer.path("status").asInt(0);
+        JsonNode answered = answer.path("body");
+        if (status < 200 || status >= 400) {
+            throw new ConfluenceApiException(status == 0 ? 502 : status,
+                    answered.isMissingNode() || answered.isNull() ? "" : answered.toString());
+        }
+        return new JsonResponse(status, answered.isObject() || answered.isArray() ? answered
+                : JSON.createObjectNode());
+    }
 
     /**
      * Creates a client from connector config (default politeness interval).
@@ -214,8 +302,11 @@ public final class ConfluenceClient {
      */
     public JsonNode get(String pathOrUrl, Map<String, String> query)
             throws IOException, InterruptedException {
-        return json(send(request(url(pathOrUrl, query)).GET().build(),
-                HttpResponse.BodyHandlers.ofString()));
+        String url = url(pathOrUrl, query);
+        if (throughForge(url)) {
+            return viaForge("GET", url, null).body();
+        }
+        return json(send(request(url).GET().build(), HttpResponse.BodyHandlers.ofString()));
     }
 
     /**
@@ -243,7 +334,12 @@ public final class ConfluenceClient {
      */
     public ResultPage getPage(String pathOrUrl, Map<String, String> query)
             throws IOException, InterruptedException {
-        HttpResponse<String> response = send(request(url(pathOrUrl, query)).GET().build(),
+        String url = url(pathOrUrl, query);
+        if (throughForge(url)) {
+            JsonNode listed = viaForge("GET", url, null).body();
+            return new ResultPage(listed, nextPageUrl(listed).orElse(null));
+        }
+        HttpResponse<String> response = send(request(url).GET().build(),
                 HttpResponse.BodyHandlers.ofString());
         JsonNode body = json(response);
         String next = nextPageUrl(body)
@@ -384,7 +480,11 @@ public final class ConfluenceClient {
      */
     public JsonResponse exchange(String method, String path, Map<String, String> query,
             JsonNode body) throws IOException, InterruptedException {
-        HttpRequest.Builder builder = request(url(path, query));
+        String url = url(path, query);
+        if (throughForge(url)) {
+            return viaForge(method, url, body);
+        }
+        HttpRequest.Builder builder = request(url);
         if (body == null) {
             builder.method(method, HttpRequest.BodyPublishers.noBody());
         } else {

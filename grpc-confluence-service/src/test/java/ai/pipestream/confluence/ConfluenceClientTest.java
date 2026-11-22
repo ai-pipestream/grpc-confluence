@@ -290,4 +290,49 @@ class ConfluenceClientTest {
                 new java.io.ByteArrayInputStream(new byte[0])))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void appPropertyCallsGoThroughTheForgeAppWhenOneIsSet() throws Exception {
+        fake.stub("POST", "/trigger", 200,
+                "{\"status\":201,\"body\":{\"key\":\"k 1\",\"value\":{\"a\":1}}}");
+        fake.stub("/wiki/api/v2/spaces", ConfluenceFixtures.emptyListJson());
+        client.forgeApp(new ConfluenceClient.ForgeApp(fake.baseUrl().replace("/wiki", "") + "/trigger",
+                "trigger-secret"));
+
+        ConfluenceClient.JsonResponse answer = client.exchange("PUT", "/api/v2/app/properties/k%201",
+                Map.of("x", "y z"), ConfluenceClient.responseJson().readTree("{\"a\":1}"));
+        client.get("/api/v2/spaces");
+
+        assertThat(answer.status()).isEqualTo(201);
+        assertThat(answer.body().path("key").asText()).isEqualTo("k 1");
+        FakeConfluenceServer.RecordedRequest sent = fake.lastTo("POST", "/trigger");
+        assertThat(sent.authorization()).isNull();
+        assertThat(sent.headers().get("x-pipestream-queue-secret")).isEqualTo("trigger-secret");
+        assertThat(ConfluenceClient.responseJson().readTree(sent.body()))
+                .isEqualTo(ConfluenceClient.responseJson().readTree(
+                        "{\"method\":\"PUT\",\"path\":\"/wiki/api/v2/app/properties/k%201?x=y+z\","
+                                + "\"body\":{\"a\":1}}"));
+        assertThat(fake.requestsTo("/wiki/api/v2/app/properties/k 1")).isEmpty();
+        assertThat(fake.requestsTo("/wiki/api/v2/spaces")).hasSize(1)
+                .allMatch(request -> request.headers().get("x-pipestream-queue-secret") == null);
+    }
+
+    @Test
+    void anErrorFromConfluenceThroughTheForgeAppKeepsItsStatus() {
+        fake.stub("POST", "/trigger", 200, "{\"status\":404,\"body\":{\"errors\":[]}}");
+        client.forgeApp(new ConfluenceClient.ForgeApp(fake.baseUrl().replace("/wiki", "") + "/trigger",
+                "trigger-secret"));
+
+        assertThatThrownBy(() -> client.get("/api/v2/app/properties/missing"))
+                .isInstanceOfSatisfying(ConfluenceClient.ConfluenceApiException.class,
+                        e -> assertThat(e.status()).isEqualTo(404));
+    }
+
+    @Test
+    void aForgeAppNeedsBothItsUrlAndItsSecret() {
+        assertThat(ConfluenceClient.ForgeApp.fromEnvironment(Map.of())).isNull();
+        assertThatThrownBy(() -> ConfluenceClient.ForgeApp.fromEnvironment(
+                Map.of(ConfluenceClient.ForgeApp.ENV_URL, "https://example.com/t")))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }
