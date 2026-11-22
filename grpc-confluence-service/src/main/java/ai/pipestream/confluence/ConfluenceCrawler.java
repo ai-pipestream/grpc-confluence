@@ -34,8 +34,6 @@ import ai.pipestream.confluence.v1.SpaceRoleAssignment;
 import ai.pipestream.confluence.v1.User;
 import ai.pipestream.confluence.ConfluenceClient.CursorGuard;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.protobuf.Timestamp;
 
 import java.io.IOException;
@@ -107,9 +105,6 @@ public final class ConfluenceCrawler {
 
     /** The most ancestors one {@code ancestors} read returns. */
     private static final int ANCESTORS_LIMIT = 250;
-    /** {@code POST /users-bulk} accepts at most this many account ids per call. */
-    private static final int USERS_BULK_MAX_IDS = 250;
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final ConfluenceConnectorConfig config;
     private final ConfluenceClient client;
@@ -724,26 +719,10 @@ public final class ConfluenceCrawler {
         }
         List<String> rest = new java.util.TreeSet<>(accountIds).stream()
                 .filter(id -> !id.isEmpty() && !emittedUsers.contains(id)).toList();
-        for (int from = 0; from < rest.size(); from += USERS_BULK_MAX_IDS) {
-            ObjectNode body = JSON.createObjectNode();
-            rest.subList(from, Math.min(rest.size(), from + USERS_BULK_MAX_IDS))
-                    .forEach(body.putArray("accountIds")::add);
-            JsonNode users;
-            try {
-                users = client.post("/api/v2/users-bulk", body);
-            } catch (ConfluenceClient.ConfluenceApiException e) {
-                if (!unserved(e)) {
-                    throw e;
-                }
-                LOG.log(System.Logger.Level.WARNING, "users-bulk unavailable for {0} account ids: HTTP {1}",
-                        rest.size() - from, e.status());
-                return;
-            }
-            for (JsonNode node : users.path("results")) {
-                User user = mapper.toUser(node);
-                if (emittedUsers.add(user.getAccountId())) {
-                    emit(entity(user.getAccountId()).setUser(user).build(), source, changeCursor);
-                }
+        for (String accountId : rest) {
+            SecurityRead<JsonNode> read = getSecurity("/rest/api/user", Map.of("accountId", accountId), "user");
+            if (read.value() != null) {
+                emit(entity(accountId).setUser(mapper.toUser(read.value())).build(), source, changeCursor);
             }
         }
     }

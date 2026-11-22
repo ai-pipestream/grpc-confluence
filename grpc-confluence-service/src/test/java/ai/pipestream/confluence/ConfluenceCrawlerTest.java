@@ -218,8 +218,8 @@ class ConfluenceCrawlerTest {
                 + "{\"accountId\":\"m2\",\"accountType\":\"atlassian\",\"displayName\":\"N\"}]}");
         fake.stub("/wiki/rest/api/group/by-id?id=g2", new FakeConfluenceServer.Stub(403,
                 "{\"message\":\"not allowed\"}", Map.of()));
-        fake.stub("/wiki/api/v2/users-bulk", "{\"results\":[{\"accountId\":\"abc\","
-                + "\"accountType\":\"atlassian\",\"email\":\"abc@example.com\"}]}");
+        fake.stub("/wiki/rest/api/user?accountId=abc", "{\"accountId\":\"abc\","
+                + "\"accountType\":\"atlassian\",\"email\":\"abc@example.com\"}");
 
         crawler(config()).crawl();
 
@@ -305,8 +305,8 @@ class ConfluenceCrawlerTest {
         // Users: the members, and the user a permission named directly.
         assertThat(byId.get("m1").getUser().getEmail()).isEqualTo("m1@example.com");
         assertThat(byId.get("abc").getUser().getEmail()).isEqualTo("abc@example.com");
-        assertThat(fake.lastTo("POST", "/wiki/api/v2/users-bulk").body()).contains("abc")
-                .doesNotContain("m1");
+        assertThat(fake.requestsTo("/wiki/rest/api/user")).extracting(r -> r.params().get("accountId"))
+                .containsExactly("abc");
         sink.changes().forEach(change -> ConfluenceValidator.create().requireValid(change));
     }
 
