@@ -1982,6 +1982,15 @@ public final class ConfluenceGrpcService
         return new ConfluenceCrawler(session.config, session.client, sink);
     }
 
+    /** The space keys a Sync of {@code request} covers; empty = every space. */
+    List<String> spaceScope(SyncRequest request) {
+        if (!request.getSpaceKeysList().isEmpty()) {
+            return request.getSpaceKeysList();
+        }
+        ConfluenceConnectorConfig config = session(request.getConnectionId()).config;
+        return config.hasSpaceAllowlist() ? List.copyOf(config.spaces()) : List.of();
+    }
+
     @Override
     public void sync(SyncRequest request, StreamObserver<SyncResponse> observer) {
         try {

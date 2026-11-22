@@ -18,6 +18,10 @@ on:
         description: Commit the confluence-recordings artifact of this run id to the branch as replay data
         type: string
         default: ""
+      run_live_changes:
+        description: Deploy the Forge app to the test site, run the live change feed test and record it
+        type: boolean
+        default: false
       probe_confluence_account:
         description: Report whether the Confluence test account is an admin (read-only, prints no names)
         type: boolean
@@ -231,6 +235,125 @@ jobs:
           path: grpc-confluence/grpc-confluence-service/src/test/resources/recordings/
           if-no-files-found: warn
 
+  # Deploys grpc-confluence-forge to the test site with a fresh queue secret,
+  # then runs the change feed against it. Only ever started by hand.
+  live-confluence-changes:
+    needs: buf
+    if: github.event_name == 'workflow_dispatch' && inputs.run_live_changes
+    runs-on: ubuntu-latest
+    env:
+      FORGE_EMAIL: ${{ secrets.FORGE_EMAIL || secrets.CONFLUENCE_EMAIL }}
+      FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN || secrets.CONFLUENCE_API_TOKEN }}
+      CONFLUENCE_BASE_URL: ${{ secrets.CONFLUENCE_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: grpc-confluence
+      - id: core
+        name: Pick the grpc-integration ref (same branch if it exists, else main)
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git ls-remote --exit-code --heads https://github.com/ai-pipestream/grpc-integration "$BRANCH" >/dev/null; then
+            echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=$INTEGRATION_REF" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v5
+        with:
+          repository: ai-pipestream/grpc-integration
+          ref: ${{ steps.core.outputs.ref }}
+          path: grpc-integration
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Deploy the Forge app and open its queue
+        working-directory: grpc-confluence/grpc-confluence-forge
+        run: |
+          if [ -z "${FORGE_EMAIL}" ] || [ -z "${FORGE_API_TOKEN}" ] || [ -z "${CONFLUENCE_BASE_URL}" ]; then
+            echo "Forge or Confluence secrets not configured"
+            exit 1
+          fi
+          npm ci --no-audit --no-fund
+          npm test
+          npm install -g --no-audit --no-fund @forge/cli@15.1.0
+          forge settings set usage-analytics false
+          site=$(python3 -c 'import os,urllib.parse;print(urllib.parse.urlparse(os.environ["CONFLUENCE_BASE_URL"]).hostname)')
+          if grep -q 'app/00000000-0000-0000-0000-000000000000' manifest.yml; then
+            forge register -y pipestream-confluence-events
+            echo "Registered app id (commit it to manifest.yml): $(grep -o 'ari:cloud:ecosystem::app/[0-9a-f-]*' manifest.yml)"
+          fi
+          cp manifest.yml "$RUNNER_TEMP/manifest.yml"
+          secret=$(openssl rand -hex 32)
+          echo "::add-mask::${secret}"
+          forge variables set -e development --encrypt QUEUE_SECRET "${secret}"
+          forge deploy -e development --non-interactive
+          if ! forge install -e development --product confluence --site "${site}" --non-interactive --confirm-scopes; then
+            forge install -e development --product confluence --site "${site}" --non-interactive --confirm-scopes --upgrade
+          fi
+          url=$(forge webtrigger create -e development -f event-queue -s "${site}" -p confluence | grep -o 'https://[^[:space:]]*' | head -1)
+          if [ -z "${url}" ]; then
+            echo "no web trigger URL"
+            exit 1
+          fi
+          echo "::add-mask::${url}"
+          printf '%s' "${url}" > "$RUNNER_TEMP/queue.url"
+          printf '%s' "${secret}" > "$RUNNER_TEMP/queue.secret"
+      - name: Live Confluence change run
+        working-directory: grpc-confluence
+        env:
+          CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
+          CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          CONFLUENCE_LIVE_CHANGES: "1"
+          CONFLUENCE_SPACE_KEY: CLAUDEGRPC
+        run: |
+          export CONFLUENCE_FORGE_QUEUE_URL="$(cat "$RUNNER_TEMP/queue.url")"
+          export CONFLUENCE_FORGE_QUEUE_SECRET="$(cat "$RUNNER_TEMP/queue.secret")"
+          ./gradlew --no-daemon -PintegrationDir=../grpc-integration :grpc-confluence-service:liveChangesTest
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          report = Path("grpc-confluence-service/build/test-results/liveChangesTest/TEST-ai.pipestream.confluence.ConfluenceLiveChangeIT.xml")
+          if not report.exists():
+              raise SystemExit("Missing live change report; no live evidence.")
+          suite = ET.parse(report).getroot()
+          if int(suite.get("skipped", "0")) or int(suite.get("tests", "0")) == 0:
+              raise SystemExit("The live change test was skipped; no live evidence.")
+          PY
+      - name: Report
+        if: always()
+        working-directory: grpc-confluence
+        run: |
+          if [ -f grpc-confluence-service/build/live-changes.md ]; then
+            cat grpc-confluence-service/build/live-changes.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No live change report was written." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: forge-manifest
+          path: ${{ runner.temp }}/manifest.yml
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-changes-report
+          path: |
+            grpc-confluence/grpc-confluence-service/build/live-changes.md
+            grpc-confluence/grpc-confluence-service/build/test-results/liveChangesTest/
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: confluence-recordings
+          path: grpc-confluence/grpc-confluence-service/src/test/resources/recordings/
+          if-no-files-found: warn
+
   # Copies the recordings a live write run uploaded into the branch, after a
   # leak check and the recordings guard test. Only ever started by hand.
   import-confluence-recordings:
@@ -249,7 +372,9 @@ jobs:
           ref: ${{ env.INTEGRATION_REF }}
           path: grpc-integration
       - name: Drop the previous recordings
-        run: rm -rf grpc-confluence/grpc-confluence-service/src/test/resources/recordings/confluence
+        run: |
+          rm -rf grpc-confluence/grpc-confluence-service/src/test/resources/recordings/confluence \
+            grpc-confluence/grpc-confluence-service/src/test/resources/recordings/confluence-changes
       - uses: actions/download-artifact@v4
         with:
           name: confluence-recordings
@@ -290,7 +415,8 @@ jobs:
         working-directory: grpc-confluence
         run: |
           ./gradlew --no-daemon -PintegrationDir=../grpc-integration :grpc-confluence-service:test \
-            --tests '*RecordingsGuardTest' --tests '*ConfluenceWriteReplayTest'
+            --tests '*RecordingsGuardTest' --tests '*ConfluenceWriteReplayTest' \
+            --tests '*ConfluenceChangeReplayTest'
       - name: Guard test alone decides whether the data may be committed
         if: steps.tests.outcome == 'failure'
         working-directory: grpc-confluence
@@ -310,7 +436,7 @@ jobs:
             echo "Nothing to commit"
             exit 0
           fi
-          git commit -m "Add recorded Confluence write exchanges from live run ${RUN_ID}"
+          git commit -m "Add recorded Confluence exchanges from live run ${RUN_ID}"
           git push origin "HEAD:${BRANCH}"
 
   probe-confluence-account:

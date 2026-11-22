@@ -54,6 +54,8 @@ public final class ConfluenceChangeGrpcService
     private final ConfluenceGrpcService confluence;
     private final ForgeEventQueue queue;
     private final Clock clock;
+    private final AtomicLong drainRequests = new AtomicLong();
+    private volatile java.util.function.IntConsumer drainListener = taken -> { };
 
     /**
      * Creates the service.
@@ -102,6 +104,7 @@ public final class ConfluenceChangeGrpcService
             PassTrigger trigger = PassTrigger.PASS_TRIGGER_START;
             long pass = 0;
             Instant nextDrain = clock.instant();
+            long drained = drainRequests.get();
             while (!context.isCancelled()) {
                 Instant now = clock.instant();
                 if (!now.isBefore(nextPass)) {
@@ -110,7 +113,9 @@ public final class ConfluenceChangeGrpcService
                     nextPass = clock.instant().plus(poll);
                     continue;
                 }
-                if (queue != null && !now.isBefore(nextDrain)) {
+                long wanted = drainRequests.get();
+                if (queue != null && (!now.isBefore(nextDrain) || wanted != drained)) {
+                    drained = wanted;
                     drain(request.getSync(), out);
                     nextDrain = clock.instant().plus(drain);
                     continue;
@@ -129,6 +134,16 @@ public final class ConfluenceChangeGrpcService
                 observer.onError(ConfluenceGrpcService.Failure.of(t).toException());
             }
         }
+    }
+
+    /** Sets what is told the number of events each drain took, after the drain. */
+    void onDrain(java.util.function.IntConsumer listener) {
+        this.drainListener = listener;
+    }
+
+    /** Makes every open stream drain the event queue once, now. */
+    void drainNow() {
+        drainRequests.incrementAndGet();
     }
 
     /** Runs one Sync pass and forwards its events. */
@@ -194,10 +209,11 @@ public final class ConfluenceChangeGrpcService
                     batch.get(handled.size()).event().getEventType(), e.toString());
         } finally {
             queue.ack(handled);
+            drainListener.accept(batch.size());
         }
     }
 
-    /** Re-reads what one event names and emits it, stamped with the event. */
+    /** Re-reads what one event names and emits it, stamped with the event; skips other spaces. */
     void resolve(SyncRequest scope, ConfluenceEvent event, Emitter out) throws Exception {
         ChangeSink sink = new ChangeSink() {
             @Override
@@ -212,6 +228,11 @@ public final class ConfluenceChangeGrpcService
                 out.snapshot(snapshot);
             }
         };
+        List<String> spaces = confluence.spaceScope(scope);
+        if (!spaces.isEmpty() && !event.getSpaceKey().isBlank()
+                && !spaces.contains(event.getSpaceKey())) {
+            return;
+        }
         String id = event.getContentId();
         boolean gone = event.getAction() == ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_TRASHED
                 || event.getAction() == ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_DELETED;
@@ -245,11 +266,6 @@ public final class ConfluenceChangeGrpcService
                     sink.emit(delete(ConfluenceEntity.newBuilder().setEntityId(id)
                             .setAttachment(Attachment.newBuilder().setId(id)), cursor));
                 } else if (gone && comment) {
-                    sink.emit(delete(ConfluenceEntity.newBuilder().setEntityId(id)
-                            .setComment(Comment.newBuilder().setId(id)), cursor));
-                } else if (event.getObject()
-                        == ai.pipestream.confluence.v1.ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_COMMENT
-                        && event.getAction() == ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_DELETED) {
                     sink.emit(delete(ConfluenceEntity.newBuilder().setEntityId(id)
                             .setComment(Comment.newBuilder().setId(id)), cursor));
                 }
