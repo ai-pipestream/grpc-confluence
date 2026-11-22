@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ack, authorized, eventKey, onEvent, queue, SECRET_HEADER } from './index.js';
+import { ack, authorized, eventKey, handle, SECRET_HEADER, store as put } from './index.js';
 
 /** In-memory stand-in for the KVS calls the app uses. */
 function memoryStore() {
@@ -55,7 +55,7 @@ test('refuses a missing or wrong secret', async () => {
   const store = memoryStore();
   assert.equal(authorized({}, 's3cret'), false);
   assert.equal(authorized({ [SECRET_HEADER]: ['x'] }, ''), false);
-  assert.equal((await queue(request({ action: 'take' }, 'wrong'), {}, store, 's3cret')).statusCode, 401);
+  assert.equal((await handle(request({ action: 'take' }, 'wrong'), store, 's3cret')).statusCode, 401);
 });
 
 test('take answers oldest first across pages and ack removes', async () => {
@@ -64,30 +64,30 @@ test('take answers oldest first across pages and ack removes', async () => {
     await store.set(eventKey(1000 + i, 'id'), { eventType: 'avi:confluence:updated:page', n: i });
   }
   await store.set('other', {});
-  const taken = await queue(request({ action: 'take', max: 30 }), {}, store, 's3cret');
+  const taken = await handle(request({ action: 'take', max: 30 }), store, 's3cret');
   assert.equal(taken.statusCode, 200);
   const events = JSON.parse(taken.body).events;
   assert.equal(events.length, 30);
   assert.equal(events[0].event.n, 0);
   assert.equal(events[29].event.n, 29);
-  const acked = await queue(request({ action: 'ack', keys: [...events.map((e) => e.key), 'other'] }),
-    {}, store, 's3cret');
+  const acked = await handle(request({ action: 'ack', keys: [...events.map((e) => e.key), 'other'] }),
+    store, 's3cret');
   assert.equal(JSON.parse(acked.body).acked, 30);
   assert.equal(store.data.size, 16);
   assert.ok(store.data.has('other'));
 });
 
-test('onEvent stores the event under a queue key', async () => {
+test('store keeps the event under a queue key', async () => {
   const store = memoryStore();
-  await onEvent({ eventType: 'avi:confluence:created:page' }, {}, store);
+  await put({ eventType: 'avi:confluence:created:page' }, store);
   const [key] = store.data.keys();
   assert.ok(key.startsWith('evt:'));
 });
 
 test('rejects bad bodies and actions', async () => {
   const store = memoryStore();
-  assert.equal((await queue({ headers: { [SECRET_HEADER]: 's3cret' }, body: '{' }, {}, store, 's3cret'))
+  assert.equal((await handle({ headers: { [SECRET_HEADER]: 's3cret' }, body: '{' }, store, 's3cret'))
     .statusCode, 400);
-  assert.equal((await queue(request({ action: 'drop' }), {}, store, 's3cret')).statusCode, 400);
+  assert.equal((await handle(request({ action: 'drop' }), store, 's3cret')).statusCode, 400);
   assert.equal(await ack('nope', store), 0);
 });

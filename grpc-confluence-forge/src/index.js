@@ -17,9 +17,14 @@ export function eventKey(now = Date.now(), id = randomUUID()) {
   return `${PREFIX}${String(now).padStart(15, '0')}:${id}`;
 }
 
-/** Stores one product event in the queue. */
-export async function onEvent(event, _context, store = kvs) {
-  await store.set(eventKey(), event, { ttl: { value: TTL_DAYS, unit: 'DAYS' } });
+/** Stores one product event in {@code store}. */
+export async function store(event, target) {
+  await target.set(eventKey(), event, { ttl: { value: TTL_DAYS, unit: 'DAYS' } });
+}
+
+/** Trigger: stores one product event in the queue. */
+export async function onEvent(event) {
+  await store(event, kvs);
 }
 
 /** Compares the request secret with the configured one in constant time. */
@@ -84,7 +89,12 @@ export async function ack(keys, store = kvs) {
 }
 
 /** Web trigger: {"action":"take","max":n} or {"action":"ack","keys":[...]}. */
-export async function queue(request, _context, store = kvs, secret = process.env.QUEUE_SECRET) {
+export async function queue(request) {
+  return handle(request, kvs, process.env.QUEUE_SECRET);
+}
+
+/** Answers one queue request against {@code store} with {@code secret}. */
+export async function handle(request, store, secret) {
   if (!authorized(request?.headers, secret)) {
     return answer(401, { error: 'unauthorized' });
   }
