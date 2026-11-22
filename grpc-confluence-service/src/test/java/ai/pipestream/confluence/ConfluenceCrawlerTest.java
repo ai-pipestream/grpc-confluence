@@ -275,10 +275,16 @@ class ConfluenceCrawlerTest {
         // The owner chain: the item, then restrictable ancestors nearest first (the embed is skipped).
         assertThat(byId.get("page:200/access").getAccessChain().getSpaceId()).isEqualTo("100");
         assertThat(byId.get("page:200/access").getAccessChain().getOwnersList())
-                .extracting(o -> o.getType() + ":" + o.getId())
+                .extracting(o -> o.getContent().getType() + ":" + o.getContent().getId())
                 .containsExactly("CONTENT_TYPE_PAGE:200", "CONTENT_TYPE_FOLDER:f1", "CONTENT_TYPE_PAGE:500");
+        assertThat(byId.get("page:200/access").getAccessChain().getOwners(0).getRestrictionState().getState())
+                .isEqualTo(ContentRestrictionState.CONTENT_RESTRICTION_STATE_VIEW_RESTRICTED);
+        assertThat(byId.get("page:200/access").getAccessChain().getOwners(0).getPermissionsList())
+                .extracting(p -> p.getPrincipal().getPrincipalId()).containsExactly("abc", "g1");
+        // Each owner's security is read once per run, though f1 is in two chains and crawled itself.
+        assertThat(fake.requestsTo("/wiki/api/v2/folders/f1/restriction-state")).hasSize(1);
         assertThat(byId.get("blogpost:300/access").getAccessChain().getOwnersList()).singleElement()
-                .satisfies(o -> assertThat(o.getType()).isEqualTo(ContentType.CONTENT_TYPE_BLOG_POST));
+                .satisfies(o -> assertThat(o.getContent().getType()).isEqualTo(ContentType.CONTENT_TYPE_BLOG_POST));
         assertThat(fake.requestsTo("/wiki/api/v2/blogposts/300/ancestors")).isEmpty();
         assertThat(byId).containsKeys("whiteboard:w1/access", "folder:f1/access", "database:d1/access");
         // Every group a permission named, with its members; a refused group is UNAVAILABLE.

@@ -7,6 +7,7 @@ import ai.pipestream.confluence.v1.ChangeSource;
 import ai.pipestream.confluence.v1.Comment;
 import ai.pipestream.confluence.v1.CommentKind;
 import ai.pipestream.confluence.v1.ContentAccessChain;
+import ai.pipestream.confluence.v1.ContentAccessOwner;
 import ai.pipestream.confluence.v1.ContentPermission;
 import ai.pipestream.confluence.v1.ContentPermissionPrincipalType;
 import ai.pipestream.confluence.v1.ContentRef;
@@ -48,7 +49,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -80,7 +83,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * so their {@code entity_id} is composed from the owner and the item's
  * identity, for example {@code page:123/permission/read/user/abc}. Each
  * owner also gets its owner chain ({@code page:123/access}: the item, then
- * its restrictable ancestors, nearest first), and every group a permission
+ * its restrictable ancestors, nearest first, each with its restriction
+ * state and direct permissions, read once per run), and every group a permission
  * names is emitted with its members ({@code group:<id>/member/<account id>})
  * and every named user with what the API shows of them, email included.</p>
  *
@@ -113,6 +117,12 @@ public final class ConfluenceCrawler {
     private final Set<String> groupIds = ConcurrentHashMap.newKeySet();
     /** Account ids named by a permission this run. */
     private final Set<String> accountIds = ConcurrentHashMap.newKeySet();
+    /** The security reads of each owner this run, by {@code <segment>/<id>}. */
+    private final Map<String, CompletableFuture<OwnerRead>> ownerReads = new ConcurrentHashMap<>();
+
+    /** The restriction state and direct permissions of one owner, and whether both were read in full. */
+    private record OwnerRead(RestrictionState state, List<ContentPermission> permissions, boolean complete) {
+    }
 
     /**
      * Creates a crawler that maps REST entities and emits them to {@code sink}.
@@ -140,6 +150,7 @@ public final class ConfluenceCrawler {
         String runId = UUID.randomUUID().toString();
         groupIds.clear();
         accountIds.clear();
+        ownerReads.clear();
         CursorGuard spacesGuard = new CursorGuard("GET /spaces");
         for (JsonNode spaceNode : listAll("/api/v2/spaces", spacesQuery(), spacesGuard)) {
             Space space = mapper.toSpace(spaceNode);
@@ -181,6 +192,7 @@ public final class ConfluenceCrawler {
         AtomicReference<Timestamp> newest = new AtomicReference<>(since);
         groupIds.clear();
         accountIds.clear();
+        ownerReads.clear();
         CursorGuard spacesGuard = new CursorGuard("GET /spaces");
         for (JsonNode spaceNode : listAll("/api/v2/spaces", spacesQuery(), spacesGuard)) {
             Space space = mapper.toSpace(spaceNode);
@@ -522,12 +534,9 @@ public final class ConfluenceCrawler {
     private SecurityCompleteness crawlSecurity(String segment, String kind, String id,
             String spaceId, ChangeSource source, String changeCursor, Map<String, Long> counts)
             throws IOException, InterruptedException {
-        String path = "/api/v2/" + segment + "/" + id;
         String owner = kind + ":" + id;
-        SecurityRead<List<JsonNode>> permissions = listSecurity(path + "/permissions",
-                Map.of("limit", String.valueOf(config.pageSize())), "content permissions");
-        for (JsonNode node : permissions.value()) {
-            ContentPermission permission = mapper.toContentPermission(node);
+        OwnerRead read = readOwner(segment, id);
+        for (ContentPermission permission : read.permissions()) {
             String principalId = permission.getPrincipal().getPrincipalId();
             if (permission.getPrincipal().getPrincipalType()
                     == ContentPermissionPrincipalType.CONTENT_PERMISSION_PRINCIPAL_TYPE_GROUP) {
@@ -540,19 +549,50 @@ public final class ConfluenceCrawler {
                     + wire(permission.getOperation().name(), "CONTENT_PERMISSION_OPERATION_") + "/"
                     + wire(permission.getPrincipal().getPrincipalType().name(),
                             "CONTENT_PERMISSION_PRINCIPAL_TYPE_")
-                    + "/" + permission.getPrincipal().getPrincipalId())
+                    + "/" + principalId)
                     .setContentPermission(permission).build(), source, changeCursor);
             count(counts, "content_permission");
         }
-        SecurityRead<JsonNode> state = getSecurity(path + "/restriction-state", "restriction state");
-        RestrictionState restriction = state.value() == null
-                ? RestrictionState.getDefaultInstance() : mapper.toRestrictionState(state.value());
-        SecurityCompleteness completeness = completeness(permissions.complete() && state.complete());
-        emit(entity(owner + "/restriction-state").setRestrictionState(restriction)
+        SecurityCompleteness completeness = completeness(read.complete());
+        emit(entity(owner + "/restriction-state").setRestrictionState(read.state())
                 .setSecurityCompleteness(completeness).build(), source, changeCursor);
         count(counts, "restriction_state");
         crawlAccessChain(segment, kind, id, spaceId, source, changeCursor, counts);
         return completeness;
+    }
+
+    /**
+     * The restriction state and direct permissions of one owner, read once
+     * per run: a later call for the same owner waits for and shares the
+     * first read.
+     */
+    private OwnerRead readOwner(String segment, String id) throws IOException, InterruptedException {
+        CompletableFuture<OwnerRead> mine = new CompletableFuture<>();
+        CompletableFuture<OwnerRead> first = ownerReads.putIfAbsent(segment + "/" + id, mine);
+        if (first != null) {
+            try {
+                return first.get();
+            } catch (ExecutionException e) {
+                rethrow(e.getCause());
+                throw new IllegalStateException(e.getCause());
+            }
+        }
+        try {
+            String path = "/api/v2/" + segment + "/" + id;
+            SecurityRead<List<JsonNode>> permissions = listSecurity(path + "/permissions",
+                    Map.of("limit", String.valueOf(config.pageSize())), "content permissions");
+            SecurityRead<JsonNode> state = getSecurity(path + "/restriction-state", "restriction state");
+            OwnerRead read = new OwnerRead(state.value() == null ? RestrictionState.getDefaultInstance()
+                    : mapper.toRestrictionState(state.value()),
+                    permissions.value().stream().map(mapper::toContentPermission).toList(),
+                    permissions.complete() && state.complete());
+            mine.complete(read);
+            return read;
+        } catch (IOException | InterruptedException | RuntimeException e) {
+            mine.completeExceptionally(e);
+            ownerReads.remove(segment + "/" + id, mine);
+            throw e;
+        }
     }
 
     /**
@@ -566,9 +606,8 @@ public final class ConfluenceCrawler {
             ChangeSource source, String changeCursor, Map<String, Long> counts)
             throws IOException, InterruptedException {
         ContentType type = contentType(kind);
-        ContentAccessChain.Builder chain = ContentAccessChain.newBuilder().setSpaceId(spaceId)
-                .addOwners(ContentRef.newBuilder().setType(type).setId(id));
-        boolean complete = true;
+        ContentAccessChain.Builder chain = ContentAccessChain.newBuilder().setSpaceId(spaceId);
+        boolean complete = addOwner(chain, type, id);
         if (type != ContentType.CONTENT_TYPE_BLOG_POST) {
             List<JsonNode> ancestors = new ArrayList<>();
             Set<String> seen = new HashSet<>();
@@ -597,13 +636,23 @@ public final class ConfluenceCrawler {
                 String ancestorId = ancestor.path("id").asText("");
                 if (ancestorType != null && ancestorType != ContentType.CONTENT_TYPE_BLOG_POST
                         && !ancestorId.isEmpty()) {
-                    chain.addOwners(ContentRef.newBuilder().setType(ancestorType).setId(ancestorId));
+                    complete &= addOwner(chain, ancestorType, ancestorId);
                 }
             }
         }
         emit(entity(kind + ":" + id + "/access").setAccessChain(chain)
                 .setSecurityCompleteness(completeness(complete)).build(), source, changeCursor);
         count(counts, "access_chain");
+    }
+
+    /** Adds one owner with its security reads to {@code chain}; whether they were complete. */
+    private boolean addOwner(ContentAccessChain.Builder chain, ContentType type, String id)
+            throws IOException, InterruptedException {
+        OwnerRead read = readOwner(segmentOf(type), id);
+        chain.addOwners(ContentAccessOwner.newBuilder()
+                .setContent(ContentRef.newBuilder().setType(type).setId(id))
+                .setRestrictionState(read.state()).addAllPermissions(read.permissions()));
+        return read.complete();
     }
 
     /** The content kind of a tree node type as the API names it; null for others (Smart Links). */
@@ -625,7 +674,8 @@ public final class ConfluenceCrawler {
             case CONTENT_TYPE_WHITEBOARD -> "whiteboards";
             case CONTENT_TYPE_DATABASE -> "databases";
             case CONTENT_TYPE_FOLDER -> "folders";
-            default -> "blogposts";
+            case CONTENT_TYPE_BLOG_POST -> "blogposts";
+            default -> throw new IllegalArgumentException("no owner route for " + type);
         };
     }
 

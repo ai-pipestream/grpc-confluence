@@ -227,22 +227,37 @@ final class AclScenarios {
             check(cursor != null, "no resume cursor");
             ConfluenceEntity chain = byId.get("page:" + child.getId() + "/access");
             check(chain != null, "no access chain for the child");
-            List<String> owners = chain.getAccessChain().getOwnersList().stream().map(ContentRef::getId).toList();
+            List<String> owners = chain.getAccessChain().getOwnersList().stream()
+                    .map(o -> o.getContent().getId()).toList();
             check(chain.getAccessChain().getSpaceId().equals(space.getId()), "chain space "
                     + chain.getAccessChain().getSpaceId());
             check(owners.size() >= 2 && owners.get(0).equals(child.getId()) && owners.get(1).equals(parent.getId()),
                     "chain owners " + owners);
             check(chain.getSecurityCompleteness() == SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE,
                     "chain completeness " + chain.getSecurityCompleteness());
+            ContentAccessOwner chainParent = chain.getAccessChain().getOwners(1);
+            check(chainParent.getRestrictionState().getState()
+                    == ContentRestrictionState.CONTENT_RESTRICTION_STATE_VIEW_RESTRICTED,
+                    "the chain's parent state " + chainParent.getRestrictionState().getState());
+            check(chainParent.getPermissionsList().stream().anyMatch(p ->
+                    p.getPrincipal().getPrincipalId().equals(caller)), "the chain's parent does not list the caller");
             ConfluenceEntity state = byId.get("page:" + parent.getId() + "/restriction-state");
             check(state != null && state.getRestrictionState().getState()
                     == ContentRestrictionState.CONTENT_RESTRICTION_STATE_VIEW_RESTRICTED, "parent state " + state);
-            check(byId.containsKey("page:" + parent.getId() + "/permission/read/user/" + caller),
-                    "no read permission record for the caller on the parent");
+            List<String> parentPermissions = byId.entrySet().stream()
+                    .filter(e -> e.getKey().startsWith("page:" + parent.getId() + "/permission/"))
+                    .map(Map.Entry::getKey).sorted().toList();
+            check(byId.entrySet().stream().anyMatch(e -> e.getValue().hasContentPermission()
+                    && e.getKey().startsWith("page:" + parent.getId() + "/permission/")
+                    && e.getValue().getContentPermission().getPrincipal().getPrincipalId().equals(caller)),
+                    "no permission record for the caller on the parent; parent records " + parentPermissions);
             String groups = "no caller group";
             if (callerGroup != null) {
-                check(byId.containsKey("page:" + parent.getId() + "/permission/read/group/" + callerGroup),
-                        "no read permission record for the group on the parent");
+                check(byId.entrySet().stream().anyMatch(e -> e.getValue().hasContentPermission()
+                        && e.getKey().startsWith("page:" + parent.getId() + "/permission/")
+                        && e.getValue().getContentPermission().getPrincipal().getPrincipalId()
+                                .equals(callerGroup)),
+                        "no permission record for the group on the parent; parent records " + parentPermissions);
                 ConfluenceEntity group = byId.get(callerGroup);
                 check(group != null && group.hasGroup() && !group.getGroup().getName().isEmpty(),
                         "no group record");
