@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/admin-key",
+    "path" : "/wiki/api/v2/space-roles/b2c31d7b-eac0-4a19-8796-9a045df69861",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -18,8 +18,11 @@
     },
     "body" : {
       "json" : {
-        "accountId" : "account-1",
-        "expirationTime" : "2026-11-22T13:41:19.665Z"
+        "id" : "b2c31d7b-eac0-4a19-8796-9a045df69861",
+        "type" : "CUSTOM",
+        "name" : "lw-46e204d2",
+        "description" : "live write run",
+        "spacePermissions" : [ "read/space" ]
       }
     }
   }

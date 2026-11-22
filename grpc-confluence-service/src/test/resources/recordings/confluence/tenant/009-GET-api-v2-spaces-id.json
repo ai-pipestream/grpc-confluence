@@ -1,10 +1,10 @@
 {
   "scenario" : "tenant",
-  "sequence" : 6,
+  "sequence" : 9,
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/space-roles/47092ce3-e09e-48ae-984a-f48f2344d463",
+    "path" : "/wiki/api/v2/spaces/30114007",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -12,17 +12,18 @@
     "authorized" : true
   },
   "response" : {
-    "status" : 200,
+    "status" : 404,
     "headers" : {
       "content-type" : "application/json"
     },
     "body" : {
       "json" : {
-        "id" : "47092ce3-e09e-48ae-984a-f48f2344d463",
-        "type" : "CUSTOM",
-        "name" : "lw-86e1fb14",
-        "description" : "live write run",
-        "spacePermissions" : [ "read/space" ]
+        "errors" : [ {
+          "status" : 404,
+          "code" : "NOT_FOUND",
+          "title" : "Cannot find a space with id [30114007]",
+          "detail" : null
+        } ]
       }
     }
   }

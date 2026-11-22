@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/folders/30474489",
+    "path" : "/wiki/api/v2/folders/29851813",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -18,29 +18,29 @@
     },
     "body" : {
       "json" : {
-        "id" : "30474489",
+        "id" : "29851813",
         "type" : "folder",
-        "parentId" : "30441601",
-        "title" : "pipestream-live-write-20261122T133926Z-86e1fb14 folder",
+        "parentId" : "29851761",
+        "title" : "pipestream-live-write-20261122T141900Z-46e204d2 folder",
         "parentType" : "page",
-        "position" : 1103,
+        "position" : 1434,
         "authorId" : "account-1",
         "ownerId" : "account-1",
-        "createdAt" : 1795354813173,
+        "createdAt" : 1795357199348,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T13:40:13.173Z"
+          "createdAt" : "2026-11-22T14:19:59.348Z"
         },
         "status" : "current",
         "spaceId" : "7798786",
         "_links" : {
-          "editui" : "/spaces/CLAUDEGRPC/folder/30474489",
-          "webui" : "/spaces/CLAUDEGRPC/folder/30474489",
-          "edituiv2" : "/spaces/CLAUDEGRPC/folder/30474489",
-          "tinyui" : "/x/_QDRAQ",
+          "editui" : "/spaces/CLAUDEGRPC/folder/29851813",
+          "webui" : "/spaces/CLAUDEGRPC/folder/29851813",
+          "edituiv2" : "/spaces/CLAUDEGRPC/folder/29851813",
+          "tinyui" : "/x/pYDHAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

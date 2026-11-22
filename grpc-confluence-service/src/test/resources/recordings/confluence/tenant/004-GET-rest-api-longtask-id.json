@@ -1,0 +1,45 @@
+{
+  "scenario" : "tenant",
+  "sequence" : 4,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/longtask/30376385",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:long-running-task/activation/b1593a2f-bf8a-4c2e-a0c6-8b31a89d2389/30376385",
+        "id" : "30376385",
+        "name" : {
+          "key" : "com.atlassian.confluence.spaces.actions.RemoveSpaceAction.action.name",
+          "args" : [ ]
+        },
+        "elapsedTime" : 0,
+        "percentageComplete" : 0,
+        "successful" : false,
+        "finished" : false,
+        "messages" : [ {
+          "translation" : "",
+          "args" : [ ]
+        } ],
+        "status" : "ENQUEUED",
+        "errors" : [ ],
+        "additionalDetails" : { },
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki",
+          "context" : "/wiki"
+        }
+      }
+    }
+  }
+}

@@ -4,7 +4,7 @@
   "request" : {
     "method" : "PUT",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30113888",
+    "path" : "/wiki/api/v2/pages/29884673",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -13,12 +13,12 @@
     "authorized" : true,
     "body" : {
       "json" : {
-        "id" : "30113888",
+        "id" : "29884673",
         "status" : "current",
-        "title" : "pipestream-live-write-20261122T133926Z-86e1fb14 storage",
+        "title" : "pipestream-live-write-20261122T141900Z-46e204d2 storage",
         "body" : {
           "representation" : "storage",
-          "value" : "<p>Updated body pipestream-live-write-20261122T133926Z-86e1fb14 inlinetarget</p>"
+          "value" : "<p>Updated body pipestream-live-write-20261122T141900Z-46e204d2 inlinetarget</p>"
         },
         "version" : {
           "number" : 2,
@@ -36,34 +36,34 @@
       "json" : {
         "authorId" : "account-1",
         "parentType" : "page",
-        "parentId" : "30441601",
+        "parentId" : "29851761",
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T13:39:29.088Z",
+        "createdAt" : "2026-11-22T14:19:04.315Z",
         "version" : {
           "number" : 2,
           "message" : "live write update",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T13:39:29.728Z",
+          "createdAt" : "2026-11-22T14:19:05.387Z",
           "ncsStepVersion" : "1"
         },
-        "position" : 771,
+        "position" : 437,
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>Updated body pipestream-live-write-20261122T133926Z-86e1fb14 inlinetarget</p>"
+            "value" : "<p>Updated body pipestream-live-write-20261122T141900Z-46e204d2 inlinetarget</p>"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261122T133926Z-86e1fb14 storage",
-        "id" : "30113888",
+        "title" : "pipestream-live-write-20261122T141900Z-46e204d2 storage",
+        "id" : "29884673",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=30113888",
-          "webui" : "/spaces/CLAUDEGRPC/pages/30113888/pipestream-live-write-20261122T133926Z-86e1fb14+storage",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30113888",
-          "tinyui" : "/x/YIDLAQ",
+          "editui" : "/pages/resumedraft.action?draftId=29884673",
+          "webui" : "/spaces/CLAUDEGRPC/pages/29884673/pipestream-live-write-20261122T141900Z-46e204d2+storage",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29884673",
+          "tinyui" : "/x/AQHIAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }
