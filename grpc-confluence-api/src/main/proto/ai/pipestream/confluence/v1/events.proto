@@ -72,6 +72,114 @@ message ConfluenceChange {
   ChangeSource source = 5;
   // When the change was observed.
   google.protobuf.Timestamp occurred_at = 6;
+  // The Confluence event that caused this change, for WEBHOOK changes.
+  ConfluenceEvent event = 7;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
+}
+
+// What happened, as a Confluence product event names it.
+enum ConfluenceEventAction {
+  // Zero value; an action this server does not model (see event_type).
+  CONFLUENCE_EVENT_ACTION_UNSPECIFIED = 0;
+  // created.
+  CONFLUENCE_EVENT_ACTION_CREATED = 1;
+  // updated.
+  CONFLUENCE_EVENT_ACTION_UPDATED = 2;
+  // trashed.
+  CONFLUENCE_EVENT_ACTION_TRASHED = 3;
+  // restored.
+  CONFLUENCE_EVENT_ACTION_RESTORED = 4;
+  // deleted (purged).
+  CONFLUENCE_EVENT_ACTION_DELETED = 5;
+  // moved.
+  CONFLUENCE_EVENT_ACTION_MOVED = 6;
+  // copied.
+  CONFLUENCE_EVENT_ACTION_COPIED = 7;
+  // permissions_updated: restrictions or space permissions changed.
+  CONFLUENCE_EVENT_ACTION_PERMISSIONS_UPDATED = 8;
+  // added (a label to content).
+  CONFLUENCE_EVENT_ACTION_ADDED = 9;
+  // removed (a label from content, or a task).
+  CONFLUENCE_EVENT_ACTION_REMOVED = 10;
+  // archived.
+  CONFLUENCE_EVENT_ACTION_ARCHIVED = 11;
+  // unarchived.
+  CONFLUENCE_EVENT_ACTION_UNARCHIVED = 12;
+  // published (live docs).
+  CONFLUENCE_EVENT_ACTION_PUBLISHED = 13;
+  // children_reordered.
+  CONFLUENCE_EVENT_ACTION_CHILDREN_REORDERED = 14;
+}
+
+// What kind of object a Confluence product event is about.
+enum ConfluenceEventObject {
+  // Zero value; an object this server does not model (see event_type).
+  CONFLUENCE_EVENT_OBJECT_UNSPECIFIED = 0;
+  // page.
+  CONFLUENCE_EVENT_OBJECT_PAGE = 1;
+  // blogpost.
+  CONFLUENCE_EVENT_OBJECT_BLOG_POST = 2;
+  // attachment.
+  CONFLUENCE_EVENT_OBJECT_ATTACHMENT = 3;
+  // comment.
+  CONFLUENCE_EVENT_OBJECT_COMMENT = 4;
+  // label.
+  CONFLUENCE_EVENT_OBJECT_LABEL = 5;
+  // space.
+  CONFLUENCE_EVENT_OBJECT_SPACE = 6;
+  // custom_content.
+  CONFLUENCE_EVENT_OBJECT_CUSTOM_CONTENT = 7;
+  // whiteboard.
+  CONFLUENCE_EVENT_OBJECT_WHITEBOARD = 8;
+  // database.
+  CONFLUENCE_EVENT_OBJECT_DATABASE = 9;
+  // folder.
+  CONFLUENCE_EVENT_OBJECT_FOLDER = 10;
+  // embed (smart link).
+  CONFLUENCE_EVENT_OBJECT_EMBED = 11;
+  // task.
+  CONFLUENCE_EVENT_OBJECT_TASK = 12;
+  // user.
+  CONFLUENCE_EVENT_OBJECT_USER = 13;
+  // group.
+  CONFLUENCE_EVENT_OBJECT_GROUP = 14;
+}
+
+// One Confluence product event, as the companion Forge app queued it.
+message ConfluenceEvent {
+  // Queue key of the event; stable across redeliveries.
+  string event_id = 1;
+  // Full event name, e.g. avi:confluence:created:page.
+  string event_type = 2;
+  // The action part of the name.
+  ConfluenceEventAction action = 3;
+  // The object part of the name.
+  ConfluenceEventObject object = 4;
+  // Id of the content (or space) the event is about.
+  string content_id = 5;
+  // Content type Confluence reported (page, blogpost, attachment, comment, ...).
+  string content_type = 6;
+  // Space id of the content.
+  string space_id = 7;
+  // Space key of the content.
+  string space_key = 8;
+  // Title of the content.
+  string title = 9;
+  // Content version number after the event; 0 when absent.
+  int32 version_number = 10;
+  // Account id of the user who acted; empty for anonymous or app actions.
+  string actor_account_id = 11;
+  // When Confluence created the event.
+  google.protobuf.Timestamp occurred_at = 12;
+  // Previous parent id, for moved events.
+  string previous_parent_id = 13;
+  // Source content id, for copied events.
+  string origin_content_id = 14;
+  // Label name, for label events.
+  string label_name = 15;
+  // Container id of a comment or attachment (the page or blog post it is on).
+  string container_id = 16;
+  // True when the app itself caused the event.
+  bool self_generated = 17;
 }

@@ -1976,6 +1976,12 @@ public final class ConfluenceGrpcService
     // SYNC AND PROBE
     // ======================================================================
 
+    /** A crawler over the connection's credentials that emits to {@code sink}. */
+    ConfluenceCrawler crawler(String connectionId, ChangeSink sink) {
+        Session session = session(connectionId);
+        return new ConfluenceCrawler(session.config, session.client, sink);
+    }
+
     @Override
     public void sync(SyncRequest request, StreamObserver<SyncResponse> observer) {
         try {
@@ -3002,7 +3008,7 @@ public final class ConfluenceGrpcService
             ConfluenceClient client, ConfluenceMapper mapper, ConnectionOutput output) {
     }
 
-    private static ConfluenceChange stripBodies(ConfluenceChange change) {
+    static ConfluenceChange stripBodies(ConfluenceChange change) {
         ConfluenceEntity entity = change.getEntity();
         ConfluenceEntity stripped = switch (entity.getEntityCase()) {
             case PAGE -> entity.toBuilder()

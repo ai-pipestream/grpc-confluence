@@ -119,8 +119,15 @@ public final class ConfluenceServer {
                 parseLong(System.getenv(ENV_ATTACHMENT_MAX_BYTES),
                         ConfluenceGrpcService.DEFAULT_ATTACHMENT_MAX_BYTES),
                 downstream, connections, ledgerSink);
-        Server server = startNetty(service, parseInt(System.getenv(ENV_GRPC_PORT),
-                DEFAULT_GRPC_PORT));
+        ForgeEventQueue queue = ForgeEventQueue.fromEnvironment(
+                java.net.http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(20)).build());
+        if (queue != null) {
+            LOG.log(System.Logger.Level.INFO, "confluence-proxy Forge event queue on");
+        }
+        ConfluenceChangeGrpcService changes = new ConfluenceChangeGrpcService(service, queue,
+                java.time.Clock.systemUTC());
+        Server server = startNetty(parseInt(System.getenv(ENV_GRPC_PORT), DEFAULT_GRPC_PORT),
+                service, changes);
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             server.shutdown();
             try {
@@ -176,10 +183,25 @@ public final class ConfluenceServer {
      * @throws IOException if the port cannot be bound
      */
     public static Server startNetty(BindableService service, int port) throws IOException {
+        return startNetty(port, service);
+    }
+
+    /**
+     * Binds {@code services} on Netty with reflection, health, and a virtual-thread executor.
+     *
+     * @param port the listen port
+     * @param services the gRPC services to serve
+     * @return the started server
+     * @throws IOException if the port cannot be bound
+     */
+    public static Server startNetty(int port, BindableService... services) throws IOException {
         HealthStatusManager health = new HealthStatusManager();
-        Server server = NettyServerBuilder.forPort(port)
-                .executor(Executors.newVirtualThreadPerTaskExecutor())
-                .addService(service)
+        NettyServerBuilder builder = NettyServerBuilder.forPort(port)
+                .executor(Executors.newVirtualThreadPerTaskExecutor());
+        for (BindableService service : services) {
+            builder.addService(service);
+        }
+        Server server = builder
                 .addService(health.getHealthService())
                 .addService(ProtoReflectionServiceV1.newInstance())
                 .build().start();

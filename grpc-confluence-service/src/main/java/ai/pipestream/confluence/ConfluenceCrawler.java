@@ -344,6 +344,56 @@ public final class ConfluenceCrawler {
         }
     }
 
+    /**
+     * Re-reads one page or blog post with its security data, comments,
+     * attachments, labels and content properties, emitting each record with
+     * {@code source} and {@code cursor}.
+     *
+     * @param blogPost true for a blog post, false for a page
+     * @param id the content id
+     * @param source the change source to stamp
+     * @param cursor the cursor to stamp
+     * @throws IOException if a REST call fails (404 when the content is gone)
+     * @throws InterruptedException if the calling thread is interrupted while waiting
+     */
+    public void reread(boolean blogPost, String id, ChangeSource source, String cursor)
+            throws IOException, InterruptedException {
+        String segment = blogPost ? "blogposts" : "pages";
+        JsonNode node = client.get("/api/v2/" + segment + "/" + id,
+                Map.of("body-format", config.bodyFormat()));
+        Map<String, Long> counts = new java.util.HashMap<>();
+        if (blogPost) {
+            crawlBlogPost(node, source, cursor, counts);
+        } else {
+            Page page = mapper.toPage(node);
+            SecurityCompleteness security = crawlSecurity("pages", "page", page.getId(), source,
+                    cursor, counts);
+            emit(entity(page.getId()).setPage(page).setSecurityCompleteness(security).build(),
+                    source, cursor);
+            crawlComments("/api/v2/pages/" + page.getId(), source, cursor, counts);
+            crawlSubEntities("/api/v2/pages/" + page.getId(), "page:" + page.getId(), source,
+                    cursor, counts);
+        }
+    }
+
+    /**
+     * Re-reads one space and its permission and role assignments, without its content.
+     *
+     * @param id the space id
+     * @param source the change source to stamp
+     * @param cursor the cursor to stamp
+     * @throws IOException if a REST call fails (404 when the space is gone)
+     * @throws InterruptedException if the calling thread is interrupted while waiting
+     */
+    public void rereadSpace(String id, ChangeSource source, String cursor)
+            throws IOException, InterruptedException {
+        Space space = mapper.toSpace(client.get("/api/v2/spaces/" + id, Map.of()));
+        SecurityCompleteness security = crawlSpaceSecurity(space, source, cursor,
+                new java.util.HashMap<>());
+        emit(entity(space.getId()).setSpace(space).setSecurityCompleteness(security).build(),
+                source, cursor);
+    }
+
     private void crawlPage(JsonNode node, ChangeSource source, String changeCursor,
             Map<String, Long> counts, Set<String> seenTree, Timestamp stopAt)
             throws IOException, InterruptedException {
