@@ -45,7 +45,9 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * default classification, invitations, the admin key) run only with
  * {@code CONFLUENCE_LIVE_WRITE_ADMIN=1}; invitations also need
  * {@code CONFLUENCE_LIVE_WRITE_INVITE_EMAIL}. Custom content needs a type
- * in {@code CONFLUENCE_LIVE_WRITE_CUSTOM_CONTENT_TYPE}. The bulk permission
+ * in {@code CONFLUENCE_LIVE_WRITE_CUSTOM_CONTENT_TYPE}. With
+ * {@code CONFLUENCE_LIVE_WRITE_OVERSIZE_BYTES} set, an attachment of that
+ * size is uploaded and must be refused as too large. The bulk permission
  * transitions and the Forge app properties are never run. Credential values
  * never reach the report, stdout or the recording.</p>
  */
@@ -101,7 +103,9 @@ class ConfluenceLiveWriteIT {
         WriteScenarios.Backend backend = new WriteScenarios.Backend(spaceKey, run,
                 "1".equals(env("CONFLUENCE_LIVE_WRITE_ADMIN")),
                 env("CONFLUENCE_LIVE_WRITE_CUSTOM_CONTENT_TYPE"),
-                env("CONFLUENCE_LIVE_WRITE_INVITE_EMAIL"), List.of(token, email), tape);
+                env("CONFLUENCE_LIVE_WRITE_INVITE_EMAIL"), List.of(token, email), tape,
+                env("CONFLUENCE_LIVE_WRITE_OVERSIZE_BYTES") == null ? 0
+                        : Long.parseLong(env("CONFLUENCE_LIVE_WRITE_OVERSIZE_BYTES")));
 
         ConfluenceConnectorConfig config = ConfluenceConnectorConfig.builder()
                 .baseUrl(baseUrl).email(email).apiToken(token).pageSize(25).build();
@@ -160,8 +164,9 @@ class ConfluenceLiveWriteIT {
         run.put("admin", backend.admin());
         run.put("customContentType", backend.customContentType());
         run.put("inviteEmail", backend.inviteEmail());
-        scenarios.rows().forEach(row -> run.withArray("outcomes").addObject()
-                .put("rpc", row.rpc()).put("step", row.label()).put("outcome", row.outcome()));
+        scenarios.rows().stream().filter(row -> !row.label().equals(WriteScenarios.OVERSIZE_STEP))
+                .forEach(row -> run.withArray("outcomes").addObject().put("rpc", row.rpc())
+                        .put("step", row.label()).put("outcome", row.outcome()));
         return run;
     }
 }

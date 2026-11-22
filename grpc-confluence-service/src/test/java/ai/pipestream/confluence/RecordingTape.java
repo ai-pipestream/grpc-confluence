@@ -46,6 +46,7 @@ final class RecordingTape extends ExchangeTape {
     private int sequence;
     private int groups;
     private boolean unordered;
+    private boolean muted;
 
     /** Starts a recording under {@code root}, removing the recording that was there. */
     RecordingTape(HttpClient delegate, Path root, RecordingScrubber scrubber) throws IOException {
@@ -72,6 +73,11 @@ final class RecordingTape extends ExchangeTape {
     }
 
     @Override
+    synchronized void mute(boolean on) {
+        muted = on;
+    }
+
+    @Override
     void pause(Duration time) throws InterruptedException {
         Thread.sleep(time);
     }
@@ -80,6 +86,13 @@ final class RecordingTape extends ExchangeTape {
     public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> handler)
             throws IOException, InterruptedException {
         Pending pending;
+        boolean skip;
+        synchronized (this) {
+            skip = muted;
+        }
+        if (skip) {
+            return delegate.send(request, handler);
+        }
         synchronized (this) {
             if (scenario == null) {
                 throw new IllegalStateException("no scenario was started");

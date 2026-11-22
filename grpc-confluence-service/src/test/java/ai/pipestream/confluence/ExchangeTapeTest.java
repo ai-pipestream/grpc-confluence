@@ -196,7 +196,7 @@ class ExchangeTapeTest {
         fake.stub("GET", "/wiki/api/v2/pages/100", 200, page);
         RecordingTape recording = recording();
         WriteScenarios.Backend backend = new WriteScenarios.Backend("DEMO", "pipestream-live-write-test",
-                true, "ac:demo:thing", "invitee@acme.example", List.of(TOKEN, EMAIL), recording);
+                true, "ac:demo:thing", "invitee@acme.example", List.of(TOKEN, EMAIL), recording, 0);
         List<WriteScenarios.Row> live = runScenarios(fake.baseUrl(), recording, backend, true);
         fake.close();
 

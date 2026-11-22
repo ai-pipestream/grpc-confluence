@@ -42,6 +42,8 @@ final class WriteScenarios {
     private static final long CALL_DEADLINE_SECONDS = 120;
     private static final int LARGE_UPLOAD_BYTES = 5 * 1024 * 1024;
     private static final int UPLOAD_CHUNK_BYTES = 256 * 1024;
+    /** The label of the step that is run live only and never recorded. */
+    static final String OVERSIZE_STEP = "UploadAttachment (over the site's size limit)";
 
     /**
      * What the steps run against.
@@ -53,9 +55,10 @@ final class WriteScenarios {
      * @param inviteEmail the address InviteByEmail invites, or null
      * @param secrets values that must never reach a row
      * @param tape the HTTP transport of the service under test
+     * @param oversizeBytes size of an upload the site must refuse as too large; 0 = no such step
      */
     record Backend(String spaceKey, String run, boolean admin, String customContentType,
-            String inviteEmail, List<String> secrets, ExchangeTape tape) {
+            String inviteEmail, List<String> secrets, ExchangeTape tape, long oversizeBytes) {
     }
 
     /** One report row. */
@@ -537,6 +540,17 @@ final class WriteScenarios {
                     "the SHA-256 of the bytes read back differs");
             return "attachment " + attachment.getId() + "; " + large.length + " bytes, SHA-256 identical";
         });
+        if (backend.oversizeBytes() > 0) {
+            step("UploadAttachment", OVERSIZE_STEP, () -> {
+                // Not recorded: a replay would have to produce the same bytes again.
+                backend.tape().mute(true);
+                try {
+                    return refusedAsTooLarge(page.getId(), run + "-oversize.bin", backend.oversizeBytes());
+                } finally {
+                    backend.tape().mute(false);
+                }
+            });
+        }
         step("UploadAttachment", "UploadAttachment (replace_existing adds a version)", () -> {
             require(small.get(), "no attachment was uploaded");
             byte[] next = ("second version " + run + "\n").getBytes(StandardCharsets.UTF_8);
@@ -1411,6 +1425,53 @@ final class WriteScenarios {
                     + bytes.length + " bytes");
             return last.getAttachment();
         }
+    }
+
+    /** Streams {@code size} bytes as an attachment and expects the upload to fail as too large. */
+    private String refusedAsTooLarge(String contentId, String fileName, long size) throws Exception {
+        List<UploadAttachmentResponse> events = new ArrayList<>();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        CountDownLatch done = new CountDownLatch(1);
+        StreamObserver<UploadAttachmentRequest> frames = ConfluenceServiceGrpc.newStub(channel)
+                .uploadAttachment(collector(events, failure, done));
+        frames.onNext(UploadAttachmentRequest.newBuilder().setHeader(UploadAttachmentHeader.newBuilder()
+                .setContentId(contentId).setFileName(fileName).setMediaType("application/octet-stream")
+                .setComment("live write run").setMinorEdit(true)).build());
+        byte[] chunk = new byte[UPLOAD_CHUNK_BYTES];
+        Random random = new Random(7);
+        long sent = 0;
+        int frame = 0;
+        while (sent < size && done.getCount() > 0) {
+            int length = (int) Math.min(chunk.length, size - sent);
+            random.nextBytes(chunk);
+            frames.onNext(UploadAttachmentRequest.newBuilder()
+                    .setChunk(ByteString.copyFrom(chunk, 0, length)).build());
+            sent += length;
+            frame++;
+            // Stay a few frames ahead of what the service has taken, no more.
+            long waitUntil = System.nanoTime() + TimeUnit.MINUTES.toNanos(5);
+            while (done.getCount() > 0 && System.nanoTime() < waitUntil) {
+                synchronized (events) {
+                    if (events.size() >= frame - 8) {
+                        break;
+                    }
+                }
+                Thread.sleep(5);
+            }
+        }
+        if (done.getCount() > 0) {
+            frames.onNext(UploadAttachmentRequest.newBuilder()
+                    .setEnd(UploadAttachmentEnd.getDefaultInstance()).build());
+            frames.onCompleted();
+        }
+        check(done.await(10, TimeUnit.MINUTES), "the upload did not finish in time");
+        check(failure.get() != null, "the site stored an upload of " + size
+                + " bytes; its limit is higher than that");
+        Status status = Status.fromThrowable(failure.get());
+        check(status.getCode() == Status.Code.INTERNAL && String.valueOf(status.getDescription())
+                        .contains(ConfluenceConnectorConfig.ENV_MAX_ATTACHMENT_BYTES),
+                "expected the size-limit error, got " + status.getCode() + " " + status.getDescription());
+        return "refused after " + sent + " of " + size + " bytes: " + status.getCode();
     }
 
     private List<MutateResponse> mutateAll(List<MutateRequest> operations) throws Exception {

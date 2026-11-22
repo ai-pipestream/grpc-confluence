@@ -104,7 +104,7 @@ class ConfluenceWriteReplayTest {
     static WriteScenarios.Backend backend(ExchangeTape tape, JsonNode run) {
         return new WriteScenarios.Backend(run.path("spaceKey").asText(), run.path("run").asText(),
                 run.path("admin").asBoolean(), run.path("customContentType").asText(null),
-                run.path("inviteEmail").asText(null), List.of(), tape);
+                run.path("inviteEmail").asText(null), List.of(), tape, 0);
     }
 
     /** Whether the recorded run went through a scenario that made no request. */

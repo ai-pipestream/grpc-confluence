@@ -27,6 +27,9 @@ abstract class ExchangeTape extends HttpClient {
     /** Marks the exchanges made while on as one group that may arrive in any order. */
     abstract void unordered(boolean on);
 
+    /** While on, exchanges are sent but not kept; a replay never serves them. */
+    abstract void mute(boolean on);
+
     /** Waits for the real site to catch up; a replay does not wait. */
     abstract void pause(Duration time) throws InterruptedException;
 
