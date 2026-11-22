@@ -1,0 +1,57 @@
+{
+  "scenario" : "tree-nodes",
+  "sequence" : 1,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/folders",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "spaceId" : "7798786",
+        "title" : "pipestream-live-write-20261122T023426Z-430393c8 folder",
+        "parentId" : "29851649"
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "id" : "29720618",
+        "type" : "folder",
+        "parentId" : "29851649",
+        "title" : "pipestream-live-write-20261122T023426Z-430393c8 folder",
+        "parentType" : "page",
+        "position" : 1165,
+        "authorId" : "account-1",
+        "ownerId" : "account-1",
+        "createdAt" : 1795314916262,
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-22T02:35:16.262Z"
+        },
+        "status" : "current",
+        "spaceId" : "7798786",
+        "_links" : {
+          "editui" : "/spaces/CLAUDEGRPC/folder/29720618",
+          "webui" : "/spaces/CLAUDEGRPC/folder/29720618",
+          "edituiv2" : "/spaces/CLAUDEGRPC/folder/29720618",
+          "tinyui" : "/x/KoDFAQ",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

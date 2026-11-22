@@ -1,0 +1,68 @@
+{
+  "scenario" : "page-lifecycle",
+  "sequence" : 1,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "spaceId" : "7798786",
+        "title" : "pipestream-live-write-20261122T023426Z-430393c8 storage",
+        "parentId" : "29851649",
+        "body" : {
+          "representation" : "storage",
+          "value" : "<p>Storage body <strong>bold</strong> pipestream-live-write-20261122T023426Z-430393c8 inlinetarget</p>"
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "authorId" : "account-1",
+        "parentType" : "page",
+        "parentId" : "29851649",
+        "ownerId" : "account-1",
+        "lastOwnerId" : null,
+        "createdAt" : "2026-11-22T02:34:30.833Z",
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-22T02:34:30.833Z",
+          "ncsStepVersion" : "1"
+        },
+        "position" : 570,
+        "spaceId" : "7798786",
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<p>Storage body <strong>bold</strong> pipestream-live-write-20261122T023426Z-430393c8 inlinetarget</p>"
+          }
+        },
+        "status" : "current",
+        "title" : "pipestream-live-write-20261122T023426Z-430393c8 storage",
+        "id" : "29884417",
+        "_links" : {
+          "editui" : "/pages/resumedraft.action?draftId=29884417",
+          "webui" : "/spaces/CLAUDEGRPC/pages/29884417/pipestream-live-write-20261122T023426Z-430393c8+storage",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29884417",
+          "tinyui" : "/x/AQDIAQ",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

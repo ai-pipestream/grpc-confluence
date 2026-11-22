@@ -1,0 +1,62 @@
+{
+  "scenario" : "delete-purge",
+  "sequence" : 3,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/29720649",
+    "query" : [ {
+      "name" : "body-format",
+      "value" : "storage"
+    }, {
+      "name" : "status",
+      "value" : "trashed"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "parentType" : null,
+        "authorId" : "account-1",
+        "parentId" : null,
+        "ownerId" : "account-1",
+        "lastOwnerId" : null,
+        "createdAt" : "2026-11-22T02:35:21.597Z",
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-22T02:35:21.597Z",
+          "ncsStepVersion" : "1"
+        },
+        "position" : null,
+        "id" : "29720649",
+        "spaceId" : "7798786",
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<p>delete me</p>"
+          }
+        },
+        "status" : "trashed",
+        "title" : "pipestream-live-write-20261122T023426Z-430393c8 to delete",
+        "_links" : {
+          "editui" : "/pages/resumedraft.action?draftId=29720649",
+          "webui" : "/spaces/CLAUDEGRPC/pages/29720649/pipestream-live-write-20261122T023426Z-430393c8+to+delete",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29720649",
+          "tinyui" : "/x/SYDFAQ",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

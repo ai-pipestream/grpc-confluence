@@ -1,0 +1,69 @@
+{
+  "scenario" : "comments",
+  "sequence" : 7,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/inline-comments",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "pageId" : "29884417",
+        "body" : {
+          "representation" : "storage",
+          "value" : "<p>inline pipestream-live-write-20261122T023426Z-430393c8</p>"
+        },
+        "inlineCommentProperties" : {
+          "textSelection" : "inlinetarget",
+          "textSelectionMatchCount" : 1,
+          "textSelectionMatchIndex" : 0
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 201,
+    "headers" : {
+      "content-type" : "application/json",
+      "location" : "/wiki/api/v2/inline-comments/29884437"
+    },
+    "body" : {
+      "json" : {
+        "id" : "29884437",
+        "status" : "current",
+        "title" : "Re: pipestream-live-write-20261122T023426Z-430393c8 retitled",
+        "pageId" : "29884417",
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-22T02:34:57.657Z",
+          "contributorIds" : [ ]
+        },
+        "resolutionStatus" : "open",
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<p>inline pipestream-live-write-20261122T023426Z-430393c8</p>"
+          }
+        },
+        "properties" : {
+          "inlineMarkerRef" : "272e963b-661d-4215-84f9-72454edd46f2",
+          "inlineOriginalSelection" : "inlinetarget",
+          "inline-original-selection" : "inlinetarget",
+          "inline-marker-ref" : "272e963b-661d-4215-84f9-72454edd46f2"
+        },
+        "_links" : {
+          "webui" : "/spaces/CLAUDEGRPC/pages/29884417/pipestream-live-write-20261122T023426Z-430393c8+retitled?focusedCommentId=29884437",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

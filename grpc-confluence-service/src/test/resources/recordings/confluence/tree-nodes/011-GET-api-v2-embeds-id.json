@@ -1,0 +1,50 @@
+{
+  "scenario" : "tree-nodes",
+  "sequence" : 11,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/embeds/30179343",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "id" : "30179343",
+        "type" : "embed",
+        "parentId" : "29851649",
+        "title" : "pipestream-live-write-20261122T023426Z-430393c8 smart link",
+        "parentType" : "page",
+        "position" : 1023,
+        "authorId" : "account-1",
+        "ownerId" : "account-1",
+        "createdAt" : 1795314919345,
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-22T02:35:19.345Z"
+        },
+        "status" : "current",
+        "spaceId" : "7798786",
+        "embedUrl" : "https://www.atlassian.com/",
+        "_links" : {
+          "editui" : "/spaces/CLAUDEGRPC/embed/30179343",
+          "webui" : "/spaces/CLAUDEGRPC/embed/30179343",
+          "edituiv2" : "/spaces/CLAUDEGRPC/embed/30179343",
+          "tinyui" : "/x/D4DMAQ",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "scenario" : "tree-nodes",
+  "sequence" : 7,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/databases",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "spaceId" : "7798786",
+        "title" : "pipestream-live-write-20261122T023426Z-430393c8 database",
+        "parentId" : "29851649"
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "id" : "29982725",
+        "type" : "database",
+        "parentId" : "29851649",
+        "title" : "pipestream-live-write-20261122T023426Z-430393c8 database",
+        "parentType" : "page",
+        "position" : 844,
+        "authorId" : "account-1",
+        "ownerId" : "account-1",
+        "createdAt" : 1795314918194,
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-22T02:35:18.257Z"
+        },
+        "status" : "current",
+        "spaceId" : "7798786",
+        "_links" : {
+          "editui" : "/spaces/CLAUDEGRPC/database/29982725",
+          "webui" : "/spaces/CLAUDEGRPC/database/29982725",
+          "edituiv2" : "/spaces/CLAUDEGRPC/database/29982725",
+          "tinyui" : "/x/BYDJAQ",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

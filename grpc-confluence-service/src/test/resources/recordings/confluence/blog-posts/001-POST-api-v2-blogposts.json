@@ -1,0 +1,62 @@
+{
+  "scenario" : "blog-posts",
+  "sequence" : 1,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/blogposts",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "spaceId" : "7798786",
+        "title" : "pipestream-live-write-20261122T023426Z-430393c8 blog",
+        "body" : {
+          "representation" : "storage",
+          "value" : "<p>blog REDACTME pipestream-live-write-20261122T023426Z-430393c8</p>"
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "authorId" : "account-1",
+        "createdAt" : "2026-11-22T02:35:13.660Z",
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-22T02:35:13.660Z",
+          "ncsStepVersion" : "1"
+        },
+        "id" : "29720598",
+        "spaceId" : "7798786",
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<p>blog REDACTME pipestream-live-write-20261122T023426Z-430393c8</p>"
+          }
+        },
+        "status" : "current",
+        "title" : "pipestream-live-write-20261122T023426Z-430393c8 blog",
+        "_links" : {
+          "editui" : "/pages/resumedraft.action?draftId=29720598",
+          "webui" : "/spaces/CLAUDEGRPC/blog/2026/11/21/29720598/pipestream-live-write-20261122T023426Z-430393c8+blog",
+          "edituiv2" : "/spaces/CLAUDEGRPC/blog/edit-v2/29720598",
+          "tinyui" : "/x/FoDFAQ",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

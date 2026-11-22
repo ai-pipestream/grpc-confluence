@@ -1,0 +1,32 @@
+{
+  "scenario" : "attachments",
+  "sequence" : 5,
+  "request" : {
+    "method" : "GET",
+    "host" : "api.media.atlassian.com",
+    "path" : "/file/7a5de6e4-99ce-423d-a770-5293fcdc9afe/binary",
+    "query" : [ {
+      "name" : "client",
+      "value" : "6dccb467-4095-4617-b5f0-a97bb96d422a"
+    }, {
+      "name" : "name",
+      "value" : "pipestream-live-write-20261122T023426Z-430393c8.txt"
+    }, {
+      "name" : "token",
+      "value" : "token-2"
+    } ],
+    "headers" : {
+      "accept" : "*/*"
+    },
+    "authorized" : false
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "text/plain"
+    },
+    "body" : {
+      "text" : "hello live write pipestream-live-write-20261122T023426Z-430393c8\n"
+    }
+  }
+}
