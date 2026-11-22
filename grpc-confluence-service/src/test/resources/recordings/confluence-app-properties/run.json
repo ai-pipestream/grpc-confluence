@@ -1,0 +1,43 @@
+{
+  "baseUrl" : "https://site-1.example.invalid/wiki",
+  "spaceKey" : "",
+  "run" : "pipestream-live-app-20261122T185339Z-03c05bff",
+  "admin" : false,
+  "customContentType" : null,
+  "inviteEmail" : null,
+  "outcomes" : [ {
+    "rpc" : "SetAppProperty",
+    "step" : "SetAppProperty (create)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "GetAppProperty",
+    "step" : "GetAppProperty",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "ListAppProperties",
+    "step" : "ListAppProperties",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "SetAppProperty",
+    "step" : "SetAppProperty (replace)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "SetAppProperty",
+    "step" : "SetAppProperty (exact decimal is INVALID_ARGUMENT)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "DeleteAppProperty",
+    "step" : "DeleteAppProperty",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "GetAppProperty",
+    "step" : "GetAppProperty (deleted is NOT_FOUND)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "DeleteAppProperty",
+    "step" : "DeleteAppProperty (missing is NOT_FOUND)",
+    "outcome" : "PASS"
+  } ],
+  "forgeAppUrl" : "https://forge-app.example.invalid/x1/forge-trigger",
+  "scenarios" : [ "app-properties", "cleanup" ]
+}

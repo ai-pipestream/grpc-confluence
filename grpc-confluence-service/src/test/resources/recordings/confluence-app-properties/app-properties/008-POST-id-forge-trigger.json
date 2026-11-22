@@ -1,0 +1,41 @@
+{
+  "scenario" : "app-properties",
+  "sequence" : 8,
+  "request" : {
+    "method" : "POST",
+    "host" : "forge-app.example.invalid",
+    "path" : "/x1/forge-trigger",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : false,
+    "body" : {
+      "json" : {
+        "method" : "DELETE",
+        "path" : "/wiki/api/v2/app/properties/pipestream-live-app-20261122T185339Z-03c05bff-app",
+        "body" : null
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "status" : 404,
+        "body" : {
+          "errors" : [ {
+            "status" : 404,
+            "code" : "connect.rest.add_on_properties.property_not_found",
+            "title" : "Property with key not found.",
+            "detail" : null
+          } ]
+        }
+      }
+    }
+  }
+}
