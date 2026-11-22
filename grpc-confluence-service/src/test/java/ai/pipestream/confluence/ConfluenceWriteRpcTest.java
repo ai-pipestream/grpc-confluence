@@ -404,8 +404,6 @@ class ConfluenceWriteRpcTest {
                 .addEntries(entry("score", PropertyValue.newBuilder().setDoubleValue(0.5)))
                 .addEntries(entry("big", PropertyValue.newBuilder()
                         .setBigIntegerValue("123456789012345678901234567890")))
-                .addEntries(entry("exact", PropertyValue.newBuilder()
-                        .setDecimalValue("1.00000000000000000001")))
                 .addEntries(entry("done", PropertyValue.newBuilder().setBoolValue(false)))
                 .addEntries(entry("owner", PropertyValue.newBuilder()
                         .setNullValue(PropertyNull.getDefaultInstance())))
@@ -424,8 +422,21 @@ class ConfluenceWriteRpcTest {
         assertThat(response.getProperty().getCustomKey()).isEqualTo("review");
         assertThat(fake.lastTo("POST", "/wiki/api/v2/pages/501/properties").body()).isEqualTo(
                 "{\"key\":\"review\",\"value\":{\"state\":\"open\",\"round\":2,\"score\":0.5,"
-                        + "\"big\":123456789012345678901234567890,\"exact\":1.00000000000000000001,"
+                        + "\"big\":123456789012345678901234567890,"
                         + "\"done\":false,\"owner\":null,\"tags\":[\"a\",1]}}");
+    }
+
+    @Test
+    void anExactDecimalIsRefusedBeforeAnythingIsSent() {
+        assertThatThrownBy(() -> stub.createContentProperty(
+                CreateContentPropertyRequest.newBuilder()
+                        .setContent(ref(ContentType.CONTENT_TYPE_PAGE, "501"))
+                        .setKey(PropertyKey.PROPERTY_KEY_CUSTOM).setCustomKey("exact")
+                        .setValue(PropertyValue.newBuilder()
+                                .setDecimalValue("1.00000000000000000001")).build()))
+                .isInstanceOfSatisfying(io.grpc.StatusRuntimeException.class, e ->
+                        assertThat(e.getStatus().getCode()).isEqualTo(io.grpc.Status.Code.INVALID_ARGUMENT));
+        assertThat(fake.requestsTo("/wiki/api/v2/pages/501/properties")).isEmpty();
     }
 
     @Test

@@ -336,22 +336,48 @@ final class WriteScenarios {
             check(read.getValue().equals(plainValue("one")), "the value read back differs: " + read.getValue());
             return "property " + property.getId() + "; value identical";
         });
-        step("CreateContentProperty", "CreateContentProperty (big integer and exact decimal)", () -> {
+        step("CreateContentProperty", "CreateContentProperty (big integer)", () -> {
             PropertyValue exact = PropertyValue.newBuilder().setObjectValue(PropertyObject.newBuilder()
                     .addEntries(entry("big", PropertyValue.newBuilder()
-                            .setBigIntegerValue("123456789012345678901234567890")))
-                    .addEntries(entry("decimal", PropertyValue.newBuilder()
-                            .setDecimalValue("1.00000000000000000001")))).build();
+                            .setBigIntegerValue("123456789012345678901234567890")))).build();
             ContentProperty property = stub().createContentProperty(
                     CreateContentPropertyRequest.newBuilder().setContent(ref)
                             .setKey(PropertyKey.PROPERTY_KEY_CUSTOM).setCustomKey(run + "-exact")
                             .setValue(exact).build()).getProperty();
             ContentProperty read = stub().getContentProperty(GetContentPropertyRequest.newBuilder()
                     .setContent(ref).setPropertyId(property.getId()).build()).getProperty();
-            if (!read.getValue().equals(exact)) {
-                throw new Skip("the tenant stored the numbers rounded: " + read.getValue());
-            }
+            check(read.getValue().equals(exact), "the value read back differs: " + read.getValue());
             return "value identical";
+        });
+        step("CreateContentProperty", "CreateContentProperty (exact decimal is INVALID_ARGUMENT)", () -> {
+            expectCode(Status.Code.INVALID_ARGUMENT, () -> stub().createContentProperty(
+                    CreateContentPropertyRequest.newBuilder().setContent(ref)
+                            .setKey(PropertyKey.PROPERTY_KEY_CUSTOM).setCustomKey(run + "-decimal")
+                            .setValue(PropertyValue.newBuilder()
+                                    .setDecimalValue("1.00000000000000000001")).build()));
+            return "INVALID_ARGUMENT, nothing sent";
+        });
+        step("CreateContentProperty", "CreateContentProperty (value over the size limit is INVALID_ARGUMENT)", () -> {
+            expectCode(Status.Code.INVALID_ARGUMENT, () -> stub().createContentProperty(
+                    CreateContentPropertyRequest.newBuilder().setContent(ref)
+                            .setKey(PropertyKey.PROPERTY_KEY_CUSTOM).setCustomKey(run + "-oversize")
+                            .setValue(PropertyValue.newBuilder()
+                                    .setStringValue("x".repeat(40_000))).build()));
+            return "INVALID_ARGUMENT";
+        });
+        step("CreateContentProperty", "CreateContentProperty (leaves the page version alone)", () -> {
+            int before = stub().getPage(GetPageRequest.newBuilder().setId(page.getId()).build())
+                    .getPage().getVersion().getNumber();
+            ContentProperty property = stub().createContentProperty(
+                    CreateContentPropertyRequest.newBuilder().setContent(ref)
+                            .setKey(PropertyKey.PROPERTY_KEY_CUSTOM).setCustomKey(run + "-version")
+                            .setValue(plainValue("v")).build()).getProperty();
+            int after = stub().getPage(GetPageRequest.newBuilder().setId(page.getId()).build())
+                    .getPage().getVersion().getNumber();
+            stub().deleteContentProperty(DeleteContentPropertyRequest.newBuilder().setContent(ref)
+                    .setPropertyId(property.getId()).build());
+            check(before == after, "the page version moved from " + before + " to " + after);
+            return "page version stayed " + after;
         });
         step("UpdateContentProperty", "UpdateContentProperty", () -> {
             ContentProperty property = require(created.get(), "no property was created");
@@ -1139,6 +1165,17 @@ final class WriteScenarios {
             throw new Skip(reason);
         }
         return value;
+    }
+
+    private static void expectCode(Status.Code code, Runnable call) {
+        try {
+            call.run();
+        } catch (StatusRuntimeException e) {
+            check(e.getStatus().getCode() == code, "answered " + e.getStatus().getCode()
+                    + ": " + e.getStatus().getDescription());
+            return;
+        }
+        throw new AssertionError("the call succeeded");
     }
 
     private static void expectNotFound(Runnable read) {

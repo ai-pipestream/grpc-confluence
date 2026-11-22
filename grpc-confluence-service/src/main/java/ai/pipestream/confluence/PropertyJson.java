@@ -63,14 +63,8 @@ final class PropertyJson {
                     throw invalid(field + ": big_integer_value is not an integer");
                 }
             }
-            case DECIMAL_VALUE -> {
-                try {
-                    yield com.fasterxml.jackson.databind.node.DecimalNode.valueOf(
-                            new BigDecimal(value.getDecimalValue()));
-                } catch (NumberFormatException e) {
-                    throw invalid(field + ": decimal_value is not a decimal number");
-                }
-            }
+            case DECIMAL_VALUE -> throw invalid(field
+                    + ": decimal_value cannot be written, Confluence stores it rounded to a double");
             case VALUE_NOT_SET -> throw invalid(field + ": a value is required");
         };
     }

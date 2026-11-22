@@ -77,7 +77,9 @@ message PropertyValue {
     // optional '-', the coefficient digits with an optional '.' fraction,
     // and, when the exponent is large or small, 'E' with a signed exponent
     // (for example "1.00000000000000000001" or "1E+400"). Always valid JSON
-    // number text; the parsed scale (trailing zeros) is kept.
+    // number text; the parsed scale (trailing zeros) is kept. Read only: a
+    // write that carries it fails with INVALID_ARGUMENT, because Confluence
+    // stores the number rounded to a double.
     string decimal_value = 11;
   }
 }
