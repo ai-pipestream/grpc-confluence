@@ -1,6 +1,6 @@
 {
   "scenario" : "tenant",
-  "sequence" : 8,
+  "sequence" : 14,
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",

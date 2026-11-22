@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/blogposts/29917309",
+    "path" : "/wiki/api/v2/blogposts/29851793",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -22,30 +22,30 @@
     "body" : {
       "json" : {
         "authorId" : "account-1",
-        "createdAt" : "2026-11-22T13:40:11.677Z",
+        "spaceId" : "7798786",
+        "createdAt" : "2026-11-22T14:19:56.667Z",
         "version" : {
           "number" : 2,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T13:40:12.223Z",
-          "ncsStepVersion" : "1"
+          "createdAt" : "2026-11-22T14:19:57.494Z",
+          "ncsStepVersion" : "3"
         },
-        "id" : "29917309",
-        "spaceId" : "7798786",
+        "id" : "29851793",
+        "status" : "current",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>blog edited REDACTME pipestream-live-write-20261122T133926Z-86e1fb14</p>"
+            "value" : "<p>blog edited REDACTME pipestream-live-write-20261122T141900Z-46e204d2</p>"
           }
         },
-        "status" : "current",
-        "title" : "pipestream-live-write-20261122T133926Z-86e1fb14 blog edited",
+        "title" : "pipestream-live-write-20261122T141900Z-46e204d2 blog edited",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=29917309",
-          "webui" : "/spaces/CLAUDEGRPC/blog/2026/11/22/29917309/pipestream-live-write-20261122T133926Z-86e1fb14+blog+edited",
-          "edituiv2" : "/spaces/CLAUDEGRPC/blog/edit-v2/29917309",
-          "tinyui" : "/x/fYDIAQ",
+          "editui" : "/pages/resumedraft.action?draftId=29851793",
+          "webui" : "/spaces/CLAUDEGRPC/blog/2026/11/22/29851793/pipestream-live-write-20261122T141900Z-46e204d2+blog+edited",
+          "edituiv2" : "/spaces/CLAUDEGRPC/blog/edit-v2/29851793",
+          "tinyui" : "/x/kYDHAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

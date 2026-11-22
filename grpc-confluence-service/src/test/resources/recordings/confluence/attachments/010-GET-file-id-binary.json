@@ -4,13 +4,13 @@
   "request" : {
     "method" : "GET",
     "host" : "api.media.atlassian.com",
-    "path" : "/file/6977dbc3-fe9f-419d-875e-7948f83b2813/binary",
+    "path" : "/file/8ae6507a-ce0d-430e-8b3d-98926af23966/binary",
     "query" : [ {
       "name" : "client",
       "value" : "6dccb467-4095-4617-b5f0-a97bb96d422a"
     }, {
       "name" : "name",
-      "value" : "pipestream-live-write-20261122T133926Z-86e1fb14.bin"
+      "value" : "pipestream-live-write-20261122T141900Z-46e204d2.bin"
     }, {
       "name" : "token",
       "value" : "token-3"

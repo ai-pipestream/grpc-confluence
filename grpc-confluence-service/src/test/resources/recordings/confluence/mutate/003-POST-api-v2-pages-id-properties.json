@@ -1,11 +1,11 @@
 {
   "scenario" : "mutate",
-  "sequence" : 2,
+  "sequence" : 3,
   "unordered" : 1,
   "request" : {
     "method" : "POST",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30113888/properties",
+    "path" : "/wiki/api/v2/pages/29884673/properties",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -14,7 +14,7 @@
     "authorized" : true,
     "body" : {
       "json" : {
-        "key" : "pipestream-live-write-20261122T133926Z-86e1fb14-mutate",
+        "key" : "pipestream-live-write-20261122T141900Z-46e204d2-mutate",
         "value" : {
           "string" : "m",
           "integer" : 42,
@@ -41,7 +41,7 @@
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T13:40:15.313Z"
+          "createdAt" : "2026-11-22T14:20:03.292Z"
         },
         "value" : {
           "string" : "m",
@@ -54,8 +54,8 @@
             "nested" : false
           }
         },
-        "key" : "pipestream-live-write-20261122T133926Z-86e1fb14-mutate",
-        "id" : "29720795"
+        "key" : "pipestream-live-write-20261122T141900Z-46e204d2-mutate",
+        "id" : "30114004"
       }
     }
   }

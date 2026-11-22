@@ -1,14 +1,11 @@
 {
   "scenario" : "cleanup",
-  "sequence" : 8,
+  "sequence" : 15,
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30376041",
-    "query" : [ {
-      "name" : "purge",
-      "value" : "true"
-    } ],
+    "path" : "/wiki/api/v2/pages/29884673",
+    "query" : [ ],
     "headers" : {
       "accept" : "application/json"
     },

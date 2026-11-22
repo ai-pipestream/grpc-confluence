@@ -1,10 +1,10 @@
 {
-  "scenario" : "tenant",
-  "sequence" : 10,
+  "scenario" : "cleanup",
+  "sequence" : 8,
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/space-roles/47092ce3-e09e-48ae-984a-f48f2344d463",
+    "path" : "/wiki/api/v2/embeds/29720824",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -12,13 +12,18 @@
     "authorized" : true
   },
   "response" : {
-    "status" : 202,
+    "status" : 404,
     "headers" : {
       "content-type" : "application/json"
     },
     "body" : {
       "json" : {
-        "taskId" : "30474493"
+        "errors" : [ {
+          "status" : 404,
+          "code" : "NOT_FOUND",
+          "title" : "No content found with id : 29720824 and status [current, archived]",
+          "detail" : null
+        } ]
       }
     }
   }
