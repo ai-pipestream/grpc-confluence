@@ -284,7 +284,13 @@ jobs:
           forge settings set usage-analytics false
           site=$(python3 -c 'import os,urllib.parse;print(urllib.parse.urlparse(os.environ["CONFLUENCE_BASE_URL"]).hostname)')
           if grep -q 'app/00000000-0000-0000-0000-000000000000' manifest.yml; then
-            forge register -y --personal pipestream-confluence-events
+            if ! forge developer-spaces list 2>/dev/null | grep -qi pipestream; then
+              # register asks for a Developer Space name when the login has none; answer it on a pseudo-terminal.
+              printf 'pipestream\n' | script -qec "forge register -y pipestream-confluence-events" /dev/null
+            else
+              forge register -y pipestream-confluence-events
+            fi
+            grep -q 'app/00000000-0000-0000-0000-000000000000' manifest.yml && { echo "register did not write an app id"; exit 1; }
             echo "Registered app id (commit it to manifest.yml): $(grep -o 'ari:cloud:ecosystem::app/[0-9a-f-]*' manifest.yml)"
           fi
           cp manifest.yml "$RUNNER_TEMP/manifest.yml"
