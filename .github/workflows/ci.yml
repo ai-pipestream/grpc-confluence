@@ -10,6 +10,10 @@ on:
         description: Run the live write test against the real Confluence workspace and record it
         type: boolean
         default: false
+      live_write_admin:
+        description: With run_live_write, also run the site-level steps (a throwaway space, space roles, the admin key)
+        type: boolean
+        default: false
       import_recordings_run_id:
         description: Commit the confluence-recordings artifact of this run id to the branch as replay data
         type: string
@@ -197,6 +201,7 @@ jobs:
           CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
           CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
           CONFLUENCE_LIVE_WRITE: "1"
+          CONFLUENCE_LIVE_WRITE_ADMIN: ${{ inputs.live_write_admin && '1' || '' }}
           CONFLUENCE_SPACE_KEY: CLAUDEGRPC
         run: |
           if [ -z "${CONFLUENCE_EMAIL}" ] || [ -z "${CONFLUENCE_API_TOKEN}" ]; then

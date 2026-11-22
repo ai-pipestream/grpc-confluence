@@ -979,8 +979,12 @@ final class WriteScenarios {
                     .setKey(key).setDescription("Created by the live write run " + run).build())
                     .getSpace();
             ownSpace.set(created);
-            cleanups.add(() -> remove("space " + created.getKey(), () -> stub().deleteSpace(
-                    DeleteSpaceRequest.newBuilder().setKey(created.getKey()).build())));
+            cleanups.add(() -> {
+                if (ownSpace.get() != null) {
+                    remove("space " + created.getKey(), () -> stub().deleteSpace(
+                            DeleteSpaceRequest.newBuilder().setKey(created.getKey()).build()));
+                }
+            });
             Space read = stub().getSpace(GetSpaceRequest.newBuilder().setId(created.getId()).build())
                     .getSpace();
             check(read.getKey().equals(key), "the key read back is " + read.getKey());
@@ -991,6 +995,7 @@ final class WriteScenarios {
             String task = stub().deleteSpace(DeleteSpaceRequest.newBuilder()
                     .setKey(created.getKey()).build()).getTaskId();
             check(!task.isEmpty(), "no task id was answered");
+            ownSpace.set(null);
             return "task " + task;
         });
         AtomicReference<SpaceRole> role = new AtomicReference<>();
