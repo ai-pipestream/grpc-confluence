@@ -1,0 +1,44 @@
+{
+  "baseUrl" : "https://site-1.example.invalid/wiki",
+  "queueUrl" : "https://site-2.example.invalid/x1/token-1",
+  "spaceKey" : "CLAUDEGRPC",
+  "run" : "pipestream-live-change-20261122T155121Z-a4ab2bad",
+  "outcomes" : [ {
+    "step" : "01-watch-start",
+    "outcome" : "PASS"
+  }, {
+    "step" : "02-create-page",
+    "outcome" : "PASS"
+  }, {
+    "step" : "03-created-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "04-update-page",
+    "outcome" : "PASS"
+  }, {
+    "step" : "05-updated-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "06-create-comment",
+    "outcome" : "PASS"
+  }, {
+    "step" : "07-comment-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "08-trash-page",
+    "outcome" : "PASS"
+  }, {
+    "step" : "09-trashed-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "10-purge-page",
+    "outcome" : "PASS"
+  }, {
+    "step" : "11-deleted-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "12-watch-stop",
+    "outcome" : "PASS"
+  } ],
+  "scenarios" : [ "01-watch-start", "02-create-page", "03-created-event", "04-update-page", "05-updated-event", "06-create-comment", "07-comment-event", "08-trash-page", "09-trashed-event", "10-purge-page", "11-deleted-event", "12-watch-stop", "cleanup" ]
+}

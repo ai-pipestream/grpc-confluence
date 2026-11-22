@@ -1,0 +1,31 @@
+{
+  "scenario" : "03-created-event",
+  "sequence" : 10,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-2.example.invalid",
+    "path" : "/x1/token-1",
+    "query" : [ ],
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "authorized" : false,
+    "body" : {
+      "json" : {
+        "action" : "ack",
+        "keys" : [ "evt:001795362686912:9e6a7c35-152e-4a18-95b8-9a869c64655c", "evt:001795362687530:bbab4ce5-8da2-485c-80ea-72d8e2ab1af8", "evt:001795362688101:be3ce088-2b57-45ef-ab77-93493133aed1", "evt:001795362690024:8a653e5d-f3c9-471c-b4b5-23dde324e5d0" ]
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "acked" : 4
+      }
+    }
+  }
+}
