@@ -1,0 +1,37 @@
+{
+  "scenario" : "tenant",
+  "sequence" : 7,
+  "request" : {
+    "method" : "PUT",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/space-roles/47092ce3-e09e-48ae-984a-f48f2344d463",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "name" : "lw-86e1fb14",
+        "description" : "live write run, edited",
+        "spacePermissions" : [ "read/space" ]
+      }
+    }
+  },
+  "response" : {
+    "status" : 202,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "id" : "47092ce3-e09e-48ae-984a-f48f2344d463",
+        "type" : "CUSTOM",
+        "name" : "lw-86e1fb14",
+        "description" : "live write run, edited",
+        "taskId" : null
+      }
+    }
+  }
+}

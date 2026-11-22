@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30179415",
+    "path" : "/wiki/api/v2/pages/29884611",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -24,22 +24,21 @@
     },
     "body" : {
       "json" : {
-        "parentType" : null,
         "authorId" : "account-1",
+        "parentType" : null,
         "parentId" : null,
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T13:10:17.755Z",
+        "createdAt" : "2026-11-22T13:40:16.396Z",
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T13:10:17.755Z",
+          "createdAt" : "2026-11-22T13:40:16.396Z",
           "ncsStepVersion" : "1"
         },
         "position" : null,
-        "id" : "30179415",
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
@@ -48,12 +47,13 @@
           }
         },
         "status" : "trashed",
-        "title" : "pipestream-live-write-20261122T130923Z-2489d4c3 to delete",
+        "title" : "pipestream-live-write-20261122T133926Z-86e1fb14 to delete",
+        "id" : "29884611",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=30179415",
-          "webui" : "/spaces/CLAUDEGRPC/pages/30179415/pipestream-live-write-20261122T130923Z-2489d4c3+to+delete",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30179415",
-          "tinyui" : "/x/V4DMAQ",
+          "editui" : "/pages/resumedraft.action?draftId=29884611",
+          "webui" : "/spaces/CLAUDEGRPC/pages/29884611/pipestream-live-write-20261122T133926Z-86e1fb14+to+delete",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29884611",
+          "tinyui" : "/x/wwDIAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

@@ -4,7 +4,7 @@
   "request" : {
     "method" : "POST",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/rest/api/content/30375958/label",
+    "path" : "/wiki/rest/api/content/30113888/label",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -14,10 +14,10 @@
     "body" : {
       "json" : [ {
         "prefix" : "global",
-        "name" : "live-write-2489d4c3"
+        "name" : "live-write-86e1fb14"
       }, {
         "prefix" : "global",
-        "name" : "live-write-2489d4c3-b"
+        "name" : "live-write-86e1fb14-b"
       } ]
     }
   },
@@ -30,14 +30,14 @@
       "json" : {
         "results" : [ {
           "prefix" : "global",
-          "name" : "live-write-2489d4c3",
-          "id" : "30179409",
-          "label" : "live-write-2489d4c3"
+          "name" : "live-write-86e1fb14",
+          "id" : "29884594",
+          "label" : "live-write-86e1fb14"
         }, {
           "prefix" : "global",
-          "name" : "live-write-2489d4c3-b",
-          "id" : "30179411",
-          "label" : "live-write-2489d4c3-b"
+          "name" : "live-write-86e1fb14-b",
+          "id" : "29884596",
+          "label" : "live-write-86e1fb14-b"
         } ],
         "start" : 0,
         "limit" : 200,

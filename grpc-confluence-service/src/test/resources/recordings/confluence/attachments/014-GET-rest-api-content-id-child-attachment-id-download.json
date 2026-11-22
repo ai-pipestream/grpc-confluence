@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/rest/api/content/30375958/child/attachment/att29720756/download",
+    "path" : "/wiki/rest/api/content/30113888/child/attachment/att29720788/download",
     "query" : [ ],
     "headers" : {
       "accept" : "*/*"
@@ -14,7 +14,7 @@
   "response" : {
     "status" : 302,
     "headers" : {
-      "location" : "https://api.media.atlassian.com/file/48eacc15-edac-4598-adfd-e3fef80f86ba/binary?token=token-4&client=6dccb467-4095-4617-b5f0-a97bb96d422a&name=pipestream-live-write-20261122T130923Z-2489d4c3.txt"
+      "location" : "https://api.media.atlassian.com/file/06bf5704-e1eb-4ab7-8b1c-5dce8325a172/binary?token=token-4&client=6dccb467-4095-4617-b5f0-a97bb96d422a&name=pipestream-live-write-20261122T133926Z-86e1fb14.txt"
     }
   }
 }

@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30375958/labels",
+    "path" : "/wiki/api/v2/pages/30113888/labels",
     "query" : [ {
       "name" : "limit",
       "value" : "25"
@@ -22,9 +22,9 @@
     "body" : {
       "json" : {
         "results" : [ {
-          "prefix" : "global",
-          "name" : "live-write-2489d4c3-b",
-          "id" : "30179411"
+          "name" : "live-write-86e1fb14-b",
+          "id" : "29884596",
+          "prefix" : "global"
         } ],
         "_links" : {
           "base" : "https://site-1.example.invalid/wiki"

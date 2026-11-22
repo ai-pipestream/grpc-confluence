@@ -4,27 +4,24 @@
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30179415",
-    "query" : [ {
-      "name" : "purge",
-      "value" : "true"
-    } ],
+    "path" : "/wiki/api/v2/space-roles/47092ce3-e09e-48ae-984a-f48f2344d463",
+    "query" : [ ],
     "headers" : {
       "accept" : "application/json"
     },
     "authorized" : true
   },
   "response" : {
-    "status" : 404,
+    "status" : 400,
     "headers" : {
       "content-type" : "application/json"
     },
     "body" : {
       "json" : {
         "errors" : [ {
-          "status" : 404,
-          "code" : "NOT_FOUND",
-          "title" : "Not Found",
+          "status" : 400,
+          "code" : "BAD_REQUEST",
+          "title" : "Invalid role ID",
           "detail" : null
         } ]
       }

@@ -1,10 +1,10 @@
 {
   "scenario" : "cleanup",
-  "sequence" : 9,
+  "sequence" : 10,
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/whiteboards/29851692",
+    "path" : "/wiki/api/v2/databases/30048377",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -21,7 +21,7 @@
         "errors" : [ {
           "status" : 404,
           "code" : "NOT_FOUND",
-          "title" : "No content found with id : 29851692 and status [current, archived]",
+          "title" : "No content found with id : 30048377 and status [current, archived]",
           "detail" : null
         } ]
       }

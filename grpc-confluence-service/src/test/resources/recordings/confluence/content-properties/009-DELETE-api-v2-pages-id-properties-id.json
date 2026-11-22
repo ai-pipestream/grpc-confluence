@@ -4,7 +4,7 @@
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30375958/properties/29884509",
+    "path" : "/wiki/api/v2/pages/30113888/properties/30376035",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"

@@ -1,8 +1,8 @@
 {
   "baseUrl" : "https://site-1.example.invalid/wiki",
   "spaceKey" : "CLAUDEGRPC",
-  "run" : "pipestream-live-write-20261122T130923Z-2489d4c3",
-  "admin" : false,
+  "run" : "pipestream-live-write-20261122T133926Z-86e1fb14",
+  "admin" : true,
   "customContentType" : null,
   "inviteEmail" : null,
   "outcomes" : [ {
@@ -232,27 +232,27 @@
   }, {
     "rpc" : "CreateSpace",
     "step" : "CreateSpace",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "DeleteSpace",
     "step" : "DeleteSpace",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "CreateSpaceRole",
     "step" : "CreateSpaceRole",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "UpdateSpaceRole",
     "step" : "UpdateSpaceRole",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "SetSpaceRoleAssignments",
+    "step" : "SetSpaceRoleAssignments (re-sets one existing assignment)",
+    "outcome" : "PASS"
   }, {
     "rpc" : "DeleteSpaceRole",
     "step" : "DeleteSpaceRole",
-    "outcome" : "SKIPPED"
-  }, {
-    "rpc" : "SetSpaceRoleAssignments",
-    "step" : "SetSpaceRoleAssignments",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "InviteByEmail",
     "step" : "InviteByEmail",
@@ -260,11 +260,11 @@
   }, {
     "rpc" : "EnableAdminKey",
     "step" : "EnableAdminKey",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "DisableAdminKey",
     "step" : "DisableAdminKey",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "BulkAssignSpaceRoles",
     "step" : "BulkAssignSpaceRoles",

@@ -1,10 +1,10 @@
 {
   "scenario" : "cleanup",
-  "sequence" : 14,
+  "sequence" : 1,
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30375958",
+    "path" : "/wiki/api/v2/admin-key",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
