@@ -67,6 +67,15 @@ final class ChangeScenarios {
     record Scenario(String id, String label, Body body) {
     }
 
+    /** Ends a step as LOST: Forge never delivered the event the step waits for. */
+    static final class Lost extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        Lost(String reason) {
+            super(reason);
+        }
+    }
+
     /** One report row. */
     record Row(String id, String label, String outcome, String detail) {
     }
@@ -237,6 +246,8 @@ final class ChangeScenarios {
             rows.add(new Row(scenario.id(), scenario.label(), "PASS", scenario.body().run()));
         } catch (Skip s) {
             rows.add(new Row(scenario.id(), scenario.label(), "SKIPPED", s.getMessage()));
+        } catch (Lost l) {
+            rows.add(new Row(scenario.id(), scenario.label(), "LOST", l.getMessage()));
         } catch (Throwable t) {
             rows.add(new Row(scenario.id(), scenario.label(), "FAIL", String.valueOf(t)));
         }
@@ -861,7 +872,14 @@ final class ChangeScenarios {
                 event.getObject() == ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_GROUP
                         && event.getAction() == action
                         && (event.getContentId().equals(groupId) || event.getTitle().equals(groupName));
-        events.await(match);
+        try {
+            events.await(match);
+        } catch (AssertionError e) {
+            if (action == ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED) {
+                throw new Lost("Forge delivered no group created event: " + e.getMessage());
+            }
+            throw e;
+        }
         List<WatchChangesResponse> streamed = new ArrayList<>();
         for (int round = 0; round < 3; round++) {
             service.drainNow();

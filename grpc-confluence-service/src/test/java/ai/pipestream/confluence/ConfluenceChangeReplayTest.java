@@ -50,11 +50,21 @@ class ConfluenceChangeReplayTest {
                 .executor(Executors.newVirtualThreadPerTaskExecutor())
                 .addService(read).addService(service).build().start();
         ManagedChannel channel = InProcessChannelBuilder.forName(name).build();
+        String[] current = {""};
+        java.util.Set<String> lost = new java.util.HashSet<>();
+        run.path("outcomes").forEach(row -> {
+            if (row.path("outcome").asText().equals("LOST")) {
+                lost.add(row.path("step").asText());
+            }
+        });
         ChangeScenarios scenarios = new ChangeScenarios(channel, client, service,
                 run.path("spaceKey").asText(), run.path("run").asText(), new ChangeScenarios.Events() {
                     @Override
                     public void await(java.util.function.Predicate<ConfluenceEvent> match) {
-                        // The recorded take answers already hold the event.
+                        // The recorded take answers already hold the event, unless it was lost.
+                        if (lost.contains(current[0])) {
+                            throw new AssertionError("recorded as lost");
+                        }
                     }
 
                     @Override
@@ -70,6 +80,7 @@ class ConfluenceChangeReplayTest {
         try {
             for (ChangeScenarios.Scenario scenario : scenarios.all()) {
                 tape.scenario(scenario.id());
+                current[0] = scenario.id();
                 scenarios.run(scenario);
                 tape.finish();
             }
