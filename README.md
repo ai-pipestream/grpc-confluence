@@ -106,6 +106,13 @@ SYNC_TABLE_TARGET=localhost:9097
 SYNC_TABLE_PLAINTEXT=true
 ```
 
+A ledger write that fails ends the `Sync` with an error whose description
+starts `sync-table <rpc> failed for <row>`: `UNAVAILABLE` when the ledger
+could not be reached in time (run the `Sync` again), `INTERNAL` for any
+other refusal. No resume cursor is handed out, and a full crawl does not
+reconcile, because reconciling by run id after a dropped upsert would mark
+a page that still exists as deleted.
+
 Completed `Sync` runs can also write an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
 v0.2 bundle (directory + zip) and a **sibling** WARC 1.1 file. WARC is a
 per-URI archive (ISO 28500): one `resource` record per live `web_url`, a
