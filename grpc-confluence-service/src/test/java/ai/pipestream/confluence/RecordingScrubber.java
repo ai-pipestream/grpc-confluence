@@ -238,7 +238,10 @@ final class RecordingScrubber {
     /** Has {@code real} replaced by {@code placeholder} wherever it appears from now on. */
     private String literal(String real, String placeholder) {
         if (real != null && real.length() >= 4 && !real.equals(placeholder)) {
-            literals.put(real, placeholder);
+            String first = literals.putIfAbsent(real, placeholder);
+            if (first != null) {
+                return first;
+            }
         }
         return placeholder;
     }

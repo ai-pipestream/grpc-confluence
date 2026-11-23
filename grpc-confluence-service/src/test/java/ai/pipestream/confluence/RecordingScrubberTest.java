@@ -76,6 +76,22 @@ class RecordingScrubberTest {
     }
 
     @Test
+    void anAccountIdUsedAsADisplayNameKeepsOnePlaceholder() throws Exception {
+        RecordingScrubber scrubber = new RecordingScrubber();
+        JsonNode out = scrubber.scrub(json("""
+                {"user":{"displayName":"712020:0a1b2c3d","accountId":"712020:0a1b2c3d"},
+                 "authorId":"712020:0a1b2c3d",
+                 "restrictions":{"user":[{"accountId":"712020:0a1b2c3d"}]}}"""));
+
+        String placeholder = out.path("authorId").asText();
+        assertThat(placeholder).doesNotContain("712020");
+        assertThat(out.path("user").path("accountId").asText()).isEqualTo(placeholder);
+        assertThat(out.path("user").path("displayName").asText()).isEqualTo(placeholder);
+        assertThat(out.path("restrictions").path("user").path(0).path("accountId").asText())
+                .isEqualTo(placeholder);
+    }
+
+    @Test
     void ordinaryValuesAreKept() throws Exception {
         RecordingScrubber scrubber = new RecordingScrubber();
         scrubber.scrub(json("{\"displayName\":\"Page\"}"));
