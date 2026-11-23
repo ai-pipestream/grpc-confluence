@@ -493,6 +493,7 @@ public final class ConfluenceMapper {
                 .setEmail(text(node, "email"))
                 .setTimeZone(text(node, "timeZone"))
                 .setIsExternalCollaborator(node.path("isExternalCollaborator").asBoolean(false));
+        node.path("operations").forEach(operation -> b.addOperations(toOperation(operation)));
         if (hasText(node, "personalSpaceId")) {
             b.setPersonalSpaceId(text(node, "personalSpaceId"));
         }

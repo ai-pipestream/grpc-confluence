@@ -218,8 +218,13 @@ class ConfluenceCrawlerTest {
                 + "{\"accountId\":\"m2\",\"accountType\":\"atlassian\",\"displayName\":\"N\"}]}");
         fake.stub("/wiki/rest/api/group/by-id?id=g2", new FakeConfluenceServer.Stub(403,
                 "{\"message\":\"not allowed\"}", Map.of()));
-        fake.stub("/wiki/rest/api/user?accountId=abc", "{\"accountId\":\"abc\","
-                + "\"accountType\":\"atlassian\",\"email\":\"abc@example.com\"}");
+        fake.stub("/wiki/rest/api/user?accountId=abc&expand=operations", "{\"accountId\":\"abc\","
+                + "\"accountType\":\"atlassian\",\"email\":\"abc@example.com\",\"operations\":["
+                + "{\"operation\":\"use\",\"targetType\":\"application\"}]}");
+        fake.stub("/wiki/rest/api/user?accountId=m1&expand=operations", "{\"accountId\":\"m1\","
+                + "\"accountType\":\"atlassian\",\"email\":\"m1@example.com\"}");
+        fake.stub("/wiki/rest/api/user?accountId=m2&expand=operations", "{\"accountId\":\"m2\","
+                + "\"accountType\":\"atlassian\"}");
 
         crawler(config()).crawl();
 
@@ -302,11 +307,18 @@ class ConfluenceCrawlerTest {
         assertThat(byId.get("g2").getSecurityCompleteness())
                 .isEqualTo(AclCompleteness.ACL_COMPLETENESS_UNAVAILABLE);
         assertThat(byId).doesNotContainKey("group:g2/member/m1");
-        // Users: the members, and the user a permission named directly.
+        // Users: the members and the user a permission named directly, each with its operations.
         assertThat(byId.get("m1").getUser().getEmail()).isEqualTo("m1@example.com");
+        assertThat(byId.get("m1").getUser().getOperationsList()).isEmpty();
         assertThat(byId.get("abc").getUser().getEmail()).isEqualTo("abc@example.com");
+        assertThat(byId.get("abc").getUser().getOperationsList()).singleElement().satisfies(o -> {
+            assertThat(o.getOperation()).isEqualTo("use");
+            assertThat(o.getTargetType()).isEqualTo("application");
+        });
         assertThat(fake.requestsTo("/wiki/rest/api/user")).extracting(r -> r.params().get("accountId"))
-                .containsExactly("abc");
+                .containsExactly("abc", "m1", "m2");
+        assertThat(fake.requestsTo("/wiki/rest/api/user"))
+                .allSatisfy(r -> assertThat(r.params()).containsEntry("expand", "operations"));
         sink.changes().forEach(change -> ConfluenceValidator.create().requireValid(change));
     }
 

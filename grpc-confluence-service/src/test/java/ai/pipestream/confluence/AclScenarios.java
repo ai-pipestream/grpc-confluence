@@ -318,6 +318,9 @@ final class AclScenarios {
                     .map(ConfluenceEntity::getUser).toList();
             check(users.stream().anyMatch(u -> u.getAccountId().equals(caller)), "no user record for the caller");
             long withEmail = users.stream().filter(u -> !u.getEmail().isEmpty()).count();
+            long licensed = users.stream().filter(u -> u.getOperationsList().stream().anyMatch(o ->
+                    o.getOperation().equals("use") && o.getTargetType().equals("application"))).count();
+            check(users.stream().allMatch(u -> u.getOperationsCount() > 0), "a user record without operations");
             String callerEmail = users.stream().filter(u -> u.getAccountId().equals(caller)).findFirst()
                     .map(User::getEmail).orElse("");
             check(!callerEmail.isEmpty(), "the caller's user record has no email");
@@ -331,7 +334,8 @@ final class AclScenarios {
             users.stream().map(User::getEmail).filter(e -> e.indexOf('@') > 0)
                     .forEach(e -> domains.merge(domainClass(e), 1, Integer::sum));
             return "chain of " + owners.size() + " owners, parent VIEW_RESTRICTED, " + groups + ", "
-                    + users.size() + " users of which " + withEmail + " with an email (domains " + domains + ")" + login;
+                    + users.size() + " users of which " + withEmail + " with an email (domains " + domains + ") and "
+                    + licensed + " may use Confluence" + login;
         });
     }
 

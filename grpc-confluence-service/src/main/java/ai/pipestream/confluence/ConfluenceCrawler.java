@@ -685,12 +685,12 @@ public final class ConfluenceCrawler {
     /**
      * Every group and user a permission named this run: each group with
      * its members ({@code group:<id>/member/<account id>}), then each named
-     * user that is not a member of one of those groups. A group whose read
+     * user and each member with the operations it may do in Confluence. A group whose read
      * fails with a 4xx other than 404 is emitted UNAVAILABLE.
      */
     private void crawlPrincipals(ChangeSource source, String changeCursor)
             throws IOException, InterruptedException {
-        Set<String> emittedUsers = new HashSet<>();
+        Set<String> memberIds = new HashSet<>();
         for (String groupId : new java.util.TreeSet<>(groupIds)) {
             if (groupId.isEmpty()) {
                 continue;
@@ -709,18 +709,18 @@ public final class ConfluenceCrawler {
                     emit(entity("group:" + groupId + "/member/" + user.getAccountId())
                             .setGroupMember(GroupMember.newBuilder().setGroupId(groupId).setUser(user))
                             .build(), source, changeCursor);
-                    if (emittedUsers.add(user.getAccountId())) {
-                        emit(entity(user.getAccountId()).setUser(user).build(), source, changeCursor);
-                    }
+                    memberIds.add(user.getAccountId());
                 }
             }
             emit(entity(groupId).setGroup(group).setSecurityCompleteness(completeness(complete)).build(),
                     source, changeCursor);
         }
-        List<String> rest = new java.util.TreeSet<>(accountIds).stream()
-                .filter(id -> !id.isEmpty() && !emittedUsers.contains(id)).toList();
-        for (String accountId : rest) {
-            SecurityRead<JsonNode> read = getSecurity("/rest/api/user", Map.of("accountId", accountId), "user");
+        Set<String> users = new java.util.TreeSet<>(accountIds);
+        users.addAll(memberIds);
+        users.remove("");
+        for (String accountId : users) {
+            SecurityRead<JsonNode> read = getSecurity("/rest/api/user",
+                    Map.of("accountId", accountId, "expand", "operations"), "user");
             if (read.value() != null) {
                 emit(entity(accountId).setUser(mapper.toUser(read.value())).build(), source, changeCursor);
             }
