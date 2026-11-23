@@ -25,6 +25,7 @@ export async function store(event, target) {
 
 /** Trigger: stores one product event in the queue. */
 export async function onEvent(event) {
+  console.log(`event ${event?.eventType ?? 'unknown'}`);
   await store(event, kvs);
 }
 

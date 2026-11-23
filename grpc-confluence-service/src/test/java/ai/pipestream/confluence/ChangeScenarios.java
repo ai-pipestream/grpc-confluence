@@ -560,7 +560,8 @@ final class ChangeScenarios {
         int updates = 0;
         int upserts = 0;
         boolean done = false;
-        for (int round = 0; round < MAX_BACKLOG_DRAINS && !done; round++) {
+        boolean drained = false;
+        for (int round = 0; round < MAX_BACKLOG_DRAINS && !drained; round++) {
             service.drainNow();
             List<ForgeEventQueue.Queued> taken = awaitDrain();
             sizes.add(taken.size());
@@ -584,14 +585,17 @@ final class ChangeScenarios {
             check(pageUpserts == (here > 0 ? 1 : 0), "drain " + (round + 1) + " took " + here
                     + " update event(s) of the page but streamed " + pageUpserts + " page upsert(s)");
             upserts += (int) pageUpserts;
-            if (!done && taken.isEmpty()) {
+            drained = done && here == 0;
+            if (!drained && taken.isEmpty()) {
                 events.pause(Duration.ofSeconds(5));
             }
         }
         check(done, "the last update (version " + last + ") was not drained; takes " + sizes);
         check(sizes.getFirst() == ForgeEventQueue.DEFAULT_TAKE, "the first take answered "
                 + sizes.getFirst() + " events");
-        check(upserts >= 2, "the backlog was read in " + upserts + " drain(s)");
+        check(updates > ForgeEventQueue.DEFAULT_TAKE, "only " + updates
+                + " update events were queued for " + BACKLOG + " edits; takes " + sizes);
+        check(upserts >= 2, "the backlog was read in " + upserts + " drain(s); takes " + sizes);
         return updates + " update events for " + BACKLOG + " edits over takes " + sizes + ", "
                 + upserts + " page re-read(s)";
     }

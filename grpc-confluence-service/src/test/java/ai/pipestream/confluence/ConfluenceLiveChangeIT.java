@@ -180,16 +180,18 @@ class ConfluenceLiveChangeIT {
     private static void await(ForgeEventQueue queue, Predicate<ConfluenceEvent> match)
             throws Exception {
         Instant until = Instant.now().plus(ChangeScenarios.EVENT_WAIT);
+        java.util.Set<String> seen = new java.util.TreeSet<>();
         while (Instant.now().isBefore(until)) {
             for (ForgeEventQueue.Queued queued : queue.take(ForgeEventQueue.DEFAULT_TAKE)) {
                 if (match.test(queued.event())) {
                     return;
                 }
+                seen.add(queued.event().getEventType());
             }
             TimeUnit.SECONDS.sleep(15);
         }
         throw new AssertionError("Forge queued no matching event within "
-                + ChangeScenarios.EVENT_WAIT);
+                + ChangeScenarios.EVENT_WAIT + "; queued types seen " + seen);
     }
 
     private static void awaitQueued(ForgeEventQueue queue, int count) throws Exception {
