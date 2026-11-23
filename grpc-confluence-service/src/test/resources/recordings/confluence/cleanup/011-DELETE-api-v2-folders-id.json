@@ -1,0 +1,30 @@
+{
+  "scenario" : "cleanup",
+  "sequence" : 11,
+  "request" : {
+    "method" : "DELETE",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/folders/29851882",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 404,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "errors" : [ {
+          "status" : 404,
+          "code" : "NOT_FOUND",
+          "title" : "No content found with id : 29851882 and status [current, archived]",
+          "detail" : null
+        } ]
+      }
+    }
+  }
+}

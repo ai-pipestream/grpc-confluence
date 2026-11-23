@@ -6,6 +6,26 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
+      run_live_write:
+        description: Run the live write test against the real Confluence workspace and record it
+        type: boolean
+        default: false
+      live_write_admin:
+        description: With run_live_write, also run the site-level steps (a throwaway space, space roles, the admin key)
+        type: boolean
+        default: false
+      live_write_oversize_bytes:
+        description: With run_live_write, also upload an attachment of this many bytes that the site must refuse as too large (not recorded)
+        type: string
+        default: ""
+      import_recordings_run_id:
+        description: Commit the confluence-recordings artifact of this run id to the branch as replay data
+        type: string
+        default: ""
+      probe_confluence_account:
+        description: Report whether the Confluence test account is an admin (read-only, prints no names)
+        type: boolean
+        default: false
       require_live_confluence:
         description: Fail unless the read-only Confluence live smoke actually passes
         type: boolean
@@ -146,3 +166,175 @@ jobs:
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
               summary.write(f"Confluence live smoke: PASSED ({len(cases)} executed tests, none skipped).\n")
           PYTHON
+
+  # Writes to the real workspace and records the exchanges. Only ever started
+  # by hand: a workflow_dispatch with run_live_write set. It does not wait for
+  # build: a change to the scenarios fails the replay there until this job has
+  # recorded again, and this job compiles the service itself.
+  live-confluence-write:
+    needs: buf
+    if: github.event_name == 'workflow_dispatch' && inputs.run_live_write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: grpc-confluence
+      - id: core
+        name: Pick the grpc-integration ref (same branch if it exists, else main)
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git ls-remote --exit-code --heads https://github.com/ai-pipestream/grpc-integration "$BRANCH" >/dev/null; then
+            echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=$INTEGRATION_REF" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v5
+        with:
+          repository: ai-pipestream/grpc-integration
+          ref: ${{ steps.core.outputs.ref }}
+          path: grpc-integration
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+      - name: Live Confluence write run
+        working-directory: grpc-confluence
+        env:
+          CONFLUENCE_BASE_URL: ${{ secrets.CONFLUENCE_BASE_URL }}
+          CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
+          CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          CONFLUENCE_LIVE_WRITE: "1"
+          CONFLUENCE_LIVE_WRITE_ADMIN: ${{ inputs.live_write_admin && '1' || '' }}
+          CONFLUENCE_LIVE_WRITE_OVERSIZE_BYTES: ${{ inputs.live_write_oversize_bytes }}
+          CONFLUENCE_SPACE_KEY: CLAUDEGRPC
+        run: |
+          if [ -z "${CONFLUENCE_EMAIL}" ] || [ -z "${CONFLUENCE_API_TOKEN}" ]; then
+            echo "Confluence secrets not configured; the live write run needs them"
+            exit 1
+          fi
+          ./gradlew --no-daemon -PintegrationDir=../grpc-integration :grpc-confluence-service:liveWriteTest
+      - name: Report
+        if: always()
+        working-directory: grpc-confluence
+        run: |
+          if [ -f grpc-confluence-service/build/live-write.md ]; then
+            cat grpc-confluence-service/build/live-write.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No live write report was written." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-write-report
+          path: grpc-confluence/grpc-confluence-service/build/live-write.md
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: confluence-recordings
+          path: grpc-confluence/grpc-confluence-service/src/test/resources/recordings/
+          if-no-files-found: warn
+
+  # Copies the recordings a live write run uploaded into the branch, after a
+  # leak check and the recordings guard test. Only ever started by hand.
+  import-confluence-recordings:
+    if: github.event_name == 'workflow_dispatch' && inputs.import_recordings_run_id != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: grpc-confluence
+      - uses: actions/checkout@v5
+        with:
+          repository: ai-pipestream/grpc-integration
+          ref: ${{ env.INTEGRATION_REF }}
+          path: grpc-integration
+      - name: Drop the previous recordings
+        run: rm -rf grpc-confluence/grpc-confluence-service/src/test/resources/recordings/confluence
+      - uses: actions/download-artifact@v4
+        with:
+          name: confluence-recordings
+          run-id: ${{ inputs.import_recordings_run_id }}
+          github-token: ${{ github.token }}
+          path: grpc-confluence/grpc-confluence-service/src/test/resources/recordings/
+      - name: Leak check
+        working-directory: grpc-confluence/grpc-confluence-service/src/test/resources/recordings
+        run: |
+          git checkout -- README.md
+          echo "files: $(find . -type f | wc -l)"
+          fail=0
+          check() {
+            n=$(grep -rIlE --exclude=README.md -e "$2" . | wc -l)
+            echo "$1: $n files"
+            if [ "$n" -gt 0 ]; then grep -rIlE --exclude=README.md -e "$2" . | head -20; fail=1; fi
+          }
+          check "api token" 'ATATT'
+          check "basic credential" 'Basic [A-Za-z0-9+/=]{8,}'
+          check "bearer credential" 'Bearer [A-Za-z0-9._-]{8,}'
+          check "cookie value" '"(set-)?cookie"[[:space:]]*:'
+          # Placeholder addresses the scrubber wrote are fine; any other address is a leak.
+          n=$(grep -rIhoE --exclude=README.md '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' . | grep -vcE '@example\.invalid$' || true)
+          echo "email address: $n matches outside the placeholder domain"
+          if [ "$n" -gt 0 ]; then
+            grep -rIlE --exclude=README.md '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' . | head -20
+            fail=1
+          fi
+          echo "site host mentions: $(grep -rIlE --exclude=README.md 'atlassian\.net' . | wc -l) files"
+          exit $fail
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+      - name: Guard and replay tests on the imported recordings
+        id: tests
+        continue-on-error: true
+        working-directory: grpc-confluence
+        run: |
+          ./gradlew --no-daemon -PintegrationDir=../grpc-integration :grpc-confluence-service:test \
+            --tests '*RecordingsGuardTest' --tests '*ConfluenceWriteReplayTest'
+      - name: Guard test alone decides whether the data may be committed
+        if: steps.tests.outcome == 'failure'
+        working-directory: grpc-confluence
+        run: |
+          ./gradlew --no-daemon -PintegrationDir=../grpc-integration :grpc-confluence-service:test \
+            --tests '*RecordingsGuardTest'
+      - name: Commit the recordings
+        working-directory: grpc-confluence
+        env:
+          BRANCH: ${{ github.ref_name }}
+          RUN_ID: ${{ inputs.import_recordings_run_id }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add grpc-confluence-service/src/test/resources/recordings
+          if git diff --cached --quiet; then
+            echo "Nothing to commit"
+            exit 0
+          fi
+          git commit -m "Add recorded Confluence write exchanges from live run ${RUN_ID}"
+          git push origin "HEAD:${BRANCH}"
+
+  probe-confluence-account:
+    if: github.event_name == 'workflow_dispatch' && inputs.probe_confluence_account
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report the account's rights (read-only)
+        env:
+          CONFLUENCE_BASE_URL: ${{ secrets.CONFLUENCE_BASE_URL }}
+          CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
+          CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+        run: |
+          get() { curl -sS -u "$CONFLUENCE_EMAIL:$CONFLUENCE_API_TOKEN" -H 'Accept: application/json' "$CONFLUENCE_BASE_URL$1"; }
+          echo "site-wide operations of the account:"
+          get '/rest/api/user/current?expand=operations' | jq -c '[.operations[]? | "\(.operation) \(.targetType)"] | unique'
+          account=$(get '/rest/api/user/current' | jq -r '.accountId')
+          echo "groups: count, and how many have admin in the name:"
+          get "/rest/api/user/memberof?accountId=$account&limit=200" | jq -c '{groups: (.results | length), admin_named: ([.results[]? | select(.name | test("admin"; "i"))] | length), kinds: ([.results[]? | .name | if test("^site-admins$") then "site-admins" elif test("^org-admins$") then "org-admins" elif test("^confluence-admins") then "confluence-admins" elif test("^administrators$") then "administrators" else "other" end] | unique)}'
+          echo "operations on the CLAUDEGRPC space:"
+          get '/rest/api/space/CLAUDEGRPC?expand=operations' | jq -c '[.operations[]? | "\(.operation) \(.targetType)"] | unique'
+          echo "edition fields of system info, if any:"
+          get '/rest/api/settings/systemInfo' | jq -c 'with_entries(select(.key | test("edition|license|tier|plan"; "i")))' || true

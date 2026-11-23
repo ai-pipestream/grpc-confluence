@@ -28,6 +28,9 @@ import java.util.Objects;
  * @param bodyFormat the body representation to fetch for pages and blog posts
  *        ({@code CONFLUENCE_BODY_FORMAT}, default {@code "storage"}; the v2
  *        list endpoints accept {@code storage} or {@code atlas_doc_format})
+ * @param maxAttachmentBytes the site's attachment size limit in bytes
+ *        ({@code CONFLUENCE_MAX_ATTACHMENT_BYTES}); 0 = not known, uploads are
+ *        not checked before they are sent
  */
 public record ConfluenceConnectorConfig(
         String baseUrl,
@@ -35,7 +38,8 @@ public record ConfluenceConnectorConfig(
         String apiToken,
         List<String> spaces,
         int pageSize,
-        String bodyFormat) {
+        String bodyFormat,
+        long maxAttachmentBytes) {
 
     /** Environment variable for the Confluence Cloud base URL (with /wiki). */
     public static final String ENV_BASE_URL = "CONFLUENCE_BASE_URL";
@@ -53,6 +57,8 @@ public record ConfluenceConnectorConfig(
     public static final String ENV_PAGE_SIZE = "CONFLUENCE_PAGE_SIZE";
     /** Environment variable for the body representation to fetch. */
     public static final String ENV_BODY_FORMAT = "CONFLUENCE_BODY_FORMAT";
+    /** Environment variable for the site's attachment size limit in bytes. */
+    public static final String ENV_MAX_ATTACHMENT_BYTES = "CONFLUENCE_MAX_ATTACHMENT_BYTES";
 
     /** Default page size for list endpoints. */
     public static final int DEFAULT_PAGE_SIZE = 100;
@@ -91,6 +97,9 @@ public record ConfluenceConnectorConfig(
         if (!bodyFormat.equals("storage") && !bodyFormat.equals("atlas_doc_format")) {
             throw new IllegalArgumentException(ENV_BODY_FORMAT
                     + " must be storage or atlas_doc_format (got \"" + bodyFormat + "\")");
+        }
+        if (maxAttachmentBytes < 0) {
+            throw new IllegalArgumentException(ENV_MAX_ATTACHMENT_BYTES + " must not be negative");
         }
     }
 
@@ -150,6 +159,7 @@ public record ConfluenceConnectorConfig(
                 .spaces(parseSpaces(env.get(ENV_SPACES)))
                 .pageSize(parseIntOrDefault(env.get(ENV_PAGE_SIZE), DEFAULT_PAGE_SIZE))
                 .bodyFormat(env.get(ENV_BODY_FORMAT))
+                .maxAttachmentBytes(parseBytes(env.get(ENV_MAX_ATTACHMENT_BYTES)))
                 .build();
     }
 
@@ -176,6 +186,18 @@ public record ConfluenceConnectorConfig(
         return canonical == null || canonical.isBlank() ? alias : canonical;
     }
 
+    private static long parseBytes(String value) {
+        if (value == null || value.isBlank()) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(ENV_MAX_ATTACHMENT_BYTES
+                    + " must be a whole number of bytes (got \"" + value + "\")");
+        }
+    }
+
     private static int parseIntOrDefault(String value, int fallback) {
         if (value == null || value.isBlank()) {
             return fallback;
@@ -199,7 +221,8 @@ public record ConfluenceConnectorConfig(
                 + ", apiToken=***"
                 + ", spaces=" + spaces
                 + ", pageSize=" + pageSize
-                + ", bodyFormat=" + bodyFormat + "}";
+                + ", bodyFormat=" + bodyFormat
+                + ", maxAttachmentBytes=" + maxAttachmentBytes + "}";
     }
 
     /** Test-friendly builder; every field the record validates is optional here. */
@@ -210,6 +233,7 @@ public record ConfluenceConnectorConfig(
         private List<String> spaces = List.of();
         private int pageSize = DEFAULT_PAGE_SIZE;
         private String bodyFormat = DEFAULT_BODY_FORMAT;
+        private long maxAttachmentBytes;
 
         private Builder() {
         }
@@ -292,13 +316,24 @@ public record ConfluenceConnectorConfig(
         }
 
         /**
+         * Sets {@code maxAttachmentBytes}.
+         *
+         * @param maxAttachmentBytes the site's attachment size limit in bytes; 0 = not known
+         * @return this builder
+         */
+        public Builder maxAttachmentBytes(long maxAttachmentBytes) {
+            this.maxAttachmentBytes = maxAttachmentBytes;
+            return this;
+        }
+
+        /**
          * Builds a config; the record compact constructor validates and normalizes.
          *
          * @return the config
          */
         public ConfluenceConnectorConfig build() {
             return new ConfluenceConnectorConfig(baseUrl, email, apiToken, spaces, pageSize,
-                    bodyFormat);
+                    bodyFormat, maxAttachmentBytes);
         }
     }
 }

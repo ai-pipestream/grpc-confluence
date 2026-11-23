@@ -1,0 +1,68 @@
+{
+  "scenario" : "page-lifecycle",
+  "sequence" : 1,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "spaceId" : "7798786",
+        "title" : "pipestream-live-write-20261122T154612Z-76a48fba storage",
+        "parentId" : "30376427",
+        "body" : {
+          "representation" : "storage",
+          "value" : "<p>Storage body <strong>bold</strong> pipestream-live-write-20261122T154612Z-76a48fba inlinetarget</p>"
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "authorId" : "account-1",
+        "parentType" : "page",
+        "parentId" : "30376427",
+        "ownerId" : "account-1",
+        "lastOwnerId" : null,
+        "createdAt" : "2026-11-22T15:46:15.748Z",
+        "position" : 917,
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-22T15:46:15.748Z",
+          "ncsStepVersion" : "1"
+        },
+        "id" : "30179844",
+        "spaceId" : "7798786",
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<p>Storage body <strong>bold</strong> pipestream-live-write-20261122T154612Z-76a48fba inlinetarget</p>"
+          }
+        },
+        "status" : "current",
+        "title" : "pipestream-live-write-20261122T154612Z-76a48fba storage",
+        "_links" : {
+          "editui" : "/pages/resumedraft.action?draftId=30179844",
+          "webui" : "/spaces/CLAUDEGRPC/pages/30179844/pipestream-live-write-20261122T154612Z-76a48fba+storage",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30179844",
+          "tinyui" : "/x/BILMAQ",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

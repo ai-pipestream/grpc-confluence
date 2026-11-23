@@ -1,0 +1,56 @@
+{
+  "scenario" : "tenant",
+  "sequence" : 1,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/spaces",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "name" : "pipestream-live-write-20261122T154612Z-76a48fba",
+        "key" : "LW76A48FBA",
+        "description" : {
+          "value" : "Created by the live write run pipestream-live-write-20261122T154612Z-76a48fba",
+          "representation" : "plain"
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 201,
+    "headers" : {
+      "content-type" : "application/json",
+      "location" : "/wiki/api/v2/spaces/30048484"
+    },
+    "body" : {
+      "json" : {
+        "homepageId" : "30048691",
+        "authorId" : "account-1",
+        "createdAt" : "2026-11-22T15:47:14.505Z",
+        "icon" : null,
+        "name" : "pipestream-live-write-20261122T154612Z-76a48fba",
+        "key" : "LW76A48FBA",
+        "id" : "30048484",
+        "type" : "global",
+        "description" : {
+          "plain" : {
+            "representation" : "plain",
+            "value" : "Created by the live write run pipestream-live-write-20261122T154612Z-76a48fba"
+          }
+        },
+        "status" : "current",
+        "_links" : {
+          "webui" : "/spaces/LW76A48FBA",
+          "base" : "https://site-1.example.invalid/wiki"
+        },
+        "currentActiveAlias" : "LW76A48FBA"
+      }
+    }
+  }
+}

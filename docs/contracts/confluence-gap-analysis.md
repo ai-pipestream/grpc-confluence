@@ -14,11 +14,39 @@ Date: 2026-11-08. Scope: `grpc-confluence-api/src/main/proto/ai/pipestream/confl
 
 Nothing below is inferred from memory; where the spec is silent (e.g. the shape of `include-collaborators`), it is called out as unknown rather than modeled.
 
-## 1. Read scope (and why writes are out)
+## 1a. Writes are in (2026-11-10)
 
-`ConfluenceService` is the read proxy for an indexer. Every v2 **read** route family gets one rpc. Writes are out: create/update/delete of content, comments, properties, classification, redactions (`POST …/redact`), admin key enable/disable, permission mutation (`POST/PUT/DELETE …/permissions`, `PUT …/restriction-state`), space-permission transition tasks, role/assignment mutation. Permission **reads** are in scope because search security trimming needs the direct restriction state, the direct user/group grants, the space permission assignments and the space role assignments to compute effective visibility.
+The scope below was reversed: `ConfluenceService` now also writes. All 100 v2
+write operations of the vendored document (the 104 `POST`/`PUT`/`DELETE`
+operations minus the four read `POST`s `convert-ids-to-types`,
+`check-access-by-email`, `users-bulk` and
+`space-permissions/transition/combinations`) are served by 54 unary rpcs;
+`ConfluenceWriteRpcTest` asserts the 100 of 100 against the document and
+calls each route. Three more rpcs use REST API v1, whose document is not
+vendored, so their routes are unverified: `UploadAttachment`
+(`POST`/`PUT /rest/api/content/{id}/child/attachment`), `AddLabels` and
+`RemoveLabel` (`POST`/`DELETE /rest/api/content/{id}/label`). `Mutate`
+streams any of the 56 unary writes.
 
-Also kept out (see §5): Forge-only `app/properties`, `check-access-by-email`, `invite-by-email`, thumbnail download, like counts (derivable), space permission transition reads (admin migration tooling), admin-key read (session state).
+| v2 group | Operations | Rpcs |
+|---|---|---|
+| Content (pages, blog posts, comments, custom content, databases, folders, whiteboards, Smart Links, attachment delete, space create, page title, task update) | 27 | 27 |
+| Properties (content, space, app) | 32 | 8 |
+| Content permissions and restriction state | 20 | 4 |
+| Classification | 10 | 4 |
+| Space roles, role assignments, permission transitions, invitations | 7 | 7 |
+| Redaction | 2 | 2 |
+| Admin key | 2 | 2 |
+
+Bodies are written as a typed `ContentBody` (an `AdfDocument` modelling every
+node and mark of the vendored ADF schema, storage XHTML, wiki markup, or raw
+custom content); property values as the typed `PropertyValue` tree.
+
+## 1. Scope: reads and writes
+
+`ConfluenceService` covers both directions. Every v2 **read** route family gets one rpc, and the **write** routes are typed rpcs too: create, update, delete, move, and restore of content, comments, attachments, labels, and properties, plus classification, redaction, admin key, restriction, permission, and role mutation. Which writes are proven against a live site, and which the test tenant refuses, is listed in the live write report (`liveWriteTest`). Permission **reads** matter for search security trimming: the direct restriction state, the direct user/group grants, the space permission assignments and the space role assignments are what effective visibility is computed from.
+
+The routes an earlier revision kept out now have rpcs as well: Forge `app/properties`, `check-access-by-email`, `invite-by-email`, thumbnail download, like counts, space permission transition tasks, and the admin key.
 
 ## 2. Endpoint-group coverage: before → after
 

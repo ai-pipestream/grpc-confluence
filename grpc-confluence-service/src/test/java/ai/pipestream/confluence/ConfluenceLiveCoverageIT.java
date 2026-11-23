@@ -35,8 +35,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
- * Calls every rpc of {@code ConfluenceService} once against the real
- * Confluence workspace and writes a coverage report
+ * Calls every read rpc of {@code ConfluenceService} once against the real
+ * Confluence workspace (write rpcs are reported SKIPPED; see
+ * {@link ConfluenceLiveWriteIT}) and writes a coverage report
  * ({@code build/live-coverage.md}, also printed to stdout).
  *
  * <p>Gated on the same credentials as {@link ConfluenceLiveSmokeIT}
@@ -146,6 +147,7 @@ class ConfluenceLiveCoverageIT {
             Map.entry("GetSpacePermissionTransitionTask", "GET /space-permissions/transition/tasks/{taskId}"),
             Map.entry("ListSpaceRoleAssignments", "GET /spaces/{id}/role-assignments"),
             Map.entry("GetSpaceRoleMode", "GET /space-role-mode"),
+            Map.entry("GetLongRunningTask", "GET /rest/api/longtask/{id}"),
             Map.entry("GetAdminKey", "GET /admin-key"),
             Map.entry("ResolveContentTypes", "POST /content/convert-ids-to-types"),
             Map.entry("Sync", "crawl of one space"),
@@ -236,6 +238,10 @@ class ConfluenceLiveCoverageIT {
             syncServer.awaitTermination(10, TimeUnit.SECONDS);
             executor.shutdownNow();
         }
+
+        // Writes are never sent to a real workspace.
+        ConfluenceWriteRoutes.rpcs().forEach(rpc ->
+                rows.add(new Row(rpc, rpc, "SKIPPED", "write rpc: the live run is read-only", false)));
 
         // Every rpc of the service must have been called (or skipped for lack of data).
         Set<String> seen = new LinkedHashSet<>();
@@ -585,6 +591,10 @@ class ConfluenceLiveCoverageIT {
         unary("GetSpaceRoleMode", "GetSpaceRoleMode",
                 s -> s.getSpaceRoleMode(GetSpaceRoleModeRequest.getDefaultInstance()),
                 r -> r.getMode().name());
+        unary("GetLongRunningTask",
+                "GetLongRunningTask [synthetic id; no task is discoverable read-only]",
+                s -> s.getLongRunningTask(GetLongRunningTaskRequest.newBuilder().setTaskId("0").build()),
+                r -> "");
         unary("GetAdminKey", "GetAdminKey",
                 s -> s.getAdminKey(GetAdminKeyRequest.getDefaultInstance()),
                 r -> "an admin key is active");

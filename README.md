@@ -3,8 +3,9 @@
 Licensed under Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 A gRPC version of the Confluence API. The proxy speaks Confluence Cloud
-REST v2 upstream and typed gRPC downstream: clients read spaces, pages,
-blog posts, comments, and attachments over one generated contract, pick up
+REST v2 upstream and typed gRPC downstream: clients read and write spaces,
+pages, blog posts, comments, attachments, labels, and properties over one
+generated contract (create, update, delete, move, and restore), pick up
 **automatic updates** through cursor-based incremental `Sync` streams, and
 **archive the site live** — every completed crawl can land as an Open
 Knowledge Format bundle with a sibling WARC 1.1 archive, a raw protobuf
@@ -41,7 +42,7 @@ Group `ai.pipestream.confluence`, version `0.1.0-SNAPSHOT`.
 | Module | Port | What it is |
 |---|---|---|
 | `grpc-confluence-api` | | The API proto contract. 1:1 Confluence API fully validated for gRPC. |
-| `grpc-confluence-service` | 9095 | Live Confluence Cloud proxy. REST v2 in, typed gRPC out, plus crawl and sync. |
+| `grpc-confluence-service` | 9095 | Live Confluence Cloud proxy. REST in, typed gRPC out (reads and writes), plus crawl and sync. |
 | `grpc-confluence-output` | | Confluence store keys, OKF catalog mapping, and its `OkfCatalogSource` registration. |
 | `grpc-confluence-mcp` | | `confluence_*` and `connection_test` tools for the combined `grpc-mcp` server (`McpToolProvider`). `run` starts that server with these tools. |
 | `grpc-confluence-connect` | | Kafka Connect source (`ConfluenceSourceConnector`) and its plugin zip. |
@@ -81,6 +82,11 @@ CONFLUENCE_EMAIL=bot@example.com
 CONFLUENCE_API_TOKEN=...
 # aliases: CONFLUENCE_USER / CONFLUENCE_TOKEN
 CONFLUENCE_SPACES=ENG,DOCS          # optional allowlist
+# optional: the site's attachment size limit; larger uploads are refused before they are sent
+# CONFLUENCE_MAX_ATTACHMENT_BYTES=104857600
+# optional: a Forge app's web trigger; the app property rpcs are served to a Forge app only
+# CONFLUENCE_FORGE_APP_URL=https://...
+# CONFLUENCE_FORGE_APP_SECRET=...
 CONFLUENCE_GRPC_PORT=9095
 # optional raw-bytes Kafka sink
 CONFLUENCE_KAFKA_BOOTSTRAP_SERVERS=localhost:9092
@@ -232,6 +238,9 @@ Java 25 toolchain. `./gradlew build` is the fake/unit suite, javadoc
 (`-Xdoclint:all -Xwerror` on handwritten API), and never talks to
 Atlassian.
 
+Write rpcs are tested against the real site by `liveWriteTest` (below), and
+its recorded exchanges are replayed in `test`.
+
 The live smoke is **read-only**, excluded from `test`, and skips unless
 credentials are in the environment:
 
@@ -242,6 +251,32 @@ credentials are in the environment:
 It runs `ListSpaces` (limit 1), then the space homepage
 `GetPage` and `ListAttachments`. It never runs a full `Sync` and never
 downloads attachment bytes.
+
+The live write run proves the write rpcs against a real workspace. It is
+excluded from `test` and skips unless the same credentials are set **and**
+`CONFLUENCE_LIVE_WRITE=1`:
+
+```
+CONFLUENCE_LIVE_WRITE=1 CONFLUENCE_SPACE_KEY=CLAUDEGRPC \
+  ./gradlew :grpc-confluence-service:liveWriteTest
+```
+
+It creates a parent page `pipestream-live-write-<UTC timestamp>-<random>` in
+the space (`CONFLUENCE_SPACE_KEY`, default `CLAUDEGRPC`), runs every write
+rpc under it, reads each result back, then deletes and purges what it made.
+`build/live-write.md` has one row per rpc (PASS / FAIL / SKIPPED) and lists
+anything left behind. Tenant-level writes (space create, space roles, role
+assignments, space default classification, invitations, admin key) need
+`CONFLUENCE_LIVE_WRITE_ADMIN=1`; custom content needs a type in
+`CONFLUENCE_LIVE_WRITE_CUSTOM_CONTENT_TYPE`.
+
+The run also records every HTTP exchange, scrubbed, under
+`grpc-confluence-service/src/test/resources/recordings/confluence`.
+`ConfluenceWriteReplayTest` runs the same steps against that recording in the
+default `test` task, with no network, and is skipped while there is no
+recording. See the
+[recordings README](grpc-confluence-service/src/test/resources/recordings/README.md).
+In CI the run is manual only: start the `ci` workflow with `run_live_write`.
 
 ### GitHub Actions secrets
 
