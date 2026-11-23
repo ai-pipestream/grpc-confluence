@@ -423,6 +423,9 @@ final class AclScenarios {
             stub().addContentPermissions(AddContentPermissionsRequest.newBuilder().setContent(ref)
                     .addPermissions(ContentPermissionGrant.newBuilder()
                             .setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_READ)
+                            .addPrincipals(self()))
+                    .addPermissions(ContentPermissionGrant.newBuilder()
+                            .setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_UPDATE)
                             .addPrincipals(self())).build());
             for (String user : granted) {
                 try {
