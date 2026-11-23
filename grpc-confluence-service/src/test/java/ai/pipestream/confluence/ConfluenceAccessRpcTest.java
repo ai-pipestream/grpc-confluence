@@ -171,6 +171,38 @@ class ConfluenceAccessRpcTest {
         });
     }
 
+    @Test
+    void checkContentPermissionAsksConfluenceAndKeepsItsReasons() {
+        String path = "/wiki/rest/api/content/300/permission/check";
+        fake.stub(path, "{\"hasPermission\":false,\"errors\":[{\"message\":{\"key\":"
+                + "\"no.space.permission\",\"args\":[\"acc-1\",{\"id\":7}],\"translation\":\"No access\"}}]}");
+
+        CheckContentPermissionResponse response = stub.checkContentPermission(CheckContentPermissionRequest
+                .newBuilder().setContentId("300").setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_READ)
+                .setSubject(ContentPermissionPrincipal.newBuilder()
+                        .setPrincipalType(ContentPermissionPrincipalType.CONTENT_PERMISSION_PRINCIPAL_TYPE_USER)
+                        .setPrincipalId("acc-1")).build());
+
+        assertThat(response.getHasPermission()).isFalse();
+        assertThat(response.getReasonsList()).singleElement().satisfies(reason -> {
+            assertThat(reason.getKey()).isEqualTo("no.space.permission");
+            assertThat(reason.getArgsList()).containsExactly("acc-1", "{\"id\":7}");
+            assertThat(reason.getTranslation()).isEqualTo("No access");
+        });
+        var request = fake.lastTo(path);
+        assertThat(request.method()).isEqualTo("POST");
+        assertThat(request.body()).contains("\"type\":\"user\"", "\"identifier\":\"acc-1\"",
+                "\"operation\":\"read\"");
+        assertCode(Status.Code.INVALID_ARGUMENT, () -> stub.checkContentPermission(
+                CheckContentPermissionRequest.newBuilder().setContentId("300")
+                        .setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_READ).build()));
+        assertCode(Status.Code.INVALID_ARGUMENT, () -> stub.checkContentPermission(
+                CheckContentPermissionRequest.newBuilder().setContentId("300").setSubject(
+                        ContentPermissionPrincipal.newBuilder().setPrincipalType(
+                                ContentPermissionPrincipalType.CONTENT_PERMISSION_PRINCIPAL_TYPE_GROUP)
+                                .setPrincipalId("g-1")).build()));
+    }
+
     private static void assertCode(Status.Code code, org.assertj.core.api.ThrowableAssert.ThrowingCallable call) {
         assertThatThrownBy(call).isInstanceOfSatisfying(StatusRuntimeException.class,
                 e -> assertThat(e.getStatus().getCode()).isEqualTo(code));

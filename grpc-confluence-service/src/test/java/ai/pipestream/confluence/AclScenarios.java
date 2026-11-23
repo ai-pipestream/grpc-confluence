@@ -27,7 +27,9 @@ final class AclScenarios {
     static final String CLEANUP = "cleanup";
     /** The rpcs these scenarios prove. */
     static final List<String> RPCS = List.of("GetContentAccess", "GetGroup", "ListGroupMembers",
-            "ListUserGroups", "Sync");
+            "ListUserGroups", "Sync", "CheckContentPermission");
+    /** How many other users the permission steps grant and check at most. */
+    private static final int MAX_CHECKED_USERS = 8;
     private static final long CALL_DEADLINE_SECONDS = 120;
 
     /**
@@ -65,6 +67,13 @@ final class AclScenarios {
     private Page child;
     private String callerGroup;
     private final List<ConfluenceEntity> syncRecords = new ArrayList<>();
+    private final Set<String> otherUsers = new java.util.TreeSet<>();
+    private final List<String> granted = new ArrayList<>();
+    private final List<Check> checks = new ArrayList<>();
+
+    /** One permission check Confluence answered. */
+    record Check(CheckContentPermissionRequest request, CheckContentPermissionResponse response) {
+    }
 
     AclScenarios(Channel channel, Backend backend) {
         this.channel = channel;
@@ -73,7 +82,8 @@ final class AclScenarios {
 
     /** The scenario names, in the order they run; {@link #CLEANUP} is last. */
     static List<String> names() {
-        return List.of("setup", "content-access", "groups", "sync", CLEANUP);
+        return List.of("setup", "content-access", "groups", "permission-grants", "sync", "permission-checks",
+                CLEANUP);
     }
 
     /** The scenarios in the order of {@link #names()}. */
@@ -89,9 +99,19 @@ final class AclScenarios {
                         groups();
                     }
                 }),
+                new Scenario("permission-grants", () -> {
+                    if (parent != null) {
+                        permissionGrants();
+                    }
+                }),
                 new Scenario("sync", () -> {
                     if (child != null) {
                         sync();
+                    }
+                }),
+                new Scenario("permission-checks", () -> {
+                    if (child != null) {
+                        permissionChecks();
                     }
                 }),
                 new Scenario(CLEANUP, this::cleanUp));
@@ -104,6 +124,11 @@ final class AclScenarios {
     /** The ACL and directory records the Sync step received, by entity id. */
     List<ConfluenceEntity> syncRecords() {
         return List.copyOf(syncRecords);
+    }
+
+    /** The permission checks Confluence answered, in order. */
+    List<Check> checks() {
+        return List.copyOf(checks);
     }
 
     List<String> leftBehind() {
@@ -146,6 +171,9 @@ final class AclScenarios {
             check(access.getSpacePermissionsCount() > 0, "no space permissions");
             check(access.getCompleteness() == AclCompleteness.ACL_COMPLETENESS_COMPLETE,
                     "completeness " + access.getCompleteness());
+            access.getSpacePermissionsList().stream().map(SpacePermissionAssignment::getPrincipal)
+                    .filter(p -> p.getType() == SpacePermissionPrincipalType.SPACE_PERMISSION_PRINCIPAL_TYPE_USER)
+                    .map(SpacePermissionPrincipal::getId).forEach(otherUsers::add);
             List<String> owners = access.getOwnersList().stream().map(o -> o.getContent().getId()).toList();
             check(owners.size() >= 2 && owners.get(0).equals(child.getId()) && owners.get(1).equals(parent.getId()),
                     "owners " + owners);
@@ -193,6 +221,7 @@ final class AclScenarios {
             stub().listGroupMembers(ListGroupMembersRequest.newBuilder().setGroupId(groupId).build())
                     .forEachRemaining(r -> members.add(r.getUser()));
             check(members.stream().allMatch(u -> !u.getAccountId().isEmpty()), "a member without account id");
+            members.forEach(u -> otherUsers.add(u.getAccountId()));
             check(members.stream().anyMatch(u -> u.getAccountId().equals(caller)),
                     "the members do not include the caller");
             return members.size() + " members, including the caller";
@@ -304,6 +333,65 @@ final class AclScenarios {
             return "chain of " + owners.size() + " owners, parent VIEW_RESTRICTED, " + groups + ", "
                     + users.size() + " users of which " + withEmail + " with an email (domains " + domains + ")" + login;
         });
+    }
+
+    private void permissionGrants() {
+        String caller = parent.getAuthorId();
+        otherUsers.remove(caller);
+        step("AddContentPermissions", "READ on the parent for up to " + MAX_CHECKED_USERS
+                + " other users of the space and the caller's group", () -> {
+            List<String> refused = new ArrayList<>();
+            for (String user : otherUsers.stream().limit(MAX_CHECKED_USERS).toList()) {
+                try {
+                    stub().addContentPermissions(AddContentPermissionsRequest.newBuilder()
+                            .setContent(page(parent.getId()))
+                            .addPermissions(ContentPermissionGrant.newBuilder()
+                                    .setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_READ)
+                                    .addPrincipals(user(user))).build());
+                    granted.add(user);
+                } catch (StatusRuntimeException e) {
+                    refused.add(e.getStatus().getCode().name());
+                }
+            }
+            check(!granted.isEmpty(), "no other user could be granted; refused " + refused);
+            return granted.size() + " users granted READ on the parent, " + refused.size() + " refused " + refused;
+        });
+    }
+
+    private void permissionChecks() {
+        String caller = parent.getAuthorId();
+        step("CheckContentPermission", "Confluence's own READ answer for each user granted on the parent", () -> {
+            check(read(caller, parent.getId()).getHasPermission(), "the caller cannot read its own parent page");
+            int withSpace = 0;
+            int withoutSpace = 0;
+            for (String user : granted) {
+                boolean inSpace = read(user, space.getHomepageId()).getHasPermission();
+                boolean onParent = read(user, parent.getId()).getHasPermission();
+                boolean onChild = read(user, child.getId()).getHasPermission();
+                check(onParent == onChild, "the child answers differently from its parent");
+                check(onParent == inSpace, inSpace
+                        ? "a user with space access and a grant on the parent cannot read it"
+                        : "a user without space access reads the parent through the page grant alone");
+                if (inSpace) withSpace++; else withoutSpace++;
+            }
+            return granted.size() + " users granted on the parent: " + withSpace + " with space access read it, "
+                    + withoutSpace + " without space access are denied";
+        });
+    }
+
+    private CheckContentPermissionResponse read(String account, String contentId) {
+        CheckContentPermissionRequest request = CheckContentPermissionRequest.newBuilder().setContentId(contentId)
+                .setSubject(user(account)).setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_READ)
+                .build();
+        CheckContentPermissionResponse response = stub().checkContentPermission(request);
+        checks.add(new Check(request, response));
+        return response;
+    }
+
+    private static ContentPermissionPrincipal user(String account) {
+        return ContentPermissionPrincipal.newBuilder()
+                .setPrincipalType(ContentPermissionPrincipalType.CONTENT_PERMISSION_PRINCIPAL_TYPE_USER)
+                .setPrincipalId(account).build();
     }
 
     private static final java.util.Set<String> CONSUMER_DOMAINS = java.util.Set.of("gmail.com", "googlemail.com",

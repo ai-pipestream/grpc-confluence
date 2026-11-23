@@ -74,6 +74,14 @@ class ConfluenceAclReplayTest {
                 entity.writeDelimitedTo(out);
             }
         }
+        // Confluence's own permission answers, as delimited request and response pairs.
+        try (java.io.OutputStream out = java.nio.file.Files.newOutputStream(
+                records.resolveSibling("confluence-permission-checks.binpb"))) {
+            for (AclScenarios.Check check : scenarios.checks()) {
+                check.request().writeDelimitedTo(out);
+                check.response().writeDelimitedTo(out);
+            }
+        }
         assertThat(scenarios.rows()).as("FAIL rows").noneMatch(row -> row.outcome().equals("FAIL"));
         List<String> recorded = new ArrayList<>();
         run.path("outcomes").forEach(row -> recorded.add(row.path("rpc").asText() + " | "

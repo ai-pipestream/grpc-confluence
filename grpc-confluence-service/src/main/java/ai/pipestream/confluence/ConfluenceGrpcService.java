@@ -1553,6 +1553,42 @@ public final class ConfluenceGrpcService
     // ======================================================================
 
     @Override
+    public void checkContentPermission(CheckContentPermissionRequest request,
+            StreamObserver<CheckContentPermissionResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            String type = switch (request.getSubject().getPrincipalType()) {
+                case CONTENT_PERMISSION_PRINCIPAL_TYPE_USER -> "user";
+                case CONTENT_PERMISSION_PRINCIPAL_TYPE_GROUP -> "group";
+                default -> throw invalid("subject.principal_type must be USER or GROUP");
+            };
+            if (request.getOperation() == ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_UNSPECIFIED
+                    || request.getOperation() == ContentPermissionOperation.UNRECOGNIZED) {
+                throw invalid("operation must be READ or UPDATE");
+            }
+            com.fasterxml.jackson.databind.node.ObjectNode body = JSON.createObjectNode();
+            body.putObject("subject").put("type", type)
+                    .put("identifier", requireId(request.getSubject().getPrincipalId(), "subject.principal_id"));
+            body.put("operation", apiValue(request.getOperation(), "CONTENT_PERMISSION_OPERATION_"));
+            JsonNode node = session.client.post("/rest/api/content/"
+                    + requireId(request.getContentId(), "content_id") + "/permission/check", body);
+            CheckContentPermissionResponse.Builder response = CheckContentPermissionResponse.newBuilder()
+                    .setHasPermission(node.path("hasPermission").asBoolean(false));
+            for (JsonNode error : node.path("errors")) {
+                JsonNode message = error.path("message");
+                PermissionCheckReason.Builder reason = PermissionCheckReason.newBuilder()
+                        .setKey(message.path("key").asText(""))
+                        .setTranslation(message.path("translation").asText(""));
+                for (JsonNode arg : message.path("args")) {
+                    reason.addArgs(arg.isValueNode() ? arg.asText() : arg.toString());
+                }
+                response.addReasons(reason);
+            }
+            reply(observer, response.build());
+        });
+    }
+
+    @Override
     public void getRestrictionState(GetRestrictionStateRequest request,
             StreamObserver<GetRestrictionStateResponse> observer) {
         handle(observer, () -> {
