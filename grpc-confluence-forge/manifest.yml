@@ -61,6 +61,16 @@ modules:
       function: app-forward
       response:
         type: dynamic
+  confluence:customContent:
+    - key: pipestream-record
+      title: Pipestream record
+      description: A record written by the Pipestream Confluence connector.
+      bodyType: storage
+      supportedContainerTypes:
+        - space
+        - page
+      resource: record-view
+      render: default
   function:
     - key: on-event
       handler: index.onEvent
@@ -68,6 +78,9 @@ modules:
       handler: index.queue
     - key: app-forward
       handler: app.appApi
+resources:
+  - key: record-view
+    path: static/record-view
 app:
   id: ari:cloud:ecosystem::app/d16971ce-921a-40d5-a97b-84b84a4cbfe1
   runtime:
@@ -84,3 +97,6 @@ permissions:
     - write:confluence-space
     - read:app-data:confluence
     - write:app-data:confluence
+    - read:custom-content:confluence
+    - write:custom-content:confluence
+    - delete:custom-content:confluence

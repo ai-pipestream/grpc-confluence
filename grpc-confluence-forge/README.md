@@ -15,12 +15,21 @@ the connector take the oldest events and acknowledge them once handled.
 
 * `{"action":"take","max":100}` also answers each event's `expireTime`.
 
-## App property forwarding
+## App API forwarding
 
 `POST` to the `app-api` web trigger URL with the same header and
-`{"method":"GET"|"PUT"|"DELETE","path":"/wiki/api/v2/app/properties[/{key}][?query]","body":<json or null>}`.
-It calls Confluence as the app and answers `{"status":<int>,"body":<json or null>}`.
+`{"method":...,"path":...,"body":<json or null>}`. It calls Confluence as the app and
+answers `{"status":<int>,"body":<json or null>}`. Allowed:
+
+* `GET`, `PUT`, `DELETE` on `/wiki/api/v2/app/properties[/{key}][?query]`
+* `GET`, `POST`, `PUT`, `DELETE` on `/wiki/api/v2/custom-content[/{id}][?query]`
+
 Other methods and paths get a 400.
+
+## Custom content type
+
+The `pipestream-record` module defines a custom content type (storage body, in spaces and
+pages). Its type id is `forge:<app id>:<environment id>:pipestream-record`.
 
 ## Deploy (once per site)
 
