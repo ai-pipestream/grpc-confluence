@@ -116,6 +116,7 @@ final class ChangeScenarios {
     private boolean archived;
     private Folder folder;
     private String groupId;
+    private boolean groupDeleted;
     private final String groupName;
 
     ChangeScenarios(ManagedChannel channel, ConfluenceClient rest, ConfluenceChangeGrpcService service,
@@ -829,7 +830,7 @@ final class ChangeScenarios {
         check(!groupId.isEmpty(), "the group answered no id");
         String id = groupId;
         cleanups.add(() -> {
-            if (groupId != null) {
+            if (!groupDeleted) {
                 try {
                     rest.delete("/rest/api/group/by-id", Map.of("id", id));
                 } catch (ConfluenceClient.ConfluenceApiException e) {
@@ -846,6 +847,7 @@ final class ChangeScenarios {
 
     private String deleteGroup() throws Exception {
         rest.delete("/rest/api/group/by-id", Map.of("id", groupId));
+        groupDeleted = true;
         return "group deleted";
     }
 
