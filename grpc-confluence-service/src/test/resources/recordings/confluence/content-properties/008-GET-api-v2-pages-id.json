@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30179844",
+    "path" : "/wiki/api/v2/pages/32669736",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -23,34 +23,34 @@
       "json" : {
         "authorId" : "account-1",
         "parentType" : "page",
-        "parentId" : "30376427",
+        "parentId" : "32899104",
         "ownerId" : "account-1",
+        "createdAt" : "2026-11-23T22:39:34.503Z",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T15:46:15.748Z",
-        "position" : 917,
+        "position" : 992,
         "version" : {
           "number" : 3,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T15:46:16.968Z",
+          "createdAt" : "2026-11-23T22:39:35.927Z",
           "ncsStepVersion" : "5"
         },
+        "id" : "32669736",
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
-            "representation" : "storage",
-            "value" : "<p>Updated body pipestream-live-write-20261122T154612Z-76a48fba inlinetarget</p>"
+            "value" : "<p>Updated body pipestream-live-write-20261123T223930Z-2b7ba40f inlinetarget</p>",
+            "representation" : "storage"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261122T154612Z-76a48fba retitled",
-        "id" : "30179844",
+        "title" : "pipestream-live-write-20261123T223930Z-2b7ba40f retitled",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=30179844",
-          "webui" : "/spaces/CLAUDEGRPC/pages/30179844/pipestream-live-write-20261122T154612Z-76a48fba+retitled",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30179844",
-          "tinyui" : "/x/BILMAQ",
+          "editui" : "/pages/resumedraft.action?draftId=32669736",
+          "webui" : "/spaces/CLAUDEGRPC/pages/32669736/pipestream-live-write-20261123T223930Z-2b7ba40f+retitled",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/32669736",
+          "tinyui" : "/x/KIDyAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

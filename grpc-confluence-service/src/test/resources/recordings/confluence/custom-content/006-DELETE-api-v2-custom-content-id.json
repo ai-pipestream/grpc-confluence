@@ -1,11 +1,14 @@
 {
-  "scenario" : "cleanup",
-  "sequence" : 1,
+  "scenario" : "custom-content",
+  "sequence" : 6,
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/admin-key",
-    "query" : [ ],
+    "path" : "/wiki/api/v2/custom-content/33652737",
+    "query" : [ {
+      "name" : "purge",
+      "value" : "true"
+    } ],
     "headers" : {
       "accept" : "application/json"
     },

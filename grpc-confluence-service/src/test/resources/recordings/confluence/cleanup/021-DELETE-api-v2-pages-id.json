@@ -1,11 +1,14 @@
 {
-  "scenario" : "tenant",
-  "sequence" : 23,
+  "scenario" : "cleanup",
+  "sequence" : 21,
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/admin-key",
-    "query" : [ ],
+    "path" : "/wiki/api/v2/pages/32899104",
+    "query" : [ {
+      "name" : "purge",
+      "value" : "true"
+    } ],
     "headers" : {
       "accept" : "application/json"
     },

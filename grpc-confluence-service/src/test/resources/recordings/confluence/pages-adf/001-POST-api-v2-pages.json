@@ -14,11 +14,11 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-write-20261122T154612Z-76a48fba adf",
-        "parentId" : "30376427",
+        "title" : "pipestream-live-write-20261123T223930Z-2b7ba40f adf",
+        "parentId" : "32899104",
         "body" : {
           "representation" : "atlas_doc_format",
-          "value" : "{\"version\":1,\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Typed heading\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"alpha REDACTME omega\"}]},{\"type\":\"taskList\",\"attrs\":{\"localId\":\"290a8679-3bc9-3d4c-a905-226f4a07be26\"},\"content\":[{\"type\":\"taskItem\",\"attrs\":{\"localId\":\"2f421fe1-5321-3b8a-9af6-49c9d47d4b67\",\"state\":\"TODO\"},\"content\":[{\"type\":\"text\",\"text\":\"ship it\"}]}]}]}"
+          "value" : "{\"version\":1,\"type\":\"doc\",\"content\":[{\"type\":\"heading\",\"attrs\":{\"level\":2},\"content\":[{\"type\":\"text\",\"text\":\"Typed heading\"}]},{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"alpha REDACTME omega\"}]},{\"type\":\"taskList\",\"attrs\":{\"localId\":\"13aa325d-f9c0-397d-be2c-3ed222c1225d\"},\"content\":[{\"type\":\"taskItem\",\"attrs\":{\"localId\":\"85652054-8f8b-394f-aecb-8f89fc75996d\",\"state\":\"TODO\"},\"content\":[{\"type\":\"text\",\"text\":\"ship it\"}]}]}]}"
         }
       }
     }
@@ -32,34 +32,34 @@
       "json" : {
         "authorId" : "account-1",
         "parentType" : "page",
-        "parentId" : "30376427",
+        "parentId" : "32899104",
         "ownerId" : "account-1",
+        "createdAt" : "2026-11-23T22:39:33.648Z",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T15:46:15.115Z",
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T15:46:15.115Z",
+          "createdAt" : "2026-11-23T22:39:33.648Z",
           "ncsStepVersion" : "1"
         },
-        "position" : 281,
-        "id" : "30114261",
+        "position" : 819,
+        "id" : "32768008",
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<h2>Typed heading</h2><p>alpha REDACTME omega</p><ac:task-list ac:task-list-id=\"290a8679-3bc9-3d4c-a905-226f4a07be26\">\n<ac:task>\n<ac:task-id>1</ac:task-id>\n<ac:task-uuid>2f421fe1-5321-3b8a-9af6-49c9d47d4b67</ac:task-uuid>\n<ac:task-status>incomplete</ac:task-status>\n<ac:task-body><span class=\"placeholder-inline-tasks\">ship it</span></ac:task-body>\n</ac:task>\n</ac:task-list>"
+            "value" : "<h2>Typed heading</h2><p>alpha REDACTME omega</p><ac:task-list ac:task-list-id=\"13aa325d-f9c0-397d-be2c-3ed222c1225d\">\n<ac:task>\n<ac:task-id>1</ac:task-id>\n<ac:task-uuid>85652054-8f8b-394f-aecb-8f89fc75996d</ac:task-uuid>\n<ac:task-status>incomplete</ac:task-status>\n<ac:task-body><span class=\"placeholder-inline-tasks\">ship it</span></ac:task-body>\n</ac:task>\n</ac:task-list>"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261122T154612Z-76a48fba adf",
+        "title" : "pipestream-live-write-20261123T223930Z-2b7ba40f adf",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=30114261",
-          "webui" : "/spaces/CLAUDEGRPC/pages/30114261/pipestream-live-write-20261122T154612Z-76a48fba+adf",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30114261",
-          "tinyui" : "/x/1YHLAQ",
+          "editui" : "/pages/resumedraft.action?draftId=32768008",
+          "webui" : "/spaces/CLAUDEGRPC/pages/32768008/pipestream-live-write-20261123T223930Z-2b7ba40f+adf",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/32768008",
+          "tinyui" : "/x/CAD0AQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

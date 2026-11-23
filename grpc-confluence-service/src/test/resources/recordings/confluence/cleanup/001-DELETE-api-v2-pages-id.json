@@ -1,10 +1,10 @@
 {
-  "scenario" : "tenant",
-  "sequence" : 10,
+  "scenario" : "cleanup",
+  "sequence" : 1,
   "request" : {
-    "method" : "GET",
+    "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/spaces/30048484",
+    "path" : "/wiki/api/v2/pages/33161229",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -21,7 +21,7 @@
         "errors" : [ {
           "status" : 404,
           "code" : "NOT_FOUND",
-          "title" : "Cannot find a space with id [30048484]",
+          "title" : "Not Found",
           "detail" : null
         } ]
       }

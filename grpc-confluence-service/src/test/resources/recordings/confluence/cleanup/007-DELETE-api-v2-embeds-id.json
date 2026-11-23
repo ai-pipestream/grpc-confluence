@@ -1,10 +1,10 @@
 {
   "scenario" : "cleanup",
-  "sequence" : 14,
+  "sequence" : 7,
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/spaces/7798786/properties/29917419",
+    "path" : "/wiki/api/v2/embeds/32833570",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -21,7 +21,7 @@
         "errors" : [ {
           "status" : 404,
           "code" : "NOT_FOUND",
-          "title" : "Cannot delete space property: JsonSpaceProperty{id='JsonContentPropertyId{id=29917419}', key='null', space=ExpandedReference{idProperties={}, of=some(Space{key='null', name='null'})}, version=null}",
+          "title" : "No content found with id : 32833570 and status [current, archived]",
           "detail" : null
         } ]
       }

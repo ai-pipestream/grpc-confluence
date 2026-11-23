@@ -1,11 +1,14 @@
 {
   "scenario" : "cleanup",
-  "sequence" : 11,
+  "sequence" : 14,
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/folders/29851882",
-    "query" : [ ],
+    "path" : "/wiki/api/v2/blogposts/32112661",
+    "query" : [ {
+      "name" : "purge",
+      "value" : "true"
+    } ],
     "headers" : {
       "accept" : "application/json"
     },
@@ -21,7 +24,7 @@
         "errors" : [ {
           "status" : 404,
           "code" : "NOT_FOUND",
-          "title" : "No content found with id : 29851882 and status [current, archived]",
+          "title" : "Not Found",
           "detail" : null
         } ]
       }
