@@ -5,7 +5,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30769515/ancestors",
+    "path" : "/wiki/api/v2/pages/28409901/ancestors",
     "query" : [ {
       "name" : "limit",
       "value" : "250"

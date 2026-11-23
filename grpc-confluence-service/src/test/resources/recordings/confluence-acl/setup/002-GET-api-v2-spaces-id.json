@@ -23,12 +23,12 @@
         "homepageId" : "7798963",
         "createdAt" : "2026-08-25T00:57:41.343Z",
         "icon" : null,
-        "description" : { },
-        "status" : "current",
         "name" : "Claude gRPC Live Test",
         "key" : "CLAUDEGRPC",
         "id" : "7798786",
         "type" : "global",
+        "description" : { },
+        "status" : "current",
         "_links" : {
           "webui" : "/spaces/CLAUDEGRPC",
           "base" : "https://site-1.example.invalid/wiki"

@@ -4,7 +4,7 @@
   "request" : {
     "method" : "POST",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30769515/permissions",
+    "path" : "/wiki/api/v2/pages/29885520/permissions",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -31,39 +31,12 @@
     "body" : {
       "json" : {
         "results" : [ {
-          "operation" : "read",
-          "principal" : {
-            "principalType" : "user",
-            "principalId" : "account-2"
-          },
-          "createdAt" : "2026-11-23T02:14:46.869Z",
-          "createdByAaid" : "account-1",
-          "createdBy" : "account-1"
-        }, {
           "operation" : "update",
           "principal" : {
             "principalType" : "user",
             "principalId" : "account-1"
           },
-          "createdAt" : "2026-11-23T02:14:42.985Z",
-          "createdByAaid" : "account-1",
-          "createdBy" : "account-1"
-        }, {
-          "operation" : "read",
-          "principal" : {
-            "principalType" : "group",
-            "principalId" : "7c989546-0d14-4a91-99ec-a0afdaaedc22"
-          },
-          "createdAt" : "2026-11-23T02:14:48.714Z",
-          "createdByAaid" : "account-1",
-          "createdBy" : "account-1"
-        }, {
-          "operation" : "read",
-          "principal" : {
-            "principalType" : "user",
-            "principalId" : "account-4"
-          },
-          "createdAt" : "2026-11-23T02:14:47.739Z",
+          "createdAt" : "2026-11-23T02:21:45.177Z",
           "createdByAaid" : "account-1",
           "createdBy" : "account-1"
         }, {
@@ -72,7 +45,34 @@
             "principalType" : "user",
             "principalId" : "account-3"
           },
-          "createdAt" : "2026-11-23T02:14:47.350Z",
+          "createdAt" : "2026-11-23T02:21:48.154Z",
+          "createdByAaid" : "account-1",
+          "createdBy" : "account-1"
+        }, {
+          "operation" : "read",
+          "principal" : {
+            "principalType" : "user",
+            "principalId" : "account-4"
+          },
+          "createdAt" : "2026-11-23T02:21:48.537Z",
+          "createdByAaid" : "account-1",
+          "createdBy" : "account-1"
+        }, {
+          "operation" : "read",
+          "principal" : {
+            "principalType" : "group",
+            "principalId" : "7c989546-0d14-4a91-99ec-a0afdaaedc22"
+          },
+          "createdAt" : "2026-11-23T02:21:49.214Z",
+          "createdByAaid" : "account-1",
+          "createdBy" : "account-1"
+        }, {
+          "operation" : "read",
+          "principal" : {
+            "principalType" : "user",
+            "principalId" : "account-2"
+          },
+          "createdAt" : "2026-11-23T02:21:47.829Z",
           "createdByAaid" : "account-1",
           "createdBy" : "account-1"
         }, {
@@ -81,7 +81,7 @@
             "principalType" : "user",
             "principalId" : "account-5"
           },
-          "createdAt" : "2026-11-23T02:14:48.209Z",
+          "createdAt" : "2026-11-23T02:21:48.898Z",
           "createdByAaid" : "account-1",
           "createdBy" : "account-1"
         } ],

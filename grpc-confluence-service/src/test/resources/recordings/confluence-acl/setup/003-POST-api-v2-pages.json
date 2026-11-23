@@ -14,7 +14,7 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-acl-20261123T021441Z-a0338aca",
+        "title" : "pipestream-live-acl-20261123T022143Z-2f7b195e",
         "body" : {
           "representation" : "storage",
           "value" : "<p>Parent of the ACL run.</p>"
@@ -34,17 +34,16 @@
         "parentId" : "7798963",
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-23T02:14:42.963Z",
+        "createdAt" : "2026-11-23T02:21:45.156Z",
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-23T02:14:42.963Z",
+          "createdAt" : "2026-11-23T02:21:45.156Z",
           "ncsStepVersion" : "1"
         },
-        "position" : 1051,
-        "id" : "30769515",
+        "position" : 862,
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
@@ -53,12 +52,13 @@
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-acl-20261123T021441Z-a0338aca",
+        "title" : "pipestream-live-acl-20261123T022143Z-2f7b195e",
+        "id" : "29885520",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=30769515",
-          "webui" : "/spaces/CLAUDEGRPC/pages/30769515/pipestream-live-acl-20261123T021441Z-a0338aca",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30769515",
-          "tinyui" : "/x/a4HVAQ",
+          "editui" : "/pages/resumedraft.action?draftId=29885520",
+          "webui" : "/spaces/CLAUDEGRPC/pages/29885520/pipestream-live-acl-20261123T022143Z-2f7b195e",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29885520",
+          "tinyui" : "/x/UATIAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }
