@@ -67,7 +67,7 @@ final class AclScenarios {
     private Page child;
     private String callerGroup;
     private final List<ConfluenceEntity> syncRecords = new ArrayList<>();
-    private final Set<String> otherUsers = new java.util.TreeSet<>();
+    private final Set<String> otherUsers = new LinkedHashSet<>();
     private final List<String> granted = new ArrayList<>();
     private final List<Check> checks = new ArrayList<>();
 
@@ -341,6 +341,8 @@ final class AclScenarios {
         step("AddContentPermissions", "READ on the parent for up to " + MAX_CHECKED_USERS
                 + " other users of the space and the caller's group", () -> {
             List<String> refused = new ArrayList<>();
+            backend.tape().unordered(true);
+            try {
             for (String user : otherUsers.stream().limit(MAX_CHECKED_USERS).toList()) {
                 try {
                     stub().addContentPermissions(AddContentPermissionsRequest.newBuilder()
@@ -353,6 +355,9 @@ final class AclScenarios {
                     refused.add(e.getStatus().getCode().name());
                 }
             }
+            } finally {
+                backend.tape().unordered(false);
+            }
             check(!granted.isEmpty(), "no other user could be granted; refused " + refused);
             return granted.size() + " users granted READ on the parent, " + refused.size() + " refused " + refused;
         });
@@ -364,6 +369,8 @@ final class AclScenarios {
             check(read(caller, parent.getId()).getHasPermission(), "the caller cannot read its own parent page");
             int withSpace = 0;
             int withoutSpace = 0;
+            backend.tape().unordered(true);
+            try {
             for (String user : granted) {
                 boolean inSpace = read(user, space.getHomepageId()).getHasPermission();
                 boolean onParent = read(user, parent.getId()).getHasPermission();
@@ -373,6 +380,9 @@ final class AclScenarios {
                         ? "a user with space access and a grant on the parent cannot read it"
                         : "a user without space access reads the parent through the page grant alone");
                 if (inSpace) withSpace++; else withoutSpace++;
+            }
+            } finally {
+                backend.tape().unordered(false);
             }
             return granted.size() + " users granted on the parent: " + withSpace + " with space access read it, "
                     + withoutSpace + " without space access are denied";
