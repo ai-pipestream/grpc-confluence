@@ -17,6 +17,8 @@ import ai.pipestream.sync.v1.SyncTableServiceGrpc;
 import ai.pipestream.sync.v1.UpsertAssetRequest;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 
 import java.util.Locale;
 import java.util.Objects;
@@ -25,6 +27,12 @@ import java.util.concurrent.TimeUnit;
 /**
  * Writes every Confluence change into {@code SyncTableService}. Attachments
  * carry {@code attachment=true} and a parent page/blog asset id.
+ *
+ * <p>A write the ledger refuses or never answers is thrown as a
+ * {@link WriteFailedException}, never logged and passed over. The ledger is
+ * reconciled by run id at the end of a full crawl, so a row whose upsert
+ * was dropped would be marked deleted although its page exists; the pass
+ * that could not record its rows has to fail instead.
  */
 public final class SyncTableChangeSink implements ChangeSink, AutoCloseable {
 
@@ -38,7 +46,36 @@ public final class SyncTableChangeSink implements ChangeSink, AutoCloseable {
     /** Catalog id used when the caller does not name a connection. */
     public static final String DEFAULT_CONNECTION_ID = "default";
 
-    private static final System.Logger LOG = System.getLogger(SyncTableChangeSink.class.getName());
+    /**
+     * A sync-table write that did not land. The message names the RPC and
+     * the row, run or scope it was for; {@link #ledgerStatus()} is the
+     * status the ledger (or the channel to it) answered.
+     */
+    public static final class WriteFailedException extends RuntimeException {
+
+        private static final long serialVersionUID = 1L;
+
+        /** The ledger's status code; an exception carries no gRPC {@code Status} field. */
+        private final Status.Code ledgerCode;
+
+        private WriteFailedException(String rpc, String subject, StatusRuntimeException cause) {
+            super("sync-table " + rpc + " failed for " + subject + ": "
+                    + cause.getStatus().getCode()
+                    + (cause.getStatus().getDescription() == null
+                            ? "" : ": " + cause.getStatus().getDescription()), cause);
+            this.ledgerCode = cause.getStatus().getCode();
+        }
+
+        /**
+         * The status code the ledger answered the write with.
+         *
+         * @return the code; {@code UNAVAILABLE} or {@code DEADLINE_EXCEEDED}
+         *         when the ledger could not be reached in time
+         */
+        public Status.Code ledgerStatus() {
+            return ledgerCode;
+        }
+    }
 
     private final ManagedChannel channel;
     private final SyncTableServiceGrpc.SyncTableServiceBlockingStub stub;
@@ -113,25 +150,39 @@ public final class SyncTableChangeSink implements ChangeSink, AutoCloseable {
         return new SyncTableChangeSink(builder.build());
     }
 
+    /**
+     * Upserts the change's row, or deletes it for a delete.
+     *
+     * @throws WriteFailedException when the ledger does not take the write
+     */
     @Override
     public void emit(ConfluenceChange change) {
-        try {
-            if (change.getOperation() == ChangeOperation.CHANGE_OPERATION_DELETE) {
+        if (change.getOperation() == ChangeOperation.CHANGE_OPERATION_DELETE) {
+            String assetId = assetId(connectionId, change.getEntity());
+            try {
                 stub.deleteAsset(DeleteAssetRequest.newBuilder()
-                        .setAssetId(assetId(connectionId, change.getEntity()))
+                        .setAssetId(assetId)
                         .setRunId(change.getCursor())
                         .setCursor(change.getCursor())
                         .build());
-                return;
+            } catch (StatusRuntimeException e) {
+                throw new WriteFailedException("DeleteAsset", assetId, e);
             }
-            stub.upsertAsset(UpsertAssetRequest.newBuilder()
-                    .setAsset(toAsset(connectionId, change))
-                    .build());
-        } catch (RuntimeException e) {
-            LOG.log(System.Logger.Level.WARNING, "sync-table emit failed: {0}", e.toString());
+            return;
+        }
+        Asset asset = toAsset(connectionId, change);
+        try {
+            stub.upsertAsset(UpsertAssetRequest.newBuilder().setAsset(asset).build());
+        } catch (StatusRuntimeException e) {
+            throw new WriteFailedException("UpsertAsset", asset.getAssetId(), e);
         }
     }
 
+    /**
+     * Stores the space's checkpoint.
+     *
+     * @throws WriteFailedException when the ledger does not take the write
+     */
     @Override
     public void snapshot(ConfluenceSnapshot snapshot) {
         try {
@@ -142,12 +193,19 @@ public final class SyncTableChangeSink implements ChangeSink, AutoCloseable {
                             .setScope(snapshot.getSpaceKey())
                             .setCursor(snapshot.getCursor()))
                     .build());
-        } catch (RuntimeException e) {
-            LOG.log(System.Logger.Level.WARNING, "sync-table snapshot failed: {0}", e.toString());
+        } catch (StatusRuntimeException e) {
+            throw new WriteFailedException("PutCheckpoint",
+                    "space " + snapshot.getSpaceKey() + " of connection " + connectionId, e);
         }
     }
 
-    /** Mark source rows not seen in this full-crawl run as deleted. */
+    /**
+     * Mark source rows not seen in this full-crawl run as deleted. Only
+     * reached when every write of the run landed: a failed write throws
+     * out of the crawl before this is called.
+     *
+     * @throws WriteFailedException when the ledger does not take the reconcile
+     */
     @Override
     public void completeRun(String runId) {
         if (runId == null || runId.isBlank()) {
@@ -159,8 +217,9 @@ public final class SyncTableChangeSink implements ChangeSink, AutoCloseable {
                     .setConnectionId(connectionId)
                     .setRunId(runId)
                     .build());
-        } catch (RuntimeException e) {
-            LOG.log(System.Logger.Level.WARNING, "sync-table reconcile failed: {0}", e.toString());
+        } catch (StatusRuntimeException e) {
+            throw new WriteFailedException("Reconcile",
+                    "run " + runId + " of connection " + connectionId, e);
         }
     }
 
