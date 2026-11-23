@@ -186,7 +186,7 @@ class ConfluenceLiveChangeIT {
                     return;
                 }
             }
-            TimeUnit.SECONDS.sleep(5);
+            TimeUnit.SECONDS.sleep(15);
         }
         throw new AssertionError("Forge queued no matching event within "
                 + ChangeScenarios.EVENT_WAIT);
@@ -200,7 +200,7 @@ class ConfluenceLiveChangeIT {
             if (queued >= count) {
                 return;
             }
-            TimeUnit.SECONDS.sleep(5);
+            TimeUnit.SECONDS.sleep(15);
         }
         throw new AssertionError("only " + queued + " events were queued within "
                 + ChangeScenarios.EVENT_WAIT);

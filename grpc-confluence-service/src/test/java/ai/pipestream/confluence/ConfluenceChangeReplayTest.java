@@ -43,7 +43,7 @@ class ConfluenceChangeReplayTest {
         ConfluenceGrpcService read = new ConfluenceGrpcService(config, client,
                 ConfluenceGrpcService.DEFAULT_ATTACHMENT_MAX_BYTES);
         ConfluenceChangeGrpcService service = new ConfluenceChangeGrpcService(read,
-                new ForgeEventQueue(run.path("queueUrl").asText(), "replay", tape),
+                new ForgeEventQueue(run.path("queueUrl").asText(), "replay", tape, time -> { }),
                 Clock.systemUTC());
         String name = InProcessServerBuilder.generateName();
         Server server = InProcessServerBuilder.forName(name)

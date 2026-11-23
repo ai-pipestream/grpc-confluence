@@ -38,7 +38,27 @@ final class ForgeEventQueue {
     /** Most events taken per call. */
     static final int DEFAULT_TAKE = 100;
 
+    /** Most attempts per call when the web trigger answers busy. */
+    static final int ATTEMPTS = 6;
+    /** Longest wait between attempts. */
+    static final Duration MAX_WAIT = Duration.ofSeconds(60);
+
     private static final ObjectMapper JSON = new ObjectMapper();
+
+    /** Waits between attempts. */
+    interface Sleeper {
+        /** Waits for {@code time}. */
+        void sleep(Duration time) throws InterruptedException;
+    }
+
+    /** The web trigger still answered busy (HTTP 429 or 503) after every attempt. */
+    static final class Busy extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        Busy(String message) {
+            super(message);
+        }
+    }
 
     /**
      * One queued event.
@@ -53,8 +73,13 @@ final class ForgeEventQueue {
     private final URI url;
     private final String secret;
     private final HttpClient http;
+    private final Sleeper sleeper;
 
     ForgeEventQueue(String url, String secret, HttpClient http) {
+        this(url, secret, http, time -> Thread.sleep(time.toMillis()));
+    }
+
+    ForgeEventQueue(String url, String secret, HttpClient http, Sleeper sleeper) {
         if (url == null || url.isBlank()) {
             throw new IllegalArgumentException(ENV_URL + " is required");
         }
@@ -69,6 +94,7 @@ final class ForgeEventQueue {
         }
         this.secret = secret;
         this.http = http;
+        this.sleeper = sleeper;
     }
 
     /** The queue from the environment, or {@code null} when none is configured. */
@@ -112,13 +138,32 @@ final class ForgeEventQueue {
                 .header(SECRET_HEADER, secret)
                 .POST(HttpRequest.BodyPublishers.ofString(body.toString())).build();
         HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+        for (int attempt = 1; busy(response.statusCode()) && attempt < ATTEMPTS; attempt++) {
+            sleeper.sleep(wait(response, attempt));
+            response = http.send(request, HttpResponse.BodyHandlers.ofString());
+        }
         if (response.statusCode() / 100 != 2) {
             String text = response.body() == null ? "" : response.body().strip();
-            throw new IOException("the Forge event queue answered HTTP " + response.statusCode()
-                    + (text.isEmpty() ? "" : ": " + text.substring(0, Math.min(500, text.length()))));
+            String message = "the Forge event queue answered HTTP " + response.statusCode()
+                    + (text.isEmpty() ? "" : ": " + text.substring(0, Math.min(500, text.length())));
+            throw busy(response.statusCode()) ? new Busy(message) : new IOException(message);
         }
         String text = response.body();
         return text == null || text.isBlank() ? JSON.createObjectNode() : JSON.readTree(text);
+    }
+
+    private static boolean busy(int status) {
+        return status == 429 || status == 503;
+    }
+
+    /** The wait before the next attempt: Retry-After seconds when given, else doubling from 2 s. */
+    static Duration wait(HttpResponse<?> response, int attempt) {
+        Duration wait = Duration.ofSeconds(1L << Math.min(attempt, 5));
+        String after = response.headers().firstValue("retry-after").orElse("").strip();
+        if (!after.isEmpty() && after.chars().allMatch(Character::isDigit) && after.length() < 6) {
+            wait = Duration.ofSeconds(Long.parseLong(after));
+        }
+        return wait.compareTo(MAX_WAIT) > 0 ? MAX_WAIT : wait;
     }
 
     /** Maps one Forge product event to the typed contract. */

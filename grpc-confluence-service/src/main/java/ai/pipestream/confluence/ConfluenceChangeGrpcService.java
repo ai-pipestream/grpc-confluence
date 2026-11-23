@@ -200,7 +200,14 @@ public final class ConfluenceChangeGrpcService
      * one in the queue, so the next drain retries them in order.
      */
     private void drain(SyncRequest scope, Emitter out) throws Exception {
-        List<ForgeEventQueue.Queued> batch = queue.take(ForgeEventQueue.DEFAULT_TAKE);
+        List<ForgeEventQueue.Queued> batch;
+        try {
+            batch = queue.take(ForgeEventQueue.DEFAULT_TAKE);
+        } catch (ForgeEventQueue.Busy e) {
+            LOG.log(System.Logger.Level.WARNING, "event queue busy, retried next drain: {0}",
+                    e.getMessage());
+            return;
+        }
         java.util.Map<String, Integer> last = new java.util.HashMap<>();
         for (int i = 0; i < batch.size(); i++) {
             String key = coalesceKey(batch.get(i).event());
@@ -222,7 +229,13 @@ public final class ConfluenceChangeGrpcService
             LOG.log(System.Logger.Level.WARNING, "event {0} not resolved, retried next drain: {1}",
                     batch.get(handled.size()).event().getEventType(), e.toString());
         } finally {
-            queue.ack(handled);
+            try {
+                queue.ack(handled);
+            } catch (ForgeEventQueue.Busy e) {
+                LOG.log(System.Logger.Level.WARNING,
+                        "event queue busy, {0} handled events are taken again next drain: {1}",
+                        handled.size(), e.getMessage());
+            }
             drainListener.accept(List.copyOf(batch));
         }
     }
