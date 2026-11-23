@@ -2400,6 +2400,16 @@ public final class ConfluenceGrpcService
         if (t instanceof io.grpc.StatusRuntimeException e) {
             observer.onError(e);
             return;
+        } else if (t instanceof SyncTableChangeSink.WriteFailedException e) {
+            // The ledger's own code is not this call's: its PERMISSION_DENIED
+            // or NOT_FOUND would read as Confluence's. A ledger that could
+            // not be reached in time is UNAVAILABLE (run the Sync again);
+            // any other refusal is INTERNAL. The description names the RPC.
+            status = (switch (e.ledgerStatus()) {
+                case UNAVAILABLE, DEADLINE_EXCEEDED, RESOURCE_EXHAUSTED, CANCELLED, ABORTED ->
+                        Status.UNAVAILABLE;
+                default -> Status.INTERNAL;
+            }).withDescription(e.getMessage());
         } else if (t instanceof ConfluenceClient.ConfluenceApiException e) {
             status = (switch (e.status()) {
                 case 400 -> Status.INVALID_ARGUMENT;
