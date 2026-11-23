@@ -27,7 +27,7 @@ final class AclScenarios {
     static final String CLEANUP = "cleanup";
     /** The rpcs these scenarios prove. */
     static final List<String> RPCS = List.of("GetContentAccess", "GetGroup", "ListGroupMembers",
-            "ListUserGroups", "Sync", "CheckContentPermission");
+            "ListUserGroups", "Sync", "CheckContentPermission", "CreateSpace", "DeleteSpace");
     /** How many other users the permission steps grant and check at most. */
     private static final int MAX_CHECKED_USERS = 8;
     private static final long CALL_DEADLINE_SECONDS = 120;
@@ -70,6 +70,8 @@ final class AclScenarios {
     private final Set<String> otherUsers = new LinkedHashSet<>();
     private final List<String> granted = new ArrayList<>();
     private final List<Check> checks = new ArrayList<>();
+    private final List<ConfluenceEntity> privateRecords = new ArrayList<>();
+    private Space privateSpace;
 
     /** One permission check Confluence answered. */
     record Check(CheckContentPermissionRequest request, CheckContentPermissionResponse response) {
@@ -83,7 +85,7 @@ final class AclScenarios {
     /** The scenario names, in the order they run; {@link #CLEANUP} is last. */
     static List<String> names() {
         return List.of("setup", "content-access", "groups", "permission-grants", "sync", "permission-checks",
-                CLEANUP);
+                "private-space", CLEANUP);
     }
 
     /** The scenarios in the order of {@link #names()}. */
@@ -114,6 +116,11 @@ final class AclScenarios {
                         permissionChecks();
                     }
                 }),
+                new Scenario("private-space", () -> {
+                    if (!granted.isEmpty()) {
+                        privateSpace();
+                    }
+                }),
                 new Scenario(CLEANUP, this::cleanUp));
     }
 
@@ -124,6 +131,11 @@ final class AclScenarios {
     /** The ACL and directory records the Sync step received, by entity id. */
     List<ConfluenceEntity> syncRecords() {
         return List.copyOf(syncRecords);
+    }
+
+    /** The ACL and directory records the Sync of the private space received. */
+    List<ConfluenceEntity> privateSyncRecords() {
+        return List.copyOf(privateRecords);
     }
 
     /** The permission checks Confluence answered, in order. */
@@ -393,6 +405,106 @@ final class AclScenarios {
         });
     }
 
+    private void privateSpace() {
+        String caller = parent.getAuthorId();
+        step("CreateSpace", "a private space with a page granted to users who cannot view the space", () -> {
+            String key = "ACLP" + Integer.toHexString(backend.run().hashCode() & 0x7fffffff)
+                    .toUpperCase(java.util.Locale.ROOT);
+            privateSpace = stub().createSpace(CreateSpaceRequest.newBuilder().setName(backend.run() + " private")
+                    .setKey(key).setCreatePrivateSpace(true)
+                    .setDescription("Private space of the ACL run " + backend.run()).build()).getSpace();
+            Space read = stub().getSpace(GetSpaceRequest.newBuilder().setId(privateSpace.getId()).build()).getSpace();
+            Page page = stub().createPage(CreatePageRequest.newBuilder().setSpaceId(privateSpace.getId())
+                    .setTitle(backend.run() + " private page").setBody(storage("<p>Private page.</p>")).build())
+                    .getPage();
+            ContentRef ref = page(page.getId());
+            List<String> refused = new ArrayList<>();
+            List<String> onPage = new ArrayList<>();
+            stub().addContentPermissions(AddContentPermissionsRequest.newBuilder().setContent(ref)
+                    .addPermissions(ContentPermissionGrant.newBuilder()
+                            .setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_READ)
+                            .addPrincipals(self())).build());
+            for (String user : granted) {
+                try {
+                    stub().addContentPermissions(AddContentPermissionsRequest.newBuilder().setContent(ref)
+                            .addPermissions(ContentPermissionGrant.newBuilder()
+                                    .setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_READ)
+                                    .addPrincipals(user(user))).build());
+                    onPage.add(user);
+                } catch (StatusRuntimeException e) {
+                    refused.add(e.getStatus().getCode().name());
+                }
+            }
+            stub().setRestrictionState(SetRestrictionStateRequest.newBuilder().setContent(ref)
+                    .setState(ContentRestrictionState.CONTENT_RESTRICTION_STATE_VIEW_RESTRICTED).build());
+            check(!onPage.isEmpty(), "no user could be granted on the private page; refused " + refused);
+
+            check(read(caller, page.getId()).getHasPermission(), "the caller cannot read its own private page");
+            int denied = 0;
+            int viewers = 0;
+            backend.tape().unordered(true);
+            try {
+                for (String user : onPage) {
+                    boolean inSpace = read(user, read.getHomepageId()).getHasPermission();
+                    boolean reads = read(user, page.getId()).getHasPermission();
+                    check(reads == inSpace, inSpace
+                            ? "a user who can view the private space cannot read a page granted to it"
+                            : "a user who cannot view the private space reads a page through the page grant alone");
+                    if (inSpace) viewers++; else denied++;
+                }
+            } finally {
+                backend.tape().unordered(false);
+            }
+            check(denied > 0, "every granted user can view the private space");
+
+            Map<String, ConfluenceEntity> byId = new java.util.HashMap<>();
+            backend.tape().unordered(true);
+            try {
+                stub().sync(SyncRequest.newBuilder().addSpaceKeys(key).build()).forEachRemaining(response -> {
+                    if (response.hasChange()) {
+                        ConfluenceEntity entity = response.getChange().getEntity();
+                        byId.put(entity.getEntityId(), entity);
+                    }
+                });
+            } finally {
+                backend.tape().unordered(false);
+            }
+            privateRecords.clear();
+            byId.values().stream().filter(e -> e.hasSpaceAccess() || e.hasAccessChain() || e.hasUser()
+                    || e.hasGroup() || e.hasGroupMember())
+                    .sorted(java.util.Comparator.comparing(ConfluenceEntity::getEntityId))
+                    .forEach(privateRecords::add);
+            check(byId.containsKey("page:" + page.getId() + "/access"), "no access chain for the private page");
+            check(byId.containsKey("space:" + privateSpace.getId() + "/access"), "no space grants record");
+            return onPage.size() + " users granted on a page of a private space (" + refused.size()
+                    + " refused): " + denied + " who cannot view the space are denied, " + viewers
+                    + " who can view it read the page";
+        });
+    }
+
+    private void deletePrivateSpace() {
+        if (privateSpace == null) {
+            return;
+        }
+        step("DeleteSpace", "delete the private space", () -> {
+            String task = stub().deleteSpace(DeleteSpaceRequest.newBuilder().setKey(privateSpace.getKey()).build())
+                    .getTaskId();
+            check(!task.isEmpty(), "no task id was answered");
+            for (int attempt = 0; attempt < 60; attempt++) {
+                LongRunningTask state = stub().getLongRunningTask(GetLongRunningTaskRequest.newBuilder()
+                        .setTaskId(task).build()).getTask();
+                if (state.getFinished()) {
+                    check(state.getSuccessful(), "the delete ended with errors " + state.getErrorsList());
+                    privateSpace = null;
+                    return "the private space is deleted";
+                }
+                backend.tape().pause(java.time.Duration.ofSeconds(2));
+            }
+            leftBehind.add("space " + privateSpace.getKey() + ": the delete did not finish in two minutes");
+            throw new AssertionError("the delete did not finish in two minutes");
+        });
+    }
+
     private CheckContentPermissionResponse read(String account, String contentId) {
         CheckContentPermissionRequest request = CheckContentPermissionRequest.newBuilder().setContentId(contentId)
                 .setSubject(user(account)).setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_READ)
@@ -420,6 +532,7 @@ final class AclScenarios {
     }
 
     private void cleanUp() {
+        deletePrivateSpace();
         for (int i = created.size() - 1; i >= 0; i--) {
             String id = created.get(i);
             try {

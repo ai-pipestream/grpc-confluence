@@ -74,6 +74,12 @@ class ConfluenceAclReplayTest {
                 entity.writeDelimitedTo(out);
             }
         }
+        try (java.io.OutputStream out = java.nio.file.Files.newOutputStream(
+                records.resolveSibling("confluence-private-sync-records.binpb"))) {
+            for (ai.pipestream.confluence.v1.ConfluenceEntity entity : scenarios.privateSyncRecords()) {
+                entity.writeDelimitedTo(out);
+            }
+        }
         // Confluence's own permission answers, as delimited request and response pairs.
         try (java.io.OutputStream out = java.nio.file.Files.newOutputStream(
                 records.resolveSibling("confluence-permission-checks.binpb"))) {
