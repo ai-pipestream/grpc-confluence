@@ -25,16 +25,16 @@
     "body" : {
       "json" : {
         "events" : [ {
-          "key" : "evt:001795404670470:399fcd4f-bba2-4267-aaa7-c55e49007ff1",
+          "key" : "evt:001795441890739:a7715cf6-29d1-4d44-afe2-c856945a460b",
           "event" : {
-            "atlassianId" : "User 1",
+            "atlassianId" : "account-1",
             "content" : {
               "history" : {
                 "createdBy" : {
                   "accountId" : "account-1",
                   "accountType" : "atlassian",
-                  "displayName" : "User 1",
-                  "email" : "User 1",
+                  "displayName" : "account-1",
+                  "email" : "account-1",
                   "isExternalCollaborator" : false,
                   "profilePicture" : {
                     "height" : 48,
@@ -42,17 +42,17 @@
                     "path" : "/avatars/avatar-1.png",
                     "width" : 48
                   },
-                  "publicName" : "User 1",
+                  "publicName" : "account-1",
                   "type" : "known",
-                  "username" : "User 1"
+                  "username" : "account-1"
                 },
-                "createdDate" : "2026-11-23T03:27:12.468Z",
+                "createdDate" : "2026-11-23T13:47:42.364Z",
                 "latest" : true,
                 "ownedBy" : {
                   "accountId" : "account-1",
                   "accountType" : "atlassian",
-                  "displayName" : "User 1",
-                  "email" : "User 1",
+                  "displayName" : "account-1",
+                  "email" : "account-1",
                   "isExternalCollaborator" : false,
                   "profilePicture" : {
                     "height" : 48,
@@ -60,12 +60,12 @@
                     "path" : "/avatars/avatar-1.png",
                     "width" : 48
                   },
-                  "publicName" : "User 1",
+                  "publicName" : "account-1",
                   "type" : "known",
-                  "username" : "User 1"
+                  "username" : "account-1"
                 }
               },
-              "id" : "30442710",
+              "id" : "30998818",
               "metadata" : {
                 "notificationsPlatformEmail" : false
               },
@@ -85,14 +85,14 @@
                 "type" : "global"
               },
               "status" : "current",
-              "title" : "pipestream-live-change-20261123T032707Z-b626bd05",
+              "title" : "pipestream-live-change-20261123T134736Z-9fe556c3",
               "type" : "page",
               "version" : {
                 "by" : {
                   "accountId" : "account-1",
                   "accountType" : "atlassian",
-                  "displayName" : "User 1",
-                  "email" : "User 1",
+                  "displayName" : "account-1",
+                  "email" : "account-1",
                   "isExternalCollaborator" : false,
                   "profilePicture" : {
                     "height" : 48,
@@ -100,12 +100,12 @@
                     "path" : "/avatars/avatar-1.png",
                     "width" : 48
                   },
-                  "publicName" : "User 1",
+                  "publicName" : "account-1",
                   "type" : "known",
-                  "username" : "User 1"
+                  "username" : "account-1"
                 },
                 "number" : 3,
-                "when" : "2026-11-23T03:27:56.981Z"
+                "when" : "2026-11-23T13:48:25.019Z"
               }
             },
             "context" : {
@@ -115,7 +115,7 @@
                 "enabled" : false
               }
             },
-            "eventCreatedDate" : "2026-11-23T03:31:09.610Z",
+            "eventCreatedDate" : "2026-11-23T13:51:30.026Z",
             "eventType" : "avi:confluence:permissions_updated:page",
             "permissions" : {
               "scopes" : [ "read:app-data:confluence", "read:confluence-content.all", "read:confluence-content.summary", "read:confluence-groups", "read:confluence-space.summary", "read:confluence-user", "storage:app", "write:app-data:confluence", "write:confluence-content", "write:confluence-space" ]
@@ -123,7 +123,7 @@
             "selfGenerated" : false,
             "suppressNotifications" : false
           },
-          "expireTime" : "2026-11-30T03:31:10.000Z"
+          "expireTime" : "2026-11-30T13:51:30.000Z"
         } ]
       }
     }

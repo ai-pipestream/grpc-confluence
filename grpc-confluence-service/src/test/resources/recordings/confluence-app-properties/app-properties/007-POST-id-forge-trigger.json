@@ -14,7 +14,7 @@
     "body" : {
       "json" : {
         "method" : "GET",
-        "path" : "/wiki/api/v2/app/properties/pipestream-live-app-20261123T033746Z-b07b6919-app",
+        "path" : "/wiki/api/v2/app/properties/pipestream-live-app-20261123T135850Z-b9d1b479-app",
         "body" : null
       }
     }

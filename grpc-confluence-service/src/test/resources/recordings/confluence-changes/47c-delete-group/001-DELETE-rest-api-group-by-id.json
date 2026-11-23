@@ -7,7 +7,7 @@
     "path" : "/wiki/rest/api/group/by-id",
     "query" : [ {
       "name" : "id",
-      "value" : "baef3418-b095-4aac-87f2-eb997349ef16"
+      "value" : "671bfaa0-94a6-4e07-84b1-0693ad973a14"
     } ],
     "headers" : {
       "accept" : "application/json"

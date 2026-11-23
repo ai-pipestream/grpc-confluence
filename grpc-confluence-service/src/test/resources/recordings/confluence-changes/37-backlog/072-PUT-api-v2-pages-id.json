@@ -4,7 +4,7 @@
   "request" : {
     "method" : "PUT",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/29852388",
+    "path" : "/wiki/api/v2/pages/31162444",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -13,15 +13,15 @@
     "authorized" : true,
     "body" : {
       "json" : {
-        "id" : "29852388",
+        "id" : "31162444",
         "status" : "current",
-        "title" : "pipestream-live-change-20261123T032707Z-b626bd05 backlog",
+        "title" : "pipestream-live-change-20261123T134736Z-9fe556c3 backlog",
         "body" : {
           "representation" : "storage",
-          "value" : "<p>backlog 61</p>"
+          "value" : "<p>backlog 47</p>"
         },
         "version" : {
-          "number" : 62
+          "number" : 48
         }
       }
     }
@@ -33,36 +33,36 @@
     },
     "body" : {
       "json" : {
-        "authorId" : "User 1",
+        "authorId" : "account-1",
         "parentType" : "page",
-        "spaceId" : "7798786",
         "parentId" : "7798963",
-        "ownerId" : "User 1",
+        "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-23T03:33:58.048Z",
+        "createdAt" : "2026-11-23T13:54:32.894Z",
         "version" : {
-          "number" : 62,
+          "number" : 48,
           "message" : null,
           "minorEdit" : false,
-          "authorId" : "User 1",
-          "createdAt" : "2026-11-23T03:34:34.296Z",
-          "ncsStepVersion" : "34"
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-23T13:55:10.909Z",
+          "ncsStepVersion" : "47"
         },
-        "position" : 1050,
-        "id" : "29852388",
+        "position" : 1159,
+        "id" : "31162444",
+        "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>backlog 61</p>"
+            "value" : "<p>backlog 47</p>"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-change-20261123T032707Z-b626bd05 backlog",
+        "title" : "pipestream-live-change-20261123T134736Z-9fe556c3 backlog",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=29852388",
-          "webui" : "/spaces/CLAUDEGRPC/pages/29852388/pipestream-live-change-20261123T032707Z-b626bd05+backlog",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29852388",
-          "tinyui" : "/x/5ILHAQ",
+          "editui" : "/pages/resumedraft.action?draftId=31162444",
+          "webui" : "/spaces/CLAUDEGRPC/pages/31162444/pipestream-live-change-20261123T134736Z-9fe556c3+backlog",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/31162444",
+          "tinyui" : "/x/TIDbAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

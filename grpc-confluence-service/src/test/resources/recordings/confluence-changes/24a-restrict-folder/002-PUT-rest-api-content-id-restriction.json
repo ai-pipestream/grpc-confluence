@@ -4,7 +4,7 @@
   "request" : {
     "method" : "PUT",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/rest/api/content/30933336/restriction",
+    "path" : "/wiki/rest/api/content/31227925/restriction",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -47,10 +47,10 @@
             }
           },
           "_expandable" : {
-            "content" : "/rest/api/content/30933336"
+            "content" : "/rest/api/content/31227925"
           },
           "_links" : {
-            "self" : "https://site-1.example.invalid/wiki/rest/api/content/30933336/restriction/byOperation/read"
+            "self" : "https://site-1.example.invalid/wiki/rest/api/content/31227925/restriction/byOperation/read"
           }
         }, {
           "operation" : "update",
@@ -93,10 +93,10 @@
             }
           },
           "_expandable" : {
-            "content" : "/rest/api/content/30933336"
+            "content" : "/rest/api/content/31227925"
           },
           "_links" : {
-            "self" : "https://site-1.example.invalid/wiki/rest/api/content/30933336/restriction/byOperation/update"
+            "self" : "https://site-1.example.invalid/wiki/rest/api/content/31227925/restriction/byOperation/update"
           }
         } ],
         "start" : 0,
@@ -106,7 +106,7 @@
         "_links" : {
           "context" : "/wiki",
           "base" : "https://site-1.example.invalid/wiki",
-          "byOperation" : "https://site-1.example.invalid/wiki/rest/api/content/30933336/restriction/byOperation"
+          "byOperation" : "https://site-1.example.invalid/wiki/rest/api/content/31227925/restriction/byOperation"
         }
       }
     }

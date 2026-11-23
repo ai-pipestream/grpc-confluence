@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/folders/30933336/permissions",
+    "path" : "/wiki/api/v2/folders/31227925/permissions",
     "query" : [ {
       "name" : "limit",
       "value" : "25"
@@ -25,11 +25,11 @@
           "operation" : "update",
           "principal" : {
             "principalType" : "user",
-            "principalId" : "User 1"
+            "principalId" : "account-1"
           },
-          "createdAt" : "2026-11-23T03:31:28.987Z",
-          "createdByAaid" : "User 1",
-          "createdBy" : "User 1"
+          "createdAt" : "2026-11-23T13:51:50.121Z",
+          "createdByAaid" : "account-1",
+          "createdBy" : "account-1"
         } ],
         "_links" : {
           "base" : "https://site-1.example.invalid/wiki"

@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/spaces/29852452/permissions",
+    "path" : "/wiki/api/v2/spaces/30540558/permissions",
     "query" : [ {
       "name" : "cursor",
       "value" : "opaque-8"
@@ -25,167 +25,7 @@
     "body" : {
       "json" : {
         "results" : [ {
-          "id" : "29852604",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-3"
-          },
-          "operation" : {
-            "key" : "delete",
-            "targetType" : "space"
-          }
-        }, {
-          "id" : "29852605",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-3"
-          },
-          "operation" : {
-            "key" : "delete",
-            "targetType" : "page"
-          }
-        }, {
-          "id" : "29852606",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-3"
-          },
-          "operation" : {
-            "key" : "manage_templates",
-            "targetType" : "space"
-          }
-        }, {
-          "id" : "29852607",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-3"
-          },
-          "operation" : {
-            "key" : "delete",
-            "targetType" : "blogpost"
-          }
-        }, {
-          "id" : "29852608",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-3"
-          },
-          "operation" : {
-            "key" : "manage_guest_users",
-            "targetType" : "space"
-          }
-        }, {
-          "id" : "29852609",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-3"
-          },
-          "operation" : {
-            "key" : "create",
-            "targetType" : "page"
-          }
-        }, {
-          "id" : "29852610",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-3"
-          },
-          "operation" : {
-            "key" : "create",
-            "targetType" : "comment"
-          }
-        }, {
-          "id" : "29852611",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-3"
-          },
-          "operation" : {
-            "key" : "archive",
-            "targetType" : "page"
-          }
-        }, {
-          "id" : "29852612",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-3"
-          },
-          "operation" : {
-            "key" : "manage_nonlicensed_users",
-            "targetType" : "space"
-          }
-        }, {
-          "id" : "29852613",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-3"
-          },
-          "operation" : {
-            "key" : "delete",
-            "targetType" : "comment"
-          }
-        }, {
-          "id" : "29852614",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-3"
-          },
-          "operation" : {
-            "key" : "export_content",
-            "targetType" : "space"
-          }
-        }, {
-          "id" : "29852615",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-3"
-          },
-          "operation" : {
-            "key" : "update",
-            "targetType" : "page"
-          }
-        }, {
-          "id" : "29852616",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-3"
-          },
-          "operation" : {
-            "key" : "create",
-            "targetType" : "blogpost"
-          }
-        }, {
-          "id" : "29852617",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-3"
-          },
-          "operation" : {
-            "key" : "manage_content",
-            "targetType" : "space"
-          }
-        }, {
-          "id" : "29852618",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-3"
-          },
-          "operation" : {
-            "key" : "administer",
-            "targetType" : "space"
-          }
-        }, {
-          "id" : "29852619",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-3"
-          },
-          "operation" : {
-            "key" : "restrict_content",
-            "targetType" : "space"
-          }
-        }, {
-          "id" : "29852620",
+          "id" : "30540709",
           "principal" : {
             "type" : "user",
             "id" : "account-3"
@@ -195,7 +35,67 @@
             "targetType" : "space"
           }
         }, {
-          "id" : "29852621",
+          "id" : "30540710",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-3"
+          },
+          "operation" : {
+            "key" : "administer",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "30540711",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-3"
+          },
+          "operation" : {
+            "key" : "manage_content",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "30540712",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-3"
+          },
+          "operation" : {
+            "key" : "manage_nonlicensed_users",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "30540713",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-3"
+          },
+          "operation" : {
+            "key" : "archive_space",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "30540714",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-3"
+          },
+          "operation" : {
+            "key" : "create",
+            "targetType" : "comment"
+          }
+        }, {
+          "id" : "30540715",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-3"
+          },
+          "operation" : {
+            "key" : "create",
+            "targetType" : "blogpost"
+          }
+        }, {
+          "id" : "30540716",
           "principal" : {
             "type" : "user",
             "id" : "account-3"
@@ -205,7 +105,7 @@
             "targetType" : "comment"
           }
         }, {
-          "id" : "29852622",
+          "id" : "30540717",
           "principal" : {
             "type" : "user",
             "id" : "account-3"
@@ -215,17 +115,117 @@
             "targetType" : "blogpost"
           }
         }, {
-          "id" : "29852623",
+          "id" : "30540718",
           "principal" : {
             "type" : "user",
             "id" : "account-3"
           },
           "operation" : {
             "key" : "delete",
-            "targetType" : "attachment"
+            "targetType" : "comment"
           }
         }, {
-          "id" : "29852634",
+          "id" : "30540719",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-3"
+          },
+          "operation" : {
+            "key" : "restrict_content",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "30540720",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-3"
+          },
+          "operation" : {
+            "key" : "delete_space",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "30540721",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-3"
+          },
+          "operation" : {
+            "key" : "manage_guest_users",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "30540722",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-3"
+          },
+          "operation" : {
+            "key" : "export_content",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "30540723",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-3"
+          },
+          "operation" : {
+            "key" : "update",
+            "targetType" : "page"
+          }
+        }, {
+          "id" : "30540724",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-3"
+          },
+          "operation" : {
+            "key" : "export",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "30540725",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-3"
+          },
+          "operation" : {
+            "key" : "manage_templates",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "30540726",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-3"
+          },
+          "operation" : {
+            "key" : "archive",
+            "targetType" : "page"
+          }
+        }, {
+          "id" : "30540727",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-3"
+          },
+          "operation" : {
+            "key" : "create",
+            "targetType" : "page"
+          }
+        }, {
+          "id" : "30540728",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-3"
+          },
+          "operation" : {
+            "key" : "delete",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "30540734",
           "principal" : {
             "type" : "user",
             "id" : "account-4"
@@ -235,17 +235,7 @@
             "targetType" : "space"
           }
         }, {
-          "id" : "29852635",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-4"
-          },
-          "operation" : {
-            "key" : "delete_space",
-            "targetType" : "space"
-          }
-        }, {
-          "id" : "29852636",
+          "id" : "30540735",
           "principal" : {
             "type" : "user",
             "id" : "account-4"
@@ -255,28 +245,38 @@
             "targetType" : "space"
           }
         }, {
-          "id" : "29852637",
+          "id" : "30540736",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-4"
+          },
+          "operation" : {
+            "key" : "archive_space",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "30540737",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-4"
+          },
+          "operation" : {
+            "key" : "manage_users",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "30540738",
           "principal" : {
             "type" : "user",
             "id" : "account-4"
           },
           "operation" : {
             "key" : "delete",
-            "targetType" : "comment"
-          }
-        }, {
-          "id" : "29852638",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-4"
-          },
-          "operation" : {
-            "key" : "restrict_content",
-            "targetType" : "space"
+            "targetType" : "attachment"
           }
         } ],
         "_links" : {
-          "next" : "/wiki/api/v2/spaces/29852452/permissions?cursor=opaque-9&limit=25",
+          "next" : "/wiki/api/v2/spaces/30540558/permissions?cursor=opaque-9&limit=25",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

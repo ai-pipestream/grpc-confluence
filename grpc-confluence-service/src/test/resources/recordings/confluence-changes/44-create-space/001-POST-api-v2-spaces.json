@@ -13,10 +13,10 @@
     "authorized" : true,
     "body" : {
       "json" : {
-        "name" : "pipestream-live-change-20261123T032707Z-b626bd05",
-        "key" : "LCB626BD05",
+        "name" : "pipestream-live-change-20261123T134736Z-9fe556c3",
+        "key" : "LC9FE556C3",
         "description" : {
-          "value" : "Created by the live change run pipestream-live-change-20261123T032707Z-b626bd05",
+          "value" : "Created by the live change run pipestream-live-change-20261123T134736Z-9fe556c3",
           "representation" : "plain"
         }
       }
@@ -26,30 +26,30 @@
     "status" : 201,
     "headers" : {
       "content-type" : "application/json",
-      "location" : "/wiki/api/v2/spaces/29852452"
+      "location" : "/wiki/api/v2/spaces/30540558"
     },
     "body" : {
       "json" : {
-        "authorId" : "User 1",
-        "homepageId" : "29852661",
-        "createdAt" : "2026-11-23T03:36:19.291Z",
+        "homepageId" : "30540761",
+        "authorId" : "account-1",
+        "createdAt" : "2026-11-23T13:57:20.183Z",
         "icon" : null,
-        "name" : "pipestream-live-change-20261123T032707Z-b626bd05",
-        "key" : "LCB626BD05",
-        "id" : "29852452",
-        "type" : "global",
         "description" : {
           "plain" : {
             "representation" : "plain",
-            "value" : "Created by the live change run pipestream-live-change-20261123T032707Z-b626bd05"
+            "value" : "Created by the live change run pipestream-live-change-20261123T134736Z-9fe556c3"
           }
         },
         "status" : "current",
+        "name" : "pipestream-live-change-20261123T134736Z-9fe556c3",
+        "key" : "LC9FE556C3",
+        "id" : "30540558",
+        "type" : "global",
         "_links" : {
-          "webui" : "/spaces/LCB626BD05",
+          "webui" : "/spaces/LC9FE556C3",
           "base" : "https://site-1.example.invalid/wiki"
         },
-        "currentActiveAlias" : "LCB626BD05"
+        "currentActiveAlias" : "LC9FE556C3"
       }
     }
   }

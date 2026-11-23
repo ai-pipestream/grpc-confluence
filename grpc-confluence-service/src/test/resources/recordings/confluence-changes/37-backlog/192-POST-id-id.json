@@ -1,0 +1,31 @@
+{
+  "scenario" : "37-backlog",
+  "sequence" : 192,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-2.example.invalid",
+    "path" : "/x1/token-1",
+    "query" : [ ],
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "authorized" : false,
+    "body" : {
+      "json" : {
+        "action" : "ack",
+        "keys" : [ "evt:001795442163616:9c4bdcc5-cac5-4707-8b92-f7374127cad0", "evt:001795442163617:d60efb9b-4a3e-49d3-a0ca-dd3eb187ae15", "evt:001795442163653:9300922a-4621-4e25-a415-8b57b2e2c8e1", "evt:001795442163666:280a562a-6bc8-4e6b-9cc0-9674c673350c", "evt:001795442163668:65bf38c5-3fa0-4a58-8190-74e80abc6a8e", "evt:001795442163763:47d7c774-0f0b-453d-9fd5-7c0504b9361f" ]
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "acked" : 6
+      }
+    }
+  }
+}

@@ -4,7 +4,7 @@
   "request" : {
     "method" : "POST",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30442710/permissions",
+    "path" : "/wiki/api/v2/pages/30998818/permissions",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -17,7 +17,7 @@
           "operation" : "update",
           "principals" : [ {
             "principalType" : "user",
-            "principalId" : "User 1"
+            "principalId" : "account-1"
           } ]
         } ]
       }
@@ -34,11 +34,11 @@
           "operation" : "update",
           "principal" : {
             "principalType" : "user",
-            "principalId" : "User 1"
+            "principalId" : "account-1"
           },
-          "createdAt" : "2026-11-23T03:27:12.487Z",
-          "createdByAaid" : "User 1",
-          "createdBy" : "User 1"
+          "createdAt" : "2026-11-23T13:47:42.381Z",
+          "createdByAaid" : "account-1",
+          "createdBy" : "account-1"
         } ],
         "_links" : {
           "base" : "https://site-1.example.invalid/wiki"
