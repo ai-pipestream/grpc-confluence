@@ -1,7 +1,7 @@
 {
   "scenario" : "sync",
   "sequence" : 2,
-  "unordered" : 1,
+  "unordered" : 2,
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",

@@ -1,0 +1,52 @@
+{
+  "scenario" : "sync",
+  "sequence" : 66,
+  "unordered" : 2,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/user",
+    "query" : [ {
+      "name" : "accountId",
+      "value" : "account-4"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "type" : "known",
+        "accountId" : "account-4",
+        "accountType" : "app",
+        "email" : "",
+        "publicName" : "User 4",
+        "profilePicture" : {
+          "path" : "/avatars/avatar-5.png",
+          "width" : 48,
+          "height" : 48,
+          "isDefault" : false
+        },
+        "displayName" : "User 4",
+        "isExternalCollaborator" : false,
+        "isGuest" : false,
+        "accountStatus" : "active",
+        "_expandable" : {
+          "operations" : "",
+          "personalSpace" : ""
+        },
+        "_links" : {
+          "self" : "https://site-1.example.invalid/wiki/rest/api/user?accountId=account-4",
+          "base" : "https://site-1.example.invalid/wiki",
+          "context" : "/wiki"
+        }
+      }
+    }
+  }
+}
