@@ -5,7 +5,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/29885520/labels",
+    "path" : "/wiki/api/v2/pages/30966202/labels",
     "query" : [ {
       "name" : "limit",
       "value" : "25"

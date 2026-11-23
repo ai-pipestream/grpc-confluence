@@ -14,7 +14,7 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-acl-20261123T022143Z-2f7b195e",
+        "title" : "pipestream-live-acl-20261123T133843Z-a02b9f60",
         "body" : {
           "representation" : "storage",
           "value" : "<p>Parent of the ACL run.</p>"
@@ -31,20 +31,21 @@
       "json" : {
         "authorId" : "account-1",
         "parentType" : "page",
+        "spaceId" : "7798786",
         "parentId" : "7798963",
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-23T02:21:45.156Z",
+        "createdAt" : "2026-11-23T13:38:44.912Z",
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-23T02:21:45.156Z",
+          "createdAt" : "2026-11-23T13:38:44.912Z",
           "ncsStepVersion" : "1"
         },
-        "position" : 862,
-        "spaceId" : "7798786",
+        "position" : 585,
+        "id" : "31588353",
         "body" : {
           "storage" : {
             "representation" : "storage",
@@ -52,13 +53,12 @@
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-acl-20261123T022143Z-2f7b195e",
-        "id" : "29885520",
+        "title" : "pipestream-live-acl-20261123T133843Z-a02b9f60",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=29885520",
-          "webui" : "/spaces/CLAUDEGRPC/pages/29885520/pipestream-live-acl-20261123T022143Z-2f7b195e",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29885520",
-          "tinyui" : "/x/UATIAQ",
+          "editui" : "/pages/resumedraft.action?draftId=31588353",
+          "webui" : "/spaces/CLAUDEGRPC/pages/31588353/pipestream-live-acl-20261123T133843Z-a02b9f60",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/31588353",
+          "tinyui" : "/x/AQDiAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

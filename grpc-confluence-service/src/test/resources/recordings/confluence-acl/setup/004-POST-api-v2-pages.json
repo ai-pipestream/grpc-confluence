@@ -14,8 +14,8 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-acl-20261123T022143Z-2f7b195e child",
-        "parentId" : "29885520",
+        "title" : "pipestream-live-acl-20261123T133843Z-a02b9f60 child",
+        "parentId" : "31588353",
         "body" : {
           "representation" : "storage",
           "value" : "<p>Child of the ACL run.</p>"
@@ -30,23 +30,23 @@
     },
     "body" : {
       "json" : {
-        "parentType" : "page",
         "authorId" : "account-1",
-        "parentId" : "29885520",
+        "parentType" : "page",
+        "spaceId" : "7798786",
+        "parentId" : "31588353",
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-23T02:21:45.708Z",
+        "createdAt" : "2026-11-23T13:38:45.691Z",
+        "position" : 752,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-23T02:21:45.708Z",
+          "createdAt" : "2026-11-23T13:38:45.691Z",
           "ncsStepVersion" : "1"
         },
-        "position" : 716,
-        "id" : "29918141",
-        "spaceId" : "7798786",
+        "id" : "30966202",
         "body" : {
           "storage" : {
             "representation" : "storage",
@@ -54,12 +54,12 @@
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-acl-20261123T022143Z-2f7b195e child",
+        "title" : "pipestream-live-acl-20261123T133843Z-a02b9f60 child",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=29918141",
-          "webui" : "/spaces/CLAUDEGRPC/pages/29918141/pipestream-live-acl-20261123T022143Z-2f7b195e+child",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29918141",
-          "tinyui" : "/x/vYPIAQ",
+          "editui" : "/pages/resumedraft.action?draftId=30966202",
+          "webui" : "/spaces/CLAUDEGRPC/pages/30966202/pipestream-live-acl-20261123T133843Z-a02b9f60+child",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30966202",
+          "tinyui" : "/x/uoHYAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

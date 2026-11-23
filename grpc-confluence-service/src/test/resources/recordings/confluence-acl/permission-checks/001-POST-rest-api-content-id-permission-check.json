@@ -4,7 +4,7 @@
   "request" : {
     "method" : "POST",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/rest/api/content/29885520/permission/check",
+    "path" : "/wiki/rest/api/content/31588353/permission/check",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",

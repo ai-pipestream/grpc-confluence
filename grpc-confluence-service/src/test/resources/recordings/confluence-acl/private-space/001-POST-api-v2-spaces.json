@@ -1,0 +1,57 @@
+{
+  "scenario" : "private-space",
+  "sequence" : 1,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/spaces",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "name" : "pipestream-live-acl-20261123T133843Z-a02b9f60 private",
+        "key" : "ACLP4111346B",
+        "description" : {
+          "value" : "Private space of the ACL run pipestream-live-acl-20261123T133843Z-a02b9f60",
+          "representation" : "plain"
+        },
+        "createPrivateSpace" : true
+      }
+    }
+  },
+  "response" : {
+    "status" : 201,
+    "headers" : {
+      "content-type" : "application/json",
+      "location" : "/wiki/api/v2/spaces/31653890"
+    },
+    "body" : {
+      "json" : {
+        "authorId" : "account-1",
+        "homepageId" : "31654016",
+        "createdAt" : "2026-11-23T13:39:01.981Z",
+        "icon" : null,
+        "description" : {
+          "plain" : {
+            "representation" : "plain",
+            "value" : "Private space of the ACL run pipestream-live-acl-20261123T133843Z-a02b9f60"
+          }
+        },
+        "status" : "current",
+        "name" : "pipestream-live-acl-20261123T133843Z-a02b9f60 private",
+        "key" : "ACLP4111346B",
+        "id" : "31653890",
+        "type" : "global",
+        "_links" : {
+          "webui" : "/spaces/ACLP4111346B",
+          "base" : "https://site-1.example.invalid/wiki"
+        },
+        "currentActiveAlias" : "ACLP4111346B"
+      }
+    }
+  }
+}

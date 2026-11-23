@@ -1,0 +1,56 @@
+{
+  "scenario" : "private-space",
+  "sequence" : 25,
+  "unordered" : 5,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/spaces/31653890/role-assignments",
+    "query" : [ {
+      "name" : "limit",
+      "value" : "25"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "roleId" : "6820786b-b8db-4102-b789-dcb45cba7c83",
+          "principal" : {
+            "principalType" : "USER",
+            "principalId" : "account-3"
+          }
+        }, {
+          "roleId" : "6820786b-b8db-4102-b789-dcb45cba7c83",
+          "principal" : {
+            "principalType" : "USER",
+            "principalId" : "account-2"
+          }
+        }, {
+          "roleId" : "6820786b-b8db-4102-b789-dcb45cba7c83",
+          "principal" : {
+            "principalType" : "USER",
+            "principalId" : "account-4"
+          }
+        }, {
+          "roleId" : "6820786b-b8db-4102-b789-dcb45cba7c83",
+          "principal" : {
+            "principalType" : "USER",
+            "principalId" : "account-1"
+          }
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "scenario" : "private-space",
+  "sequence" : 15,
+  "unordered" : 4,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/content/31654016/permission/check",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "subject" : {
+          "type" : "user",
+          "identifier" : "account-4"
+        },
+        "operation" : "read"
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "hasPermission" : true,
+        "errors" : [ ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki",
+          "context" : "/wiki"
+        }
+      }
+    }
+  }
+}

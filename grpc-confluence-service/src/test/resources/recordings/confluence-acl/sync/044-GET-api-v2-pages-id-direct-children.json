@@ -5,7 +5,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/29918141/direct-children",
+    "path" : "/wiki/api/v2/pages/31588353/direct-children",
     "query" : [ {
       "name" : "limit",
       "value" : "25"
@@ -22,7 +22,13 @@
     },
     "body" : {
       "json" : {
-        "results" : [ ],
+        "results" : [ {
+          "id" : "30966202",
+          "status" : "current",
+          "title" : "pipestream-live-acl-20261123T133843Z-a02b9f60 child",
+          "childPosition" : 752,
+          "type" : "page"
+        } ],
         "_links" : {
           "base" : "https://site-1.example.invalid/wiki"
         }
