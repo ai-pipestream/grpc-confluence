@@ -719,8 +719,10 @@ public final class ConfluenceCrawler {
         users.addAll(memberIds);
         users.remove("");
         for (String accountId : users) {
-            SecurityRead<JsonNode> read = getSecurity("/rest/api/user",
-                    Map.of("accountId", accountId, "expand", "operations"), "user");
+            Map<String, String> query = new java.util.LinkedHashMap<>();
+            query.put("accountId", accountId);
+            query.put("expand", "operations");
+            SecurityRead<JsonNode> read = getSecurity("/rest/api/user", query, "user");
             if (read.value() != null) {
                 emit(entity(accountId).setUser(mapper.toUser(read.value())).build(), source, changeCursor);
             }
