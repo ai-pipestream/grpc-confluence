@@ -1,0 +1,35 @@
+{
+  "scenario" : "sync",
+  "sequence" : 17,
+  "unordered" : 2,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/blogposts",
+    "query" : [ {
+      "name" : "limit",
+      "value" : "25"
+    }, {
+      "name" : "space-id",
+      "value" : "7798786"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

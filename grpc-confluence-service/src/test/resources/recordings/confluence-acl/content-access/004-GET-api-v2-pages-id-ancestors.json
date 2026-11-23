@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30180106/ancestors",
+    "path" : "/wiki/api/v2/pages/30540177/ancestors",
     "query" : [ {
       "name" : "limit",
       "value" : "250"
@@ -25,7 +25,7 @@
           "id" : "7798963",
           "type" : "page"
         }, {
-          "id" : "30114841",
+          "id" : "30769515",
           "type" : "page"
         } ],
         "_links" : {
