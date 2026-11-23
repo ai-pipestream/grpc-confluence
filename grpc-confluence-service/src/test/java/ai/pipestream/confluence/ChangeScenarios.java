@@ -1,6 +1,10 @@
 package ai.pipestream.confluence;
 
 import ai.pipestream.confluence.v1.*;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.protobuf.ByteString;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
@@ -14,6 +18,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -79,7 +84,10 @@ final class ChangeScenarios {
     private record Drained(List<ForgeEventQueue.Queued> taken, List<WatchChangesResponse> streamed) {
     }
 
+    private static final ObjectMapper JSON = new ObjectMapper();
+
     private final ManagedChannel channel;
+    private final ConfluenceClient rest;
     private final ConfluenceServiceGrpc.ConfluenceServiceBlockingStub confluence;
     private final ConfluenceChangeServiceGrpc.ConfluenceChangeServiceStub changes;
     private final ConfluenceChangeGrpcService service;
@@ -104,10 +112,17 @@ final class ChangeScenarios {
     private Space ownSpace;
     private Drained createdDrain;
     private boolean restored;
+    private String copyId;
+    private boolean archived;
+    private Folder folder;
+    private String groupId;
+    private final String groupName;
 
-    ChangeScenarios(ManagedChannel channel, ConfluenceChangeGrpcService service, String spaceKey,
-            String run, Events events) {
+    ChangeScenarios(ManagedChannel channel, ConfluenceClient rest, ConfluenceChangeGrpcService service,
+            String spaceKey, String run, Events events) {
         this.channel = channel;
+        this.rest = rest;
+        this.groupName = run + "-group";
         this.confluence = ConfluenceServiceGrpc.newBlockingStub(channel);
         this.changes = ConfluenceChangeServiceGrpc.newStub(channel);
         this.service = service;
@@ -135,6 +150,10 @@ final class ChangeScenarios {
                         pageObject, ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_UPDATED, 2)),
                 new Scenario("07-move-page", "UpdatePage (new parent)", this::movePage),
                 new Scenario("08-moved-event", "page moved event resolved", this::movedEvent),
+                new Scenario("08a-copy-page", "copy the page (REST v1, no rpc)", this::copyPage),
+                new Scenario("08b-copied-event", "page copied event resolved", this::copiedEvent),
+                new Scenario("08c-archive-copy", "archive the copy (REST v1, no rpc)", this::archiveCopy),
+                new Scenario("08d-archived-event", "page archived event resolved", this::archivedEvent),
                 new Scenario("09-create-comment", "CreateFooterComment", this::createComment),
                 new Scenario("10-comment-created-event", "comment created event resolved",
                         () -> commentEvent(ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED, 1)),
@@ -162,6 +181,14 @@ final class ChangeScenarios {
                         this::unrestrictPage),
                 new Scenario("24-unrestricted-event", "page permissions event drops the permission",
                         this::unrestrictedEvent),
+                new Scenario("24a-restrict-folder", "CreateFolder, then restrict it (REST v1)",
+                        this::restrictFolder),
+                new Scenario("24b-folder-restricted-event", "folder permissions event carries the permission",
+                        this::folderRestrictedEvent),
+                new Scenario("24c-unrestrict-folder", "remove the folder restrictions (REST v1)",
+                        this::unrestrictFolder),
+                new Scenario("24d-folder-unrestricted-event",
+                        "folder permissions event drops the permission", this::folderUnrestrictedEvent),
                 new Scenario("25-complete-task", "UpdateTask (complete)", this::completeTask),
                 new Scenario("26-task-event", "task updated event resolved", this::taskEvent),
                 new Scenario("27-create-blog", "CreateBlogPost", this::createBlog),
@@ -194,6 +221,12 @@ final class ChangeScenarios {
                 new Scenario("46-delete-space", "DeleteSpace (own throwaway space)", this::deleteSpace),
                 new Scenario("47-space-deleted-event", "space deleted event resolved",
                         this::spaceDeletedEvent),
+                new Scenario("47a-create-group", "create a throwaway group (REST v1)", this::createGroup),
+                new Scenario("47b-group-created-event", "group created event streamed unresolved",
+                        () -> groupEvent(ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED)),
+                new Scenario("47c-delete-group", "delete the throwaway group (REST v1)", this::deleteGroup),
+                new Scenario("47d-group-deleted-event", "group deleted event streamed unresolved",
+                        () -> groupEvent(ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_DELETED)),
                 new Scenario("48-watch-stop", "WatchChanges (cancel)", this::watchStop));
     }
 
@@ -647,6 +680,196 @@ final class ChangeScenarios {
         }
         check(watchError != null, "the stream did not end on cancel");
         return "stream ended: " + Status.fromThrowable(watchError).getCode();
+    }
+
+    // --- REST v1 steps: no rpc covers these ------------------------------------------------
+
+    private String copyPage() throws Exception {
+        ObjectNode body = JSON.createObjectNode();
+        body.putObject("destination").put("type", "parent_page").put("value", parent.getId());
+        body.put("pageTitle", run + " copy").put("copyAttachments", false)
+                .put("copyPermissions", false).put("copyProperties", false).put("copyLabels", false)
+                .put("copyCustomContents", false);
+        JsonNode copy = rest.post("/rest/api/content/" + page.getId() + "/copy", Map.of(), body);
+        copyId = copy.path("id").asText("");
+        check(!copyId.isEmpty(), "the copy answered no id");
+        String id = copyId;
+        cleanups.add(() -> purgePage(id));
+        return "copy " + copyId;
+    }
+
+    private String copiedEvent() throws Exception {
+        if (copyId == null) {
+            throw new Skip("the page was not copied");
+        }
+        ConfluenceChange change = expect(event -> event.getObject()
+                == ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_PAGE
+                && event.getAction() == ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_COPIED
+                && (event.getContentId().equals(copyId) || event.getOriginContentId().equals(page.getId())),
+                c -> c.getEntity().hasPage() && c.getEntity().getEntityId().equals(copyId)
+                        && c.getOperation() == ChangeOperation.CHANGE_OPERATION_UPSERT);
+        return event(change) + " -> page upsert of the copy, origin "
+                + (change.getEvent().getOriginContentId().equals(page.getId()) ? "the page" : "not named");
+    }
+
+    private String archiveCopy() throws Exception {
+        if (copyId == null) {
+            throw new Skip("the page was not copied");
+        }
+        ObjectNode body = JSON.createObjectNode();
+        body.putArray("pages").addObject().put("id", Long.parseLong(copyId));
+        JsonNode task;
+        try {
+            task = rest.post("/rest/api/content/archive", Map.of(), body);
+        } catch (ConfluenceClient.ConfluenceApiException e) {
+            throw new Skip("the site refused the archive: HTTP " + e.status());
+        }
+        archived = true;
+        return "archive task " + (task.path("id").asText("").isEmpty() ? "(none)" : "answered");
+    }
+
+    private String archivedEvent() throws Exception {
+        if (!archived) {
+            throw new Skip("the copy was not archived");
+        }
+        ConfluenceChange change = expect(event -> isAbout(event,
+                ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_PAGE,
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_ARCHIVED, copyId),
+                c -> c.getEntity().getEntityId().equals(copyId)
+                        && (c.getEntity().hasPage() || c.getOperation() == ChangeOperation.CHANGE_OPERATION_DELETE));
+        String state = change.getOperation() == ChangeOperation.CHANGE_OPERATION_DELETE ? "delete"
+                : "page upsert, status " + change.getEntity().getPage().getStatus();
+        return event(change) + " -> " + state;
+    }
+
+    private String folderPermissionPath() {
+        return "/rest/api/content/" + folder.getId() + "/restriction";
+    }
+
+    private String restrictFolder() throws Exception {
+        folder = stub().createFolder(CreateFolderRequest.newBuilder().setSpaceId(space.getId())
+                .setParentId(parent.getId()).setTitle(run + " folder").build()).getFolder();
+        String id = folder.getId();
+        cleanups.add(() -> {
+            try {
+                stub().deleteFolder(DeleteFolderRequest.newBuilder().setId(id).build());
+            } catch (StatusRuntimeException e) {
+                if (e.getStatus().getCode() != Status.Code.NOT_FOUND) {
+                    throw e;
+                }
+            }
+        });
+        ArrayNode body = JSON.createArrayNode();
+        ObjectNode update = body.addObject().put("operation", "update");
+        update.putObject("restrictions").putArray("user").addObject().put("type", "known")
+                .put("accountId", page.getAuthorId());
+        try {
+            rest.put(folderPermissionPath(), Map.of(), body);
+        } catch (ConfluenceClient.ConfluenceApiException e) {
+            throw new Skip("the site refused a folder restriction: HTTP " + e.status());
+        }
+        return "folder " + id + ", update permission for the author";
+    }
+
+    private Predicate<ConfluenceEvent> folderEvent() {
+        return event -> isAbout(event, ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_FOLDER,
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_PERMISSIONS_UPDATED, folder.getId());
+    }
+
+    private String folderRestrictedEvent() throws Exception {
+        if (rows.getLast().outcome().equals("SKIPPED")) {
+            throw new Skip("the folder was not restricted");
+        }
+        String owner = "folder:" + folder.getId() + "/permission/";
+        ConfluenceChange change = expect(folderEvent(), c -> c.getEntity().hasContentPermission()
+                && c.getEntity().getEntityId().startsWith(owner)
+                && c.getEntity().getContentPermission().getPrincipal().getPrincipalId()
+                        .equals(page.getAuthorId()));
+        return event(change) + " -> " + change.getEntity().getContentPermission().getOperation()
+                + " permission for the author";
+    }
+
+    private String unrestrictFolder() throws Exception {
+        if (folder == null) {
+            throw new Skip("no folder was created");
+        }
+        try {
+            rest.delete(folderPermissionPath(), Map.of());
+        } catch (ConfluenceClient.ConfluenceApiException e) {
+            throw new Skip("the site refused removing folder restrictions: HTTP " + e.status());
+        }
+        return "restrictions removed";
+    }
+
+    private String folderUnrestrictedEvent() throws Exception {
+        if (rows.getLast().outcome().equals("SKIPPED")) {
+            throw new Skip("the folder restrictions were not removed");
+        }
+        String state = "folder:" + folder.getId() + "/restriction-state";
+        String owner = "folder:" + folder.getId() + "/permission/";
+        Predicate<ConfluenceChange> isState = c -> c.getEntity().getEntityId().equals(state);
+        Drained drained = drainUntil(folderEvent(), isState);
+        ConfluenceChange restriction = find(drained, folderEvent(), isState);
+        String eventId = restriction.getEvent().getEventId();
+        for (WatchChangesResponse message : drained.streamed()) {
+            if (message.hasChange() && message.getChange().getEvent().getEventId().equals(eventId)) {
+                check(!message.getChange().getEntity().getEntityId().startsWith(owner),
+                        "a direct permission is still streamed: "
+                                + message.getChange().getEntity().getEntityId());
+            }
+        }
+        return event(restriction) + " -> restriction state "
+                + restriction.getEntity().getRestrictionState().getState() + ", no direct permission";
+    }
+
+    private String createGroup() throws Exception {
+        JsonNode group = rest.post("/rest/api/group", Map.of(),
+                JSON.createObjectNode().put("name", groupName));
+        groupId = group.path("id").asText("");
+        check(!groupId.isEmpty(), "the group answered no id");
+        String id = groupId;
+        cleanups.add(() -> {
+            if (groupId != null) {
+                try {
+                    rest.delete("/rest/api/group/by-id", Map.of("id", id));
+                } catch (ConfluenceClient.ConfluenceApiException e) {
+                    if (e.status() != 404) {
+                        throw new IllegalStateException(e);
+                    }
+                } catch (java.io.IOException | InterruptedException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+        });
+        return "group created";
+    }
+
+    private String deleteGroup() throws Exception {
+        rest.delete("/rest/api/group/by-id", Map.of("id", groupId));
+        return "group deleted";
+    }
+
+    /** Group events have no entity in the contract, so they arrive as typed unresolved events. */
+    private String groupEvent(ConfluenceEventAction action) throws Exception {
+        Predicate<ConfluenceEvent> match = event ->
+                event.getObject() == ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_GROUP
+                        && event.getAction() == action
+                        && (event.getContentId().equals(groupId) || event.getTitle().equals(groupName));
+        events.await(match);
+        List<WatchChangesResponse> streamed = new ArrayList<>();
+        for (int round = 0; round < 3; round++) {
+            service.drainNow();
+            awaitDrain();
+            watched.drainTo(streamed);
+            for (WatchChangesResponse message : streamed) {
+                if (message.hasUnresolvedEvent() && match.test(message.getUnresolvedEvent())) {
+                    ConfluenceEvent event = message.getUnresolvedEvent();
+                    return event.getEventType() + " -> unresolved event, group "
+                            + (event.getContentId().equals(groupId) ? "id" : "name") + " matches";
+                }
+            }
+        }
+        throw new AssertionError("no unresolved group event was streamed");
     }
 
     // --- event checks ----------------------------------------------------------------------

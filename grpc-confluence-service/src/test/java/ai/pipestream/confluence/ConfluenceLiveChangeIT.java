@@ -132,7 +132,7 @@ class ConfluenceLiveChangeIT {
                 .executor(Executors.newVirtualThreadPerTaskExecutor())
                 .addService(read).addService(service).build().start();
         ManagedChannel channel = InProcessChannelBuilder.forName(name).build();
-        ChangeScenarios scenarios = new ChangeScenarios(channel, service, spaceKey, run, events);
+        ChangeScenarios scenarios = new ChangeScenarios(channel, client, service, spaceKey, run, events);
         Instant started = Instant.now();
         try {
             for (ChangeScenarios.Scenario scenario : scenarios.all()) {

@@ -50,7 +50,7 @@ class ConfluenceChangeReplayTest {
                 .executor(Executors.newVirtualThreadPerTaskExecutor())
                 .addService(read).addService(service).build().start();
         ManagedChannel channel = InProcessChannelBuilder.forName(name).build();
-        ChangeScenarios scenarios = new ChangeScenarios(channel, service,
+        ChangeScenarios scenarios = new ChangeScenarios(channel, client, service,
                 run.path("spaceKey").asText(), run.path("run").asText(), new ChangeScenarios.Events() {
                     @Override
                     public void await(java.util.function.Predicate<ConfluenceEvent> match) {
