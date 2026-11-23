@@ -4,7 +4,7 @@
   "request" : {
     "method" : "PUT",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/29917663",
+    "path" : "/wiki/api/v2/pages/29852388",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -13,58 +13,32 @@
     "authorized" : true,
     "body" : {
       "json" : {
-        "id" : "29917663",
+        "id" : "29852388",
         "status" : "current",
-        "title" : "pipestream-live-change-20261122T184937Z-04008ed8 backlog",
+        "title" : "pipestream-live-change-20261123T032707Z-b626bd05 backlog",
         "body" : {
           "representation" : "storage",
-          "value" : "<p>backlog 61</p>"
+          "value" : "<p>backlog 53</p>"
         },
         "version" : {
-          "number" : 62
+          "number" : 54
         }
       }
     }
   },
   "response" : {
-    "status" : 200,
+    "status" : 409,
     "headers" : {
       "content-type" : "application/json"
     },
     "body" : {
       "json" : {
-        "parentType" : "page",
-        "authorId" : "User 1",
-        "parentId" : "7798963",
-        "ownerId" : "User 1",
-        "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T18:52:00.233Z",
-        "version" : {
-          "number" : 62,
-          "message" : null,
-          "minorEdit" : false,
-          "authorId" : "User 1",
-          "createdAt" : "2026-11-22T18:52:19.118Z",
-          "ncsStepVersion" : "1"
-        },
-        "position" : 1465,
-        "id" : "29917663",
-        "spaceId" : "7798786",
-        "body" : {
-          "storage" : {
-            "representation" : "storage",
-            "value" : "<p>backlog 61</p>"
-          }
-        },
-        "status" : "current",
-        "title" : "pipestream-live-change-20261122T184937Z-04008ed8 backlog",
-        "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=29917663",
-          "webui" : "/spaces/CLAUDEGRPC/pages/29917663/pipestream-live-change-20261122T184937Z-04008ed8+backlog",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29917663",
-          "tinyui" : "/x/34HIAQ",
-          "base" : "https://site-1.example.invalid/wiki"
-        }
+        "errors" : [ {
+          "status" : 409,
+          "code" : "CONFLICT",
+          "title" : "Batch update returned unexpected row count from update [0]; actual row count: 0; expected: 1; statement executed: update CONTENT set HIBERNATEVERSION=?, TITLE=?, LOWERTITLE=?, VERSION=?, CREATOR=?, AGENT_CREATOR_AAID=?, CREATIONDATE=?, LASTMODIFIER=?, AGENT_LASTMODIFIER_AAID=?, LASTMODDATE=?, VERSIONCOMMENT=?, PREVVER=?, CONTENT_STATUS=?, NAVIGATIONTYPE=?, PAGEID=?, DRAFTTYPE=?, SPACEID=?, CHILD_POSITION=?, PARENTID=?, MESSAGEID=? where CONTENTID=? and HIBERNATEVERSION=?; nested exception is org.hibernate.StaleStateException: Batch update returned unexpected row count from update [0]; actual row count: 0; expected: 1; statement executed: update CONTENT set HIBERNATEVERSION=?, TITLE=?, LOWERTITLE=?, VERSION=?, CREATOR=?, AGENT_CREATOR_AAID=?, CREATIONDATE=?, LASTMODIFIER=?, AGENT_LASTMODIFIER_AAID=?, LASTMODDATE=?, VERSIONCOMMENT=?, PREVVER=?, CONTENT_STATUS=?, NAVIGATIONTYPE=?, PAGEID=?, DRAFTTYPE=?, SPACEID=?, CHILD_POSITION=?, PARENTID=?, MESSAGEID=? where CONTENTID=? and HIBERNATEVERSION=?",
+          "detail" : null
+        } ]
       }
     }
   }

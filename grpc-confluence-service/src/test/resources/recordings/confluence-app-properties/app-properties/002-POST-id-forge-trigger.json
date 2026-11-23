@@ -14,7 +14,7 @@
     "body" : {
       "json" : {
         "method" : "GET",
-        "path" : "/wiki/api/v2/app/properties/pipestream-live-app-20261122T185339Z-03c05bff-app",
+        "path" : "/wiki/api/v2/app/properties/pipestream-live-app-20261123T033746Z-b07b6919-app",
         "body" : null
       }
     }
@@ -28,7 +28,7 @@
       "json" : {
         "status" : 200,
         "body" : {
-          "key" : "pipestream-live-app-20261122T185339Z-03c05bff-app",
+          "key" : "pipestream-live-app-20261123T033746Z-b07b6919-app",
           "value" : {
             "string" : "one",
             "integer" : 42,

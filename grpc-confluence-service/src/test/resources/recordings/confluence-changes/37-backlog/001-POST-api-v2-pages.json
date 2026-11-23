@@ -14,7 +14,7 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-change-20261122T184937Z-04008ed8 backlog",
+        "title" : "pipestream-live-change-20261123T032707Z-b626bd05 backlog",
         "body" : {
           "representation" : "storage",
           "value" : "<p>backlog 0</p>"
@@ -29,22 +29,22 @@
     },
     "body" : {
       "json" : {
-        "parentType" : "page",
         "authorId" : "User 1",
+        "parentType" : "page",
         "parentId" : "7798963",
         "ownerId" : "User 1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T18:52:00.233Z",
+        "createdAt" : "2026-11-23T03:33:58.048Z",
+        "position" : 1050,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "User 1",
-          "createdAt" : "2026-11-22T18:52:00.233Z",
+          "createdAt" : "2026-11-23T03:33:58.048Z",
           "ncsStepVersion" : "1"
         },
-        "position" : 1465,
-        "id" : "29917663",
+        "id" : "29852388",
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
@@ -53,12 +53,12 @@
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-change-20261122T184937Z-04008ed8 backlog",
+        "title" : "pipestream-live-change-20261123T032707Z-b626bd05 backlog",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=29917663",
-          "webui" : "/spaces/CLAUDEGRPC/pages/29917663/pipestream-live-change-20261122T184937Z-04008ed8+backlog",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29917663",
-          "tinyui" : "/x/34HIAQ",
+          "editui" : "/pages/resumedraft.action?draftId=29852388",
+          "webui" : "/spaces/CLAUDEGRPC/pages/29852388/pipestream-live-change-20261123T032707Z-b626bd05+backlog",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29852388",
+          "tinyui" : "/x/5ILHAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

@@ -2,7 +2,7 @@
   "baseUrl" : "https://site-1.example.invalid/wiki",
   "queueUrl" : "https://site-2.example.invalid/x1/token-1",
   "spaceKey" : "CLAUDEGRPC",
-  "run" : "pipestream-live-change-20261122T184937Z-04008ed8",
+  "run" : "pipestream-live-change-20261123T032707Z-b626bd05",
   "outcomes" : [ {
     "step" : "01-watch-start",
     "outcome" : "PASS"
@@ -26,6 +26,18 @@
     "outcome" : "PASS"
   }, {
     "step" : "08-moved-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "08a-copy-page",
+    "outcome" : "PASS"
+  }, {
+    "step" : "08b-copied-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "08c-archive-copy",
+    "outcome" : "PASS"
+  }, {
+    "step" : "08d-archived-event",
     "outcome" : "PASS"
   }, {
     "step" : "09-create-comment",
@@ -74,6 +86,18 @@
     "outcome" : "PASS"
   }, {
     "step" : "24-unrestricted-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "24a-restrict-folder",
+    "outcome" : "PASS"
+  }, {
+    "step" : "24b-folder-restricted-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "24c-unrestrict-folder",
+    "outcome" : "PASS"
+  }, {
+    "step" : "24d-folder-unrestricted-event",
     "outcome" : "PASS"
   }, {
     "step" : "25-complete-task",
@@ -145,8 +169,20 @@
     "step" : "47-space-deleted-event",
     "outcome" : "PASS"
   }, {
+    "step" : "47a-create-group",
+    "outcome" : "PASS"
+  }, {
+    "step" : "47b-group-created-event",
+    "outcome" : "PASS"
+  }, {
+    "step" : "47c-delete-group",
+    "outcome" : "PASS"
+  }, {
+    "step" : "47d-group-deleted-event",
+    "outcome" : "PASS"
+  }, {
     "step" : "48-watch-stop",
     "outcome" : "PASS"
   } ],
-  "scenarios" : [ "01-watch-start", "02-create-pages", "03-created-event", "04-event-expiry", "05-update-page", "06-updated-event", "07-move-page", "08-moved-event", "09-create-comment", "10-comment-created-event", "11-update-comment", "12-comment-updated-event", "13-delete-comment", "14-comment-deleted-event", "15-upload-attachment", "16-attachment-created-event", "17-trash-attachment", "18-attachment-trashed-event", "19-purge-attachment", "20-attachment-deleted-event", "21-restrict-page", "22-restricted-event", "23-unrestrict-page", "24-unrestricted-event", "25-complete-task", "26-task-event", "27-create-blog", "28-blog-created-event", "29-update-blog", "30-blog-updated-event", "31-blog-comment", "32-blog-comment-event", "33-trash-blog", "34-blog-trashed-event", "35-purge-blog", "36-blog-deleted-event", "37-backlog", "38-trash-page", "39-trashed-event", "40-restore-page", "41-restored-event", "42-purge-page", "43-deleted-event", "44-create-space", "45-space-created-event", "46-delete-space", "47-space-deleted-event", "48-watch-stop", "cleanup" ]
+  "scenarios" : [ "01-watch-start", "02-create-pages", "03-created-event", "04-event-expiry", "05-update-page", "06-updated-event", "07-move-page", "08-moved-event", "08a-copy-page", "08b-copied-event", "08c-archive-copy", "08d-archived-event", "09-create-comment", "10-comment-created-event", "11-update-comment", "12-comment-updated-event", "13-delete-comment", "14-comment-deleted-event", "15-upload-attachment", "16-attachment-created-event", "17-trash-attachment", "18-attachment-trashed-event", "19-purge-attachment", "20-attachment-deleted-event", "21-restrict-page", "22-restricted-event", "23-unrestrict-page", "24-unrestricted-event", "24a-restrict-folder", "24b-folder-restricted-event", "24c-unrestrict-folder", "24d-folder-unrestricted-event", "25-complete-task", "26-task-event", "27-create-blog", "28-blog-created-event", "29-update-blog", "30-blog-updated-event", "31-blog-comment", "32-blog-comment-event", "33-trash-blog", "34-blog-trashed-event", "35-purge-blog", "36-blog-deleted-event", "37-backlog", "38-trash-page", "39-trashed-event", "40-restore-page", "41-restored-event", "42-purge-page", "43-deleted-event", "44-create-space", "45-space-created-event", "46-delete-space", "47-space-deleted-event", "47a-create-group", "47b-group-created-event", "47c-delete-group", "47d-group-deleted-event", "48-watch-stop", "cleanup" ]
 }

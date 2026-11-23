@@ -1,0 +1,36 @@
+{
+  "scenario" : "08c-archive-copy",
+  "sequence" : 1,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/content/archive",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "pages" : [ {
+          "id" : 29852370
+        } ]
+      }
+    }
+  },
+  "response" : {
+    "status" : 202,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "id" : "30769780",
+        "links" : {
+          "status" : "/rest/api/longtask/30769780"
+        }
+      }
+    }
+  }
+}

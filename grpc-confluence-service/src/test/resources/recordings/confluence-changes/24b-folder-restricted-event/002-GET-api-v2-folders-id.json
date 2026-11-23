@@ -1,0 +1,49 @@
+{
+  "scenario" : "24b-folder-restricted-event",
+  "sequence" : 2,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/folders/30933336",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "id" : "30933336",
+        "type" : "folder",
+        "parentId" : "31129685",
+        "title" : "pipestream-live-change-20261123T032707Z-b626bd05 folder",
+        "parentType" : "page",
+        "position" : 255638676,
+        "authorId" : "User 1",
+        "ownerId" : "User 1",
+        "createdAt" : 1795404688958,
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "User 1",
+          "createdAt" : "2026-11-23T03:31:28.958Z"
+        },
+        "status" : "current",
+        "spaceId" : "7798786",
+        "_links" : {
+          "editui" : "/spaces/CLAUDEGRPC/folder/30933336",
+          "webui" : "/spaces/CLAUDEGRPC/folder/30933336",
+          "edituiv2" : "/spaces/CLAUDEGRPC/folder/30933336",
+          "tinyui" : "/x/WAHYAQ",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

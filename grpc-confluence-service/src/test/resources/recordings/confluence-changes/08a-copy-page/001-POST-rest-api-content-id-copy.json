@@ -1,0 +1,182 @@
+{
+  "scenario" : "08a-copy-page",
+  "sequence" : 1,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/content/30442710/copy",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "destination" : {
+          "type" : "parent_page",
+          "value" : "31129685"
+        },
+        "pageTitle" : "pipestream-live-change-20261123T032707Z-b626bd05 copy",
+        "copyAttachments" : false,
+        "copyPermissions" : false,
+        "copyProperties" : false,
+        "copyLabels" : false,
+        "copyCustomContents" : false
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "id" : "29852370",
+        "type" : "page",
+        "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:page/29852370",
+        "base64EncodedAri" : "opaque-2",
+        "status" : "current",
+        "title" : "pipestream-live-change-20261123T032707Z-b626bd05 copy",
+        "space" : {
+          "id" : 7798786,
+          "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:space/7798786",
+          "key" : "CLAUDEGRPC",
+          "alias" : "CLAUDEGRPC",
+          "name" : "Claude gRPC Live Test",
+          "type" : "global",
+          "status" : "current",
+          "_expandable" : {
+            "settings" : "/rest/api/space/CLAUDEGRPC/settings",
+            "metadata" : "",
+            "identifiers" : "",
+            "roles" : "",
+            "icon" : "",
+            "typeSettings" : "",
+            "description" : "",
+            "history" : "",
+            "operations" : "",
+            "lookAndFeel" : "/rest/api/settings/lookandfeel?spaceKey=CLAUDEGRPC",
+            "permissions" : "",
+            "theme" : "/rest/api/space/CLAUDEGRPC/theme",
+            "homepage" : "/rest/api/content/7798963"
+          },
+          "_links" : {
+            "webui" : "/spaces/CLAUDEGRPC",
+            "self" : "https://site-1.example.invalid/wiki/rest/api/space/CLAUDEGRPC"
+          }
+        },
+        "history" : {
+          "latest" : true,
+          "createdBy" : {
+            "type" : "known",
+            "accountId" : "account-1",
+            "accountType" : "atlassian",
+            "email" : "user-1@example.invalid",
+            "publicName" : "User 2",
+            "profilePicture" : {
+              "path" : "/avatars/avatar-1.png",
+              "width" : 48,
+              "height" : 48,
+              "isDefault" : false
+            },
+            "displayName" : "User 2",
+            "isExternalCollaborator" : false,
+            "isGuest" : false,
+            "locale" : "en_US",
+            "accountStatus" : "active",
+            "_expandable" : {
+              "operations" : "",
+              "personalSpace" : ""
+            },
+            "_links" : {
+              "self" : "https://site-1.example.invalid/wiki/rest/api/user?accountId=account-1"
+            }
+          },
+          "createdDate" : "2026-11-23T03:28:15.767Z",
+          "_expandable" : {
+            "lastUpdated" : "",
+            "previousVersion" : "",
+            "lastOwnedBy" : "",
+            "contributors" : "",
+            "nextVersion" : "",
+            "ownedBy" : ""
+          },
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/api/content/29852370/history"
+          }
+        },
+        "version" : {
+          "by" : {
+            "type" : "known",
+            "accountId" : "account-1",
+            "accountType" : "atlassian",
+            "email" : "user-1@example.invalid",
+            "publicName" : "User 2",
+            "profilePicture" : {
+              "path" : "/avatars/avatar-1.png",
+              "width" : 48,
+              "height" : 48,
+              "isDefault" : false
+            },
+            "displayName" : "User 2",
+            "isExternalCollaborator" : false,
+            "isGuest" : false,
+            "locale" : "en_US",
+            "accountStatus" : "active",
+            "_expandable" : {
+              "operations" : "",
+              "personalSpace" : ""
+            },
+            "_links" : {
+              "self" : "https://site-1.example.invalid/wiki/rest/api/user?accountId=account-1"
+            }
+          },
+          "when" : "2026-11-23T03:28:15.796Z",
+          "friendlyWhen" : "just a moment ago",
+          "message" : "",
+          "number" : 1,
+          "minorEdit" : false,
+          "confRev" : "confluence$content$29852370.2",
+          "contentTypeModified" : false,
+          "_expandable" : {
+            "collaborators" : "",
+            "content" : "/rest/api/content/29852370"
+          },
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/api/content/29852370/version/1"
+          }
+        },
+        "macroRenderedOutput" : { },
+        "extensions" : {
+          "position" : 613551997
+        },
+        "_expandable" : {
+          "childTypes" : "",
+          "container" : "/rest/api/space/CLAUDEGRPC",
+          "schedulePublishInfo" : "",
+          "metadata" : "",
+          "operations" : "",
+          "schedulePublishDate" : "",
+          "children" : "/rest/api/content/29852370/child",
+          "restrictions" : "/rest/api/content/29852370/restriction/byOperation",
+          "ancestors" : "",
+          "body" : "",
+          "draftVersion" : "",
+          "descendants" : "/rest/api/content/29852370/descendant"
+        },
+        "_links" : {
+          "editui" : "/pages/resumedraft.action?draftId=29852370",
+          "webui" : "/spaces/CLAUDEGRPC/pages/29852370/pipestream-live-change-20261123T032707Z-b626bd05+copy",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29852370",
+          "context" : "/wiki",
+          "self" : "https://site-1.example.invalid/wiki/rest/api/content/29852370",
+          "tinyui" : "/x/0oLHAQ",
+          "collection" : "/rest/api/content",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

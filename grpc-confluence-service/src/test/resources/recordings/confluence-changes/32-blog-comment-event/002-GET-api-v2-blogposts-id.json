@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/blogposts/29885253",
+    "path" : "/wiki/api/v2/blogposts/30573737",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -22,30 +22,30 @@
     "body" : {
       "json" : {
         "authorId" : "User 1",
-        "createdAt" : "2026-11-22T18:51:22.395Z",
-        "id" : "29885253",
+        "spaceId" : "7798786",
+        "createdAt" : "2026-11-23T03:32:26.524Z",
         "version" : {
           "number" : 2,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "User 1",
-          "createdAt" : "2026-11-22T18:51:30.849Z",
+          "createdAt" : "2026-11-23T03:32:45.818Z",
           "ncsStepVersion" : "3"
         },
-        "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>Change feed blog pipestream-live-change-20261122T184937Z-04008ed8, edited.</p>"
+            "value" : "<p>Change feed blog pipestream-live-change-20261123T032707Z-b626bd05, edited.</p>"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-change-20261122T184937Z-04008ed8",
+        "title" : "pipestream-live-change-20261123T032707Z-b626bd05",
+        "id" : "30573737",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=29885253",
-          "webui" : "/spaces/CLAUDEGRPC/blog/2026/11/22/29885253/pipestream-live-change-20261122T184937Z-04008ed8",
-          "edituiv2" : "/spaces/CLAUDEGRPC/blog/edit-v2/29885253",
-          "tinyui" : "/x/RQPIAQ",
+          "editui" : "/pages/resumedraft.action?draftId=30573737",
+          "webui" : "/spaces/CLAUDEGRPC/blog/2026/11/22/30573737/pipestream-live-change-20261123T032707Z-b626bd05",
+          "edituiv2" : "/spaces/CLAUDEGRPC/blog/edit-v2/30573737",
+          "tinyui" : "/x/qYTSAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

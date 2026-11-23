@@ -4,7 +4,7 @@
   "request" : {
     "method" : "PUT",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30573080",
+    "path" : "/wiki/api/v2/pages/30442710",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -13,12 +13,12 @@
     "authorized" : true,
     "body" : {
       "json" : {
-        "id" : "30573080",
+        "id" : "30442710",
         "status" : "current",
-        "title" : "pipestream-live-change-20261122T184937Z-04008ed8",
+        "title" : "pipestream-live-change-20261123T032707Z-b626bd05",
         "body" : {
           "representation" : "storage",
-          "value" : "<p>Change feed run pipestream-live-change-20261122T184937Z-04008ed8, edited.</p><ac:task-list><ac:task><ac:task-id>1</ac:task-id><ac:task-status>incomplete</ac:task-status><ac:task-body>check the change feed</ac:task-body></ac:task></ac:task-list>"
+          "value" : "<p>Change feed run pipestream-live-change-20261123T032707Z-b626bd05, edited.</p><ac:task-list><ac:task><ac:task-id>1</ac:task-id><ac:task-status>incomplete</ac:task-status><ac:task-body>check the change feed</ac:task-body></ac:task></ac:task-list>"
         },
         "version" : {
           "number" : 2
@@ -38,31 +38,31 @@
         "parentId" : "7798963",
         "ownerId" : "User 1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T18:49:42.470Z",
-        "position" : 1174,
+        "createdAt" : "2026-11-23T03:27:12.468Z",
+        "position" : 1350,
         "version" : {
           "number" : 2,
           "message" : null,
           "minorEdit" : false,
           "authorId" : "User 1",
-          "createdAt" : "2026-11-22T18:49:53.791Z",
+          "createdAt" : "2026-11-23T03:27:37.268Z",
           "ncsStepVersion" : "1"
         },
-        "id" : "30573080",
+        "id" : "30442710",
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>Change feed run pipestream-live-change-20261122T184937Z-04008ed8, edited.</p><ac:task-list><ac:task><ac:task-id>1</ac:task-id><ac:task-status>incomplete</ac:task-status><ac:task-body>check the change feed</ac:task-body></ac:task></ac:task-list>"
+            "value" : "<p>Change feed run pipestream-live-change-20261123T032707Z-b626bd05, edited.</p><ac:task-list><ac:task><ac:task-id>1</ac:task-id><ac:task-status>incomplete</ac:task-status><ac:task-body>check the change feed</ac:task-body></ac:task></ac:task-list>"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-change-20261122T184937Z-04008ed8",
+        "title" : "pipestream-live-change-20261123T032707Z-b626bd05",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=30573080",
-          "webui" : "/spaces/CLAUDEGRPC/pages/30573080/pipestream-live-change-20261122T184937Z-04008ed8",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30573080",
-          "tinyui" : "/x/GILSAQ",
+          "editui" : "/pages/resumedraft.action?draftId=30442710",
+          "webui" : "/spaces/CLAUDEGRPC/pages/30442710/pipestream-live-change-20261123T032707Z-b626bd05",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30442710",
+          "tinyui" : "/x/1oTQAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

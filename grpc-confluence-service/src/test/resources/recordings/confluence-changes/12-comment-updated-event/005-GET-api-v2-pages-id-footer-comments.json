@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/30573080/footer-comments",
+    "path" : "/wiki/api/v2/pages/30442710/footer-comments",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -25,27 +25,27 @@
     "body" : {
       "json" : {
         "results" : [ {
-          "id" : "30114768",
+          "id" : "30769781",
           "status" : "current",
-          "title" : "Re: pipestream-live-change-20261122T184937Z-04008ed8",
-          "pageId" : "30573080",
+          "title" : "Re: pipestream-live-change-20261123T032707Z-b626bd05",
+          "pageId" : "30442710",
           "version" : {
             "number" : 2,
             "message" : "",
             "minorEdit" : false,
             "authorId" : "User 1",
-            "createdAt" : "2026-11-22T18:50:20.165Z",
+            "createdAt" : "2026-11-23T03:29:16.185Z",
             "contributorIds" : [ ]
           },
           "resolutionStatus" : "open",
           "body" : {
             "storage" : {
               "representation" : "storage",
-              "value" : "<p>comment pipestream-live-change-20261122T184937Z-04008ed8 edited</p>"
+              "value" : "<p>comment pipestream-live-change-20261123T032707Z-b626bd05 edited</p>"
             }
           },
           "_links" : {
-            "webui" : "/spaces/CLAUDEGRPC/pages/30573080/pipestream-live-change-20261122T184937Z-04008ed8?focusedCommentId=30114768"
+            "webui" : "/spaces/CLAUDEGRPC/pages/30442710/pipestream-live-change-20261123T032707Z-b626bd05?focusedCommentId=30769781"
           }
         } ],
         "_links" : {

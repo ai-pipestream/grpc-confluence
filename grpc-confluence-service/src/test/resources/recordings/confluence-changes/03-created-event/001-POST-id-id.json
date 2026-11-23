@@ -25,7 +25,7 @@
     "body" : {
       "json" : {
         "events" : [ {
-          "key" : "evt:001795373383815:beb1ee96-b56c-4dd6-96c3-39351369d794",
+          "key" : "evt:001795404433326:c45f6cd9-f2db-4cad-9ac1-a9edd964496d",
           "event" : {
             "atlassianId" : "account-1",
             "content" : {
@@ -46,7 +46,7 @@
                   "type" : "known",
                   "username" : "User 1"
                 },
-                "createdDate" : "2026-11-22T18:49:41.799Z",
+                "createdDate" : "2026-11-23T03:27:11.645Z",
                 "latest" : true,
                 "ownedBy" : {
                   "accountId" : "account-1",
@@ -65,7 +65,7 @@
                   "username" : "User 1"
                 }
               },
-              "id" : "30540033",
+              "id" : "31129685",
               "metadata" : {
                 "notificationsPlatformEmail" : false
               },
@@ -85,7 +85,7 @@
                 "type" : "global"
               },
               "status" : "current",
-              "title" : "pipestream-live-change-20261122T184937Z-04008ed8 parent",
+              "title" : "pipestream-live-change-20261123T032707Z-b626bd05 parent",
               "type" : "page",
               "version" : {
                 "by" : {
@@ -108,7 +108,7 @@
                   "userAccountIds" : [ ]
                 },
                 "number" : 1,
-                "when" : "2026-11-22T18:49:41.799Z"
+                "when" : "2026-11-23T03:27:11.645Z"
               }
             },
             "context" : {
@@ -118,7 +118,7 @@
                 "enabled" : false
               }
             },
-            "eventCreatedDate" : "2026-11-22T18:49:41.864Z",
+            "eventCreatedDate" : "2026-11-23T03:27:11.667Z",
             "eventType" : "avi:confluence:created:page",
             "permissions" : {
               "scopes" : [ "read:app-data:confluence", "read:confluence-content.all", "read:confluence-content.summary", "read:confluence-groups", "read:confluence-space.summary", "read:confluence-user", "storage:app", "write:app-data:confluence", "write:confluence-content", "write:confluence-space" ]
@@ -126,13 +126,13 @@
             "selfGenerated" : false,
             "suppressNotifications" : false
           },
-          "expireTime" : "2026-11-29T18:49:44.000Z"
+          "expireTime" : "2026-11-30T03:27:13.000Z"
         }, {
-          "key" : "evt:001795373384318:54d005c7-3891-46b9-9b41-b4581137c243",
+          "key" : "evt:001795404433614:42846e55-fab3-4518-afc7-9941ce7314c6",
           "event" : {
             "atlassianId" : "User 1",
             "content" : {
-              "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:page/30573080",
+              "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:page/30442710",
               "base64EncodedAri" : "opaque-1",
               "history" : {
                 "createdBy" : {
@@ -153,7 +153,7 @@
                   "publicName" : "User 2",
                   "type" : "known"
                 },
-                "createdDate" : "2026-11-22T18:49:42.470Z",
+                "createdDate" : "2026-11-23T03:27:12.468Z",
                 "latest" : true,
                 "ownedBy" : {
                   "accountId" : "account-1",
@@ -174,7 +174,7 @@
                   "type" : "known"
                 }
               },
-              "id" : "30573080",
+              "id" : "30442710",
               "space" : {
                 "alias" : "CLAUDEGRPC",
                 "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:space/7798786",
@@ -191,7 +191,7 @@
                 "type" : "global"
               },
               "status" : "current",
-              "title" : "pipestream-live-change-20261122T184937Z-04008ed8",
+              "title" : "pipestream-live-change-20261123T032707Z-b626bd05",
               "type" : "page",
               "version" : {
                 "by" : {
@@ -216,7 +216,7 @@
                   "userAccountIds" : [ ]
                 },
                 "number" : 1,
-                "when" : "2026-11-22T18:49:42.470Z"
+                "when" : "2026-11-23T03:27:12.468Z"
               }
             },
             "context" : {
@@ -226,14 +226,14 @@
                 "enabled" : false
               }
             },
-            "eventCreatedDate" : "2026-11-22T18:49:42.516Z",
+            "eventCreatedDate" : "2026-11-23T03:27:12.506Z",
             "eventType" : "avi:confluence:created:task",
             "permissions" : {
               "scopes" : [ "read:app-data:confluence", "read:confluence-content.all", "read:confluence-content.summary", "read:confluence-groups", "read:confluence-space.summary", "read:confluence-user", "storage:app", "write:app-data:confluence", "write:confluence-content", "write:confluence-space" ]
             },
             "selfGenerated" : false,
             "task" : {
-              "createDate" : "2026-11-22T18:49:42Z",
+              "createDate" : "2026-11-23T03:27:12Z",
               "creator" : "account-1",
               "globalId" : 1,
               "id" : 1,
@@ -242,9 +242,9 @@
             },
             "taskGlobalId" : 0
           },
-          "expireTime" : "2026-11-29T18:49:44.000Z"
+          "expireTime" : "2026-11-30T03:27:13.000Z"
         }, {
-          "key" : "evt:001795373384342:d86ece6c-5d19-456c-892c-c476dd7b0b88",
+          "key" : "evt:001795404433697:16d1dea0-9812-43d1-a898-8d140af57a00",
           "event" : {
             "atlassianId" : "account-1",
             "content" : {
@@ -265,7 +265,7 @@
                   "type" : "known",
                   "username" : "User 1"
                 },
-                "createdDate" : "2026-11-22T18:49:42.470Z",
+                "createdDate" : "2026-11-23T03:27:12.468Z",
                 "latest" : true,
                 "ownedBy" : {
                   "accountId" : "account-1",
@@ -284,7 +284,7 @@
                   "username" : "User 1"
                 }
               },
-              "id" : "30573080",
+              "id" : "30442710",
               "metadata" : {
                 "notificationsPlatformEmail" : false
               },
@@ -304,7 +304,7 @@
                 "type" : "global"
               },
               "status" : "current",
-              "title" : "pipestream-live-change-20261122T184937Z-04008ed8",
+              "title" : "pipestream-live-change-20261123T032707Z-b626bd05",
               "type" : "page",
               "version" : {
                 "by" : {
@@ -327,7 +327,7 @@
                   "userAccountIds" : [ ]
                 },
                 "number" : 1,
-                "when" : "2026-11-22T18:49:42.470Z"
+                "when" : "2026-11-23T03:27:12.468Z"
               }
             },
             "context" : {
@@ -337,7 +337,7 @@
                 "enabled" : false
               }
             },
-            "eventCreatedDate" : "2026-11-22T18:49:42.507Z",
+            "eventCreatedDate" : "2026-11-23T03:27:12.496Z",
             "eventType" : "avi:confluence:created:page",
             "permissions" : {
               "scopes" : [ "read:app-data:confluence", "read:confluence-content.all", "read:confluence-content.summary", "read:confluence-groups", "read:confluence-space.summary", "read:confluence-user", "storage:app", "write:app-data:confluence", "write:confluence-content", "write:confluence-space" ]
@@ -345,7 +345,7 @@
             "selfGenerated" : false,
             "suppressNotifications" : false
           },
-          "expireTime" : "2026-11-29T18:49:44.000Z"
+          "expireTime" : "2026-11-30T03:27:13.000Z"
         } ]
       }
     }
