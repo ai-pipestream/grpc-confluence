@@ -14,10 +14,10 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-write-20261123T223930Z-2b7ba40f blog",
+        "title" : "pipestream-live-write-20261122T154612Z-76a48fba blog",
         "body" : {
           "representation" : "storage",
-          "value" : "<p>blog REDACTME pipestream-live-write-20261123T223930Z-2b7ba40f</p>"
+          "value" : "<p>blog REDACTME pipestream-live-write-20261122T154612Z-76a48fba</p>"
         }
       }
     }
@@ -30,30 +30,30 @@
     "body" : {
       "json" : {
         "authorId" : "account-1",
-        "createdAt" : "2026-11-23T22:40:14.321Z",
-        "id" : "32112661",
+        "spaceId" : "7798786",
+        "createdAt" : "2026-11-22T15:47:08.763Z",
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-23T22:40:14.321Z",
+          "createdAt" : "2026-11-22T15:47:08.763Z",
           "ncsStepVersion" : "1"
         },
-        "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>blog REDACTME pipestream-live-write-20261123T223930Z-2b7ba40f</p>"
+            "value" : "<p>blog REDACTME pipestream-live-write-20261122T154612Z-76a48fba</p>"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261123T223930Z-2b7ba40f blog",
+        "title" : "pipestream-live-write-20261122T154612Z-76a48fba blog",
+        "id" : "30572880",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=32112661",
-          "webui" : "/spaces/CLAUDEGRPC/blog/2026/11/23/32112661/pipestream-live-write-20261123T223930Z-2b7ba40f+blog",
-          "edituiv2" : "/spaces/CLAUDEGRPC/blog/edit-v2/32112661",
-          "tinyui" : "/x/FQDqAQ",
+          "editui" : "/pages/resumedraft.action?draftId=30572880",
+          "webui" : "/spaces/CLAUDEGRPC/blog/2026/11/22/30572880/pipestream-live-write-20261122T154612Z-76a48fba+blog",
+          "edituiv2" : "/spaces/CLAUDEGRPC/blog/edit-v2/30572880",
+          "tinyui" : "/x/UIHSAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

@@ -32,6 +32,8 @@ class ConfluenceWriteReplayTest {
     static final String DEFAULT_RECORDINGS = "src/test/resources/recordings/confluence";
     /** Where the app property recording lives, relative to the module directory. */
     static final String APP_PROPERTY_RECORDINGS = "src/test/resources/recordings/confluence-app-properties";
+    /** Where the recording of a write run with a custom content type lives, relative to the module directory. */
+    static final String CUSTOM_CONTENT_RECORDINGS = "src/test/resources/recordings/confluence-custom-content";
 
     private Server server;
     private ManagedChannel channel;
@@ -49,6 +51,12 @@ class ConfluenceWriteReplayTest {
     @TestFactory
     List<DynamicTest> everyWriteScenarioAgainstTheRecording() throws IOException {
         return replay(Path.of(System.getProperty("writeReplay.recordings", DEFAULT_RECORDINGS)),
+                WriteScenarios.names(), false, "liveWriteTest");
+    }
+
+    @TestFactory
+    List<DynamicTest> everyWriteScenarioAgainstTheCustomContentRecording() throws IOException {
+        return replay(Path.of(System.getProperty("customContentReplay.recordings", CUSTOM_CONTENT_RECORDINGS)),
                 WriteScenarios.names(), false, "liveWriteTest");
     }
 

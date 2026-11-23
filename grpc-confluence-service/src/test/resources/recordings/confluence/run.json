@@ -1,9 +1,9 @@
 {
   "baseUrl" : "https://site-1.example.invalid/wiki",
   "spaceKey" : "CLAUDEGRPC",
-  "run" : "pipestream-live-write-20261123T223930Z-2b7ba40f",
-  "admin" : false,
-  "customContentType" : "forge:d16971ce-921a-40d5-a97b-84b84a4cbfe1:b5506979-43d3-4c0e-9bd5-60f77934bdf3:pipestream-record",
+  "run" : "pipestream-live-write-20261122T154612Z-76a48fba",
+  "admin" : true,
+  "customContentType" : null,
   "inviteEmail" : null,
   "outcomes" : [ {
     "rpc" : "CreatePage",
@@ -180,15 +180,15 @@
   }, {
     "rpc" : "CreateCustomContent",
     "step" : "CreateCustomContent",
-    "outcome" : "PASS"
+    "outcome" : "SKIPPED"
   }, {
     "rpc" : "UpdateCustomContent",
     "step" : "UpdateCustomContent",
-    "outcome" : "PASS"
+    "outcome" : "SKIPPED"
   }, {
     "rpc" : "DeleteCustomContent",
-    "step" : "DeleteCustomContent (trash, then purge)",
-    "outcome" : "PASS"
+    "step" : "DeleteCustomContent",
+    "outcome" : "SKIPPED"
   }, {
     "rpc" : "CreateFolder",
     "step" : "CreateFolder",
@@ -232,27 +232,27 @@
   }, {
     "rpc" : "CreateSpace",
     "step" : "CreateSpace",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "DeleteSpace",
     "step" : "DeleteSpace",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "CreateSpaceRole",
     "step" : "CreateSpaceRole",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "UpdateSpaceRole",
     "step" : "UpdateSpaceRole",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "SetSpaceRoleAssignments",
+    "step" : "SetSpaceRoleAssignments (re-sets one existing assignment)",
+    "outcome" : "PASS"
   }, {
     "rpc" : "DeleteSpaceRole",
     "step" : "DeleteSpaceRole",
-    "outcome" : "SKIPPED"
-  }, {
-    "rpc" : "SetSpaceRoleAssignments",
-    "step" : "SetSpaceRoleAssignments",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "InviteByEmail",
     "step" : "InviteByEmail",
@@ -260,11 +260,11 @@
   }, {
     "rpc" : "EnableAdminKey",
     "step" : "EnableAdminKey",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "DisableAdminKey",
     "step" : "DisableAdminKey",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "BulkAssignSpaceRoles",
     "step" : "BulkAssignSpaceRoles",

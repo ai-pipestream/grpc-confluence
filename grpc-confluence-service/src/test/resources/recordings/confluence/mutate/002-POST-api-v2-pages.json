@@ -15,11 +15,11 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-write-20261123T223930Z-2b7ba40f mutate b",
-        "parentId" : "32899104",
+        "title" : "pipestream-live-write-20261122T154612Z-76a48fba mutate a",
+        "parentId" : "30376427",
         "body" : {
           "representation" : "storage",
-          "value" : "<p>mutate b</p>"
+          "value" : "<p>mutate a</p>"
         }
       }
     }
@@ -33,34 +33,34 @@
       "json" : {
         "authorId" : "account-1",
         "parentType" : "page",
-        "parentId" : "32899104",
+        "parentId" : "30376427",
         "ownerId" : "account-1",
-        "createdAt" : "2026-11-23T22:40:19.339Z",
         "lastOwnerId" : null,
-        "position" : 1573,
+        "createdAt" : "2026-11-22T15:47:12.477Z",
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-23T22:40:19.339Z",
+          "createdAt" : "2026-11-22T15:47:12.477Z",
           "ncsStepVersion" : "1"
         },
-        "id" : "33292316",
+        "position" : 1213,
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>mutate b</p>"
+            "value" : "<p>mutate a</p>"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261123T223930Z-2b7ba40f mutate b",
+        "title" : "pipestream-live-write-20261122T154612Z-76a48fba mutate a",
+        "id" : "29884784",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=33292316",
-          "webui" : "/spaces/CLAUDEGRPC/pages/33292316/pipestream-live-write-20261123T223930Z-2b7ba40f+mutate+b",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/33292316",
-          "tinyui" : "/x/HAD8AQ",
+          "editui" : "/pages/resumedraft.action?draftId=29884784",
+          "webui" : "/spaces/CLAUDEGRPC/pages/29884784/pipestream-live-write-20261122T154612Z-76a48fba+mutate+a",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29884784",
+          "tinyui" : "/x/cAHIAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

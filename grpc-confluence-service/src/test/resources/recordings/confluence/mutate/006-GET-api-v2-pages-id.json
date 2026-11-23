@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/32866328",
+    "path" : "/wiki/api/v2/pages/29884784",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -21,22 +21,22 @@
     },
     "body" : {
       "json" : {
-        "parentType" : "page",
-        "parentId" : "32899104",
-        "ownerId" : "account-1",
-        "createdAt" : "2026-11-23T22:40:19.285Z",
-        "lastOwnerId" : null,
         "authorId" : "account-1",
+        "parentType" : "page",
+        "parentId" : "30376427",
+        "ownerId" : "account-1",
+        "lastOwnerId" : null,
+        "createdAt" : "2026-11-22T15:47:12.477Z",
+        "position" : 1213,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-23T22:40:19.285Z",
+          "createdAt" : "2026-11-22T15:47:12.477Z",
           "ncsStepVersion" : "1"
         },
-        "position" : 1834,
-        "id" : "32866328",
+        "id" : "29884784",
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
@@ -45,12 +45,12 @@
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261123T223930Z-2b7ba40f mutate a",
+        "title" : "pipestream-live-write-20261122T154612Z-76a48fba mutate a",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=32866328",
-          "webui" : "/spaces/CLAUDEGRPC/pages/32866328/pipestream-live-write-20261123T223930Z-2b7ba40f+mutate+a",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/32866328",
-          "tinyui" : "/x/GID1AQ",
+          "editui" : "/pages/resumedraft.action?draftId=29884784",
+          "webui" : "/spaces/CLAUDEGRPC/pages/29884784/pipestream-live-write-20261122T154612Z-76a48fba+mutate+a",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29884784",
+          "tinyui" : "/x/cAHIAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/attachments/att32899125",
+    "path" : "/wiki/api/v2/attachments/att29884777",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -19,27 +19,27 @@
     "body" : {
       "json" : {
         "mediaTypeDescription" : "Text File",
-        "webuiLink" : "/pages/viewpageattachments.action?pageId=32669736&preview=%2F32669736%2F32899125%2Fpipestream-live-write-20261123T223930Z-2b7ba40f.txt",
-        "downloadLink" : "/rest/api/content/32669736/child/attachment/att32899125/download",
-        "createdAt" : "2026-11-23T22:40:08.814Z",
+        "webuiLink" : "/pages/viewpageattachments.action?pageId=30179844&preview=%2F30179844%2F29884777%2Fpipestream-live-write-20261122T154612Z-76a48fba.txt",
+        "downloadLink" : "/rest/api/content/30179844/child/attachment/att29884777/download",
+        "createdAt" : "2026-11-22T15:47:01.883Z",
         "version" : {
           "number" : 2,
           "message" : "live write run",
           "minorEdit" : true,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-23T22:40:08.815Z"
+          "createdAt" : "2026-11-22T15:47:01.883Z"
         },
-        "id" : "att32899125",
         "comment" : "live write run",
-        "fileId" : "c7da0e8f-c61e-48a9-9a3c-b7959c1a5552",
-        "pageId" : "32669736",
+        "fileId" : "3467bb3a-a8cc-4886-9ff7-0b0494575baf",
         "mediaType" : "text/plain",
+        "pageId" : "30179844",
         "status" : "current",
-        "title" : "pipestream-live-write-20261123T223930Z-2b7ba40f.txt",
+        "title" : "pipestream-live-write-20261122T154612Z-76a48fba.txt",
         "fileSize" : 63,
+        "id" : "att29884777",
         "_links" : {
-          "download" : "/rest/api/content/32669736/child/attachment/att32899125/download",
-          "webui" : "/pages/viewpageattachments.action?pageId=32669736&preview=%2F32669736%2F32899125%2Fpipestream-live-write-20261123T223930Z-2b7ba40f.txt",
+          "download" : "/rest/api/content/30179844/child/attachment/att29884777/download",
+          "webui" : "/pages/viewpageattachments.action?pageId=30179844&preview=%2F30179844%2F29884777%2Fpipestream-live-write-20261122T154612Z-76a48fba.txt",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

@@ -1,0 +1,157 @@
+{
+  "scenario" : "tenant",
+  "sequence" : 11,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/space-permissions",
+    "query" : [ {
+      "name" : "limit",
+      "value" : "25"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "id" : "read/space",
+          "displayName" : "User 2",
+          "description" : "Users will lose all access to the space without this permission.",
+          "requiredPermissionIds" : [ ]
+        }, {
+          "id" : "export/content",
+          "displayName" : "User 3",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space" ]
+        }, {
+          "id" : "export/space",
+          "displayName" : "User 4",
+          "description" : "",
+          "requiredPermissionIds" : [ "export/content", "read/space" ]
+        }, {
+          "id" : "edit/native-content",
+          "displayName" : "User 5",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space" ]
+        }, {
+          "id" : "write/space",
+          "displayName" : "User 6",
+          "description" : "",
+          "requiredPermissionIds" : [ "edit/native-content", "read/space" ]
+        }, {
+          "id" : "read/comment",
+          "displayName" : "User 7",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space" ]
+        }, {
+          "id" : "edit/blogpost",
+          "displayName" : "User 8",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space" ]
+        }, {
+          "id" : "create/blogpost",
+          "displayName" : "User 9",
+          "description" : "",
+          "requiredPermissionIds" : [ "edit/blogpost", "read/space" ]
+        }, {
+          "id" : "create/attachment",
+          "displayName" : "User 10",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space" ]
+        }, {
+          "id" : "archive/space",
+          "displayName" : "User 11",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space" ]
+        }, {
+          "id" : "delete/space",
+          "displayName" : "User 12",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space" ]
+        }, {
+          "id" : "delete/page",
+          "displayName" : "User 13",
+          "description" : "",
+          "requiredPermissionIds" : [ "edit/native-content", "read/space" ]
+        }, {
+          "id" : "delete/own-content",
+          "displayName" : "User 14",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space" ]
+        }, {
+          "id" : "archive/page",
+          "displayName" : "User 15",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space" ]
+        }, {
+          "id" : "delete/blogpost",
+          "displayName" : "User 16",
+          "description" : "",
+          "requiredPermissionIds" : [ "edit/blogpost", "read/space" ]
+        }, {
+          "id" : "delete/comment",
+          "displayName" : "User 17",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space" ]
+        }, {
+          "id" : "delete/own-comment",
+          "displayName" : "User 18",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space", "read/comment" ]
+        }, {
+          "id" : "delete/attachment",
+          "displayName" : "User 19",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space" ]
+        }, {
+          "id" : "manage/page",
+          "displayName" : "User 20",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space" ]
+        }, {
+          "id" : "manage/users",
+          "displayName" : "User 21",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space" ]
+        }, {
+          "id" : "manage/nonlicensed",
+          "displayName" : "User 22",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space", "manage/users" ]
+        }, {
+          "id" : "manage/public-links",
+          "displayName" : "User 23",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space" ]
+        }, {
+          "id" : "manage/guests",
+          "displayName" : "User 24",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space", "manage/users" ]
+        }, {
+          "id" : "manage/look-and-feel",
+          "displayName" : "User 25",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space" ]
+        }, {
+          "id" : "manage/content",
+          "displayName" : "User 26",
+          "description" : "",
+          "requiredPermissionIds" : [ "read/space" ]
+        } ],
+        "_links" : {
+          "next" : "/wiki/api/v2/space-permissions?limit=25&cursor=eyJvcmRpbmFsIjoyNH0=",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

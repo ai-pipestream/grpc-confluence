@@ -1,0 +1,45 @@
+{
+  "scenario" : "tasks-redaction",
+  "sequence" : 3,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/tasks/353",
+    "query" : [ {
+      "name" : "body-format",
+      "value" : "storage"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "pageId" : "32768008",
+        "assignedTo" : null,
+        "dueAt" : null,
+        "updatedAt" : null,
+        "completedAt" : "2026-11-23T22:40:12.766Z",
+        "completedBy" : "account-1",
+        "localId" : "85652054-8f8b-394f-aecb-8f89fc75996d",
+        "createdAt" : "2026-11-23T22:39:33.684Z",
+        "spaceId" : "7798786",
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<span class=\"placeholder-inline-tasks\">ship it</span>"
+          }
+        },
+        "status" : "complete",
+        "createdBy" : "account-1",
+        "id" : "353"
+      }
+    }
+  }
+}
