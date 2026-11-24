@@ -236,7 +236,8 @@ public final class ConfluenceClient {
                 ? "{}" : response.body());
         int status = answer.path("status").asInt(0);
         JsonNode answered = answer.path("body");
-        if (status < 200 || status >= 400) {
+        if (status < 200 || status >= 300) {
+            // A 3xx is no answer either: nothing here follows it.
             throw new ConfluenceApiException(status == 0 ? 502 : status,
                     answered.isMissingNode() || answered.isNull() ? "" : answered.toString());
         }
@@ -344,6 +345,43 @@ public final class ConfluenceClient {
     }
 
     /**
+     * GET a route that answers a list: a body whose {@code results} member
+     * is an array. A walk reads a page without a next link as the last one,
+     * so a 2xx answer that is not a list fails here instead of ending the
+     * walk as an empty page.
+     *
+     * @param pathOrUrl a v2 path or an absolute URL
+     * @param query query parameters; empty when the URL already carries them
+     * @return the parsed JSON body, whose {@code results} is an array
+     * @throws MalformedResponseException if the 2xx body has no {@code results} array
+     * @throws IOException if the request fails or the service returns an error status
+     * @throws InterruptedException if the calling thread is interrupted while waiting
+     */
+    public JsonNode getList(String pathOrUrl, Map<String, String> query)
+            throws IOException, InterruptedException {
+        JsonNode body = get(pathOrUrl, query);
+        requireResults(body, url(pathOrUrl, query));
+        return body;
+    }
+
+    /**
+     * The {@code results} array of a list answer.
+     *
+     * @param body the parsed 2xx body of a list route
+     * @param route the path or URL that was read, for the failure's message
+     * @return the {@code results} array
+     * @throws MalformedResponseException if {@code body} has no {@code results} array
+     */
+    public static JsonNode requireResults(JsonNode body, String route)
+            throws MalformedResponseException {
+        JsonNode results = body == null ? null : body.get("results");
+        if (results == null || !results.isArray()) {
+            throw new MalformedResponseException(route, body);
+        }
+        return results;
+    }
+
+    /**
      * GET one page of a cursor-paginated list endpoint. The next-page URL
      * comes from the body's {@code _links.next} (relative against the tenant
      * origin) or, failing that, a {@code Link: <...>; rel="next"} header.
@@ -351,6 +389,7 @@ public final class ConfluenceClient {
      * @param pathOrUrl a v2 path or an absolute URL
      * @param query query parameters; empty when the URL already carries them
      * @return the page body and resolved next-page URL
+     * @throws MalformedResponseException if the 2xx body has no {@code results} array
      * @throws IOException if the request fails or the service returns an error status
      * @throws InterruptedException if the calling thread is interrupted while waiting
      */
@@ -359,11 +398,13 @@ public final class ConfluenceClient {
         String url = url(pathOrUrl, query);
         if (throughForge(url)) {
             JsonNode listed = viaForge("GET", url, null).body();
+            requireResults(listed, url);
             return new ResultPage(listed, nextPageUrl(listed).orElse(null));
         }
         HttpResponse<String> response = send(request(url).GET().build(),
                 HttpResponse.BodyHandlers.ofString());
         JsonNode body = json(response);
+        requireResults(body, url);
         String next = nextPageUrl(body)
                 .or(() -> nextFromLinkHeader(response).map(this::resolveRelative))
                 .orElse(null);
@@ -717,6 +758,42 @@ public final class ConfluenceClient {
     }
 
     /**
+     * A list route answered 2xx with a body that has no {@code results}
+     * array: an empty body, an error object sent with a success status, or
+     * another service's answer. It is not an empty list.
+     */
+    public static final class MalformedResponseException extends IOException {
+        /** Serialization identifier. */
+        @java.io.Serial
+        private static final long serialVersionUID = 1L;
+
+        MalformedResponseException(String route, JsonNode body) {
+            super("Confluence answered " + pathOf(route) + " with " + describe(body)
+                    + ", which has no results array; not reading it as an empty list");
+        }
+
+        /** The path of a route or URL, without its query (a cursor is long and opaque). */
+        private static String pathOf(String route) {
+            int query = route.indexOf('?');
+            String bare = query < 0 ? route : route.substring(0, query);
+            int scheme = bare.indexOf("://");
+            if (scheme < 0) {
+                return bare;
+            }
+            int path = bare.indexOf('/', scheme + 3);
+            return path < 0 ? bare : bare.substring(path);
+        }
+
+        private static String describe(JsonNode body) {
+            if (body == null || body.isMissingNode() || (body.isObject() && body.isEmpty())) {
+                return "an empty body";
+            }
+            String text = body.toString();
+            return "the body " + (text.length() <= 200 ? text : text.substring(0, 200) + "...");
+        }
+    }
+
+    /**
      * A list route handed back a next-page URL it had already returned in
      * the same walk: following it would loop forever.
      */
@@ -934,8 +1011,19 @@ public final class ConfluenceClient {
 
     private static JsonNode json(HttpResponse<String> response) throws IOException {
         String body = response.body();
-        if (response.statusCode() >= 400) {
-            throw new ConfluenceApiException(response.statusCode(), body, retryAfter(response));
+        int status = response.statusCode();
+        if (status >= 300 && status < 400) {
+            // The client never follows a redirect on an API route (the
+            // credential must not travel to another origin), and a redirect
+            // carries no answer: its empty body is not an empty result.
+            String location = response.headers().firstValue("location").orElse("").trim();
+            throw new ConfluenceApiException(status, (location.isEmpty()
+                    ? "redirected with no Location header"
+                    : "redirected to " + location)
+                    + "; redirects are not followed, check the connection's base URL");
+        }
+        if (status < 200 || status >= 400) {
+            throw new ConfluenceApiException(status, body, retryAfter(response));
         }
         if (body == null || body.isBlank()) {
             return JSON.createObjectNode();
