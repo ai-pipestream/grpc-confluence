@@ -129,6 +129,17 @@ other refusal. No resume cursor is handed out, and a full crawl does not
 reconcile, because reconciling by run id after a dropped upsert would mark
 a page that still exists as deleted.
 
+The whiteboards, databases, folders and Smart Links below a page, and a
+database's fields and entries, are read through the tree and database
+routes. A 404 on the first read of such a route means there is nothing to
+read there (the tenant does not serve the route, or the item is not visible
+to the credentials), and the crawl goes on. Any other refusal (401, 403,
+400, or a failure partway through a list) ends the `Sync` with that status
+and a description that names the read, for example
+`Confluence 403 reading direct children at /api/v2/pages/200/direct-children`.
+No resume cursor is handed out and nothing is reconciled, because a pass
+that ended OK without a subtree would be taken for the whole space.
+
 Completed `Sync` runs can also write an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
 v0.2 bundle (directory + zip) and a **sibling** WARC 1.1 file. WARC is a
 per-URI archive (ISO 28500): one `resource` record per live `web_url`, a

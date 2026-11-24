@@ -1052,32 +1052,54 @@ public final class ConfluenceCrawler {
         }
     }
 
-    /** {@link #listAll}, or empty (logged at WARN) when the tenant does not serve the route. */
+    /**
+     * Walks a paged list of the tree and database routes. A 404 on the first
+     * page means there is nothing to read: the tenant does not serve the
+     * route, or the owner is not visible to us; empty, logged at INFO. Any
+     * other failure, and a 404 after the first page, fails the crawl: what
+     * hangs below {@code path} could not be read, and a pass that ended OK
+     * without it would be taken for the whole of the space.
+     */
     private List<JsonNode> listAllOptional(String path, Map<String, String> query, String what)
             throws IOException, InterruptedException {
-        try {
-            return listAll(path, query);
-        } catch (ConfluenceClient.ConfluenceApiException e) {
-            if (!unserved(e)) {
-                throw e;
+        List<JsonNode> results = new ArrayList<>();
+        String url = path;
+        Map<String, String> params = query;
+        CursorGuard guard = new CursorGuard(path);
+        boolean first = true;
+        while (url != null) {
+            ConfluenceClient.ResultPage page;
+            try {
+                page = client.getPage(url, params);
+            } catch (ConfluenceClient.ConfluenceApiException e) {
+                if (first && e.status() == 404) {
+                    LOG.log(System.Logger.Level.INFO, "{0} not served at {1}: HTTP 404", what, path);
+                    return List.of();
+                }
+                throw e.reading(what, path);
             }
-            LOG.log(System.Logger.Level.WARNING, "skipping {0} at {1}: HTTP {2}", what, path,
-                    e.status());
-            return List.of();
+            page.body().path("results").forEach(results::add);
+            url = guard.check(page.nextUrl());
+            params = Map.of();
+            first = false;
         }
+        return results;
     }
 
-    /** One GET, or {@code null} (logged at WARN) when the tenant does not serve the route. */
+    /**
+     * One GET of a tree node, or {@code null} (logged at INFO) on a 404: the
+     * node went away, or is not visible to us, after its parent listed it.
+     * Any other failure fails the crawl, as in {@link #listAllOptional}.
+     */
     private JsonNode getOptional(String path, String what) throws IOException, InterruptedException {
         try {
             return client.get(path);
         } catch (ConfluenceClient.ConfluenceApiException e) {
-            if (!unserved(e)) {
-                throw e;
+            if (e.status() == 404) {
+                LOG.log(System.Logger.Level.INFO, "{0} not served at {1}: HTTP 404", what, path);
+                return null;
             }
-            LOG.log(System.Logger.Level.WARNING, "skipping {0} at {1}: HTTP {2}", what, path,
-                    e.status());
-            return null;
+            throw e.reading(what, path);
         }
     }
 
