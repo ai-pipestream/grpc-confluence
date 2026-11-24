@@ -106,5 +106,7 @@ in `ChangeScenarios`, not `WriteScenarios` (`ConfluenceWriteRoutes.CHANGE_SUITE`
 - `ConfluenceGrpcService` request validation against what the response type
   can hold (#41).
 - `ForgeEventQueue` and `ConfluenceChangeGrpcService`: ack only after
-  emit, coalescing, events Forge never sends (#31, #32).
+  emit, coalescing, events Forge never sends (#31, #32), which failed
+  re-reads are sent unresolved and acknowledged (#57), one collector per
+  queue.
 - `RecordingScrubber`: anything that could leak tenant data.

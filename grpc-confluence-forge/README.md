@@ -15,6 +15,21 @@ the connector take the oldest events and acknowledge them once handled.
 
 * `{"action":"take","max":100}` also answers each event's `expireTime`.
 
+## One collector per queue
+
+`take` removes nothing, and `ack` removes for everyone. Two collectors that
+take before either acknowledges both get an event; once one has acknowledged
+it, the other never sees it. An `ack` of a key that is already gone is
+accepted. Run one `WatchChanges` stream per queue; a second environment of
+the app has its own queue.
+
+## Expiry
+
+An event nobody collects is dropped 7 days after it was stored. Forge removes
+expired entries up to 48 hours late and may still answer them until then, so
+an event can be delivered up to 9 days after it was stored. The live change
+run fails when it finds an older event in the queue.
+
 ## App API forwarding
 
 `POST` to the `app-api` web trigger URL with the same header and

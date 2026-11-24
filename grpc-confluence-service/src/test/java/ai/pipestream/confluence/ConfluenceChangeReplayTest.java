@@ -42,8 +42,11 @@ class ConfluenceChangeReplayTest {
                 config.apiToken(), Duration.ZERO, tape);
         ConfluenceGrpcService read = new ConfluenceGrpcService(config, client,
                 ConfluenceGrpcService.DEFAULT_ATTACHMENT_MAX_BYTES);
-        ConfluenceChangeGrpcService service = new ConfluenceChangeGrpcService(read,
-                new ForgeEventQueue(run.path("queueUrl").asText(), "replay", tape, time -> { }),
+        ForgeEventQueue queue = new ForgeEventQueue(run.path("queueUrl").asText(), "replay", tape,
+                time -> { });
+        ConfluenceChangeGrpcService service = new ConfluenceChangeGrpcService(read, queue,
+                Clock.systemUTC());
+        ConfluenceChangeGrpcService second = new ConfluenceChangeGrpcService(read, queue,
                 Clock.systemUTC());
         String name = InProcessServerBuilder.generateName();
         Server server = InProcessServerBuilder.forName(name)
@@ -77,7 +80,7 @@ class ConfluenceChangeReplayTest {
                     public void pause(java.time.Duration time) {
                         // Replay does not wait.
                     }
-                });
+                }, queue, second);
         try {
             for (ChangeScenarios.Scenario scenario : scenarios.all()) {
                 tape.scenario(scenario.id());

@@ -43,7 +43,7 @@ class ChangeSuiteCoverageTest {
                         public void pause(Duration time) {
                             // No step is run.
                         }
-                    }).all().stream().map(ChangeScenarios.Scenario::label).toList();
+                    }, null, service).all().stream().map(ChangeScenarios.Scenario::label).toList();
 
             assertThat(ConfluenceWriteRoutes.rpcs()).containsAll(ConfluenceWriteRoutes.CHANGE_SUITE);
             for (String rpc : ConfluenceWriteRoutes.CHANGE_SUITE) {

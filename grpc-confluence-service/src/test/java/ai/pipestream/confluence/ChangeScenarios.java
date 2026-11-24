@@ -42,6 +42,8 @@ final class ChangeScenarios {
     static final int BACKLOG = 105;
     /** How long the Forge app keeps an uncollected event. */
     static final Duration EVENT_TTL = Duration.ofDays(7);
+    /** How long after its expiry Forge may still answer an event. */
+    static final Duration EXPIRY_LAG = Duration.ofHours(48);
     /** Set to {@code 1} for the live step that adds the caller to the throwaway group and removes it. */
     static final String ENV_GROUP_MEMBER = "CONFLUENCE_LIVE_CHANGES_GROUP_MEMBER";
     private static final long CALL_DEADLINE_SECONDS = 120;
@@ -126,6 +128,9 @@ final class ChangeScenarios {
     private final String run;
     private final Events events;
     private final WatchedChanges watched;
+    private final ForgeEventQueue queue;
+    private final ConfluenceChangeGrpcService second;
+    private final WatchedChanges secondWatched;
     private final List<Row> rows = new ArrayList<>();
     private final List<Runnable> cleanups = new ArrayList<>();
     private final Map<String, ForgeEventQueue.Queued> allTaken = new LinkedHashMap<>();
@@ -135,6 +140,7 @@ final class ChangeScenarios {
     private final boolean memberSteps;
 
     private Context.CancellableContext watch;
+    private Context.CancellableContext secondWatch;
     private Space space;
     private Page page;
     private Page parent;
@@ -161,9 +167,12 @@ final class ChangeScenarios {
      * @param run the name of the run, unique to it
      * @param memberSteps whether the run adds the caller to its throwaway group
      * @param events where queued events come from
+     * @param queue the event queue of {@code service}
+     * @param second a second change service that collects from the same queue
      */
     ChangeScenarios(ManagedChannel channel, ConfluenceChangeGrpcService service, String spaceKey,
-            String run, boolean memberSteps, Events events) {
+            String run, boolean memberSteps, Events events, ForgeEventQueue queue,
+            ConfluenceChangeGrpcService second) {
         this.channel = channel;
         this.memberSteps = memberSteps;
         this.groupName = run + "-group";
@@ -175,6 +184,9 @@ final class ChangeScenarios {
         this.run = run;
         this.events = events;
         this.watched = new WatchedChanges(service);
+        this.queue = queue;
+        this.second = second;
+        this.secondWatched = new WatchedChanges(second);
     }
 
     /** Every step, in run order. */
@@ -301,6 +313,8 @@ final class ChangeScenarios {
                 new Scenario("47d-delete-group", "DeleteGroup (throwaway)", this::deleteGroup),
                 new Scenario("47e-group-deleted-event", "group deleted event resolved",
                         this::groupDeletedEvent),
+                new Scenario("47f-two-collectors", "two collectors on one queue",
+                        this::twoCollectors),
                 new Scenario("48-watch-stop", "WatchChanges (cancel)", this::watchStop));
     }
 
@@ -326,6 +340,9 @@ final class ChangeScenarios {
         if (watch != null) {
             watch.cancel(null);
         }
+        if (secondWatch != null) {
+            secondWatch.cancel(null);
+        }
         for (Runnable cleanup : cleanups.reversed()) {
             try {
                 cleanup.run();
@@ -339,15 +356,19 @@ final class ChangeScenarios {
 
     private String watchStart() throws Exception {
         space = stub().getSpace(GetSpaceRequest.newBuilder().setKey(spaceKey).build()).getSpace();
-        WatchChangesRequest request = WatchChangesRequest.newBuilder()
+        watch = Context.current().withCancellation();
+        watch.run(() -> changes.watchChanges(watchRequest(), watched));
+        return "first drain took " + awaitDrain().size() + " event(s)";
+    }
+
+    /** A watch that drains when it opens and after that only when told to. */
+    private WatchChangesRequest watchRequest() {
+        return WatchChangesRequest.newBuilder()
                 .setSync(SyncRequest.newBuilder().addSpaceKeys(spaceKey).addSpaceKeys(ownSpaceKey))
                 .setSkipInitialPass(true)
                 .setPollInterval(com.google.protobuf.Duration.newBuilder().setSeconds(86_400))
                 .setEventInterval(com.google.protobuf.Duration.newBuilder().setSeconds(86_400))
                 .build();
-        watch = Context.current().withCancellation();
-        watch.run(() -> changes.watchChanges(request, watched));
-        return "first drain took " + awaitDrain().size() + " event(s)";
     }
 
     private String createPages() {
@@ -745,6 +766,65 @@ final class ChangeScenarios {
         }
         check(watched.error() != null, "the stream did not end on cancel");
         return "stream ended: " + Status.fromThrowable(watched.error()).getCode();
+    }
+
+    // --- two collectors --------------------------------------------------------------------
+
+    /**
+     * Two collectors that take before either acknowledges both get an event;
+     * once one has acknowledged it, the other no longer gets it, and a late
+     * acknowledgement of it is accepted.
+     */
+    private String twoCollectors() throws Exception {
+        secondWatch = Context.current().withCancellation();
+        Context.CancellableContext opened = secondWatch;
+        Thread.ofVirtual().name("second-collector").start(
+                () -> opened.run(() -> second.watchChanges(watchRequest(), secondWatched)));
+        int opening = secondWatched.awaitDrain(STREAM_WAIT).size();
+
+        Page made = stub().createPage(CreatePageRequest.newBuilder().setSpaceId(space.getId())
+                .setParentId(parent.getId()).setTitle(run + " collectors")
+                .setBody(storage("<p>Two collectors, " + run + ".</p>")).build()).getPage();
+        String id = made.getId();
+        cleanups.add(() -> purgePage(id));
+        Predicate<ConfluenceEvent> created = event -> isAbout(event,
+                ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_PAGE,
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED, id);
+        events.await(created);
+
+        String key = null;
+        for (int collector = 1; collector <= 2; collector++) {
+            String taken = null;
+            for (ForgeEventQueue.Queued queued : queue.take(ForgeEventQueue.DEFAULT_TAKE)) {
+                if (created.test(queued.event())) {
+                    taken = queued.key();
+                }
+            }
+            check(taken != null, "take " + collector + " did not answer the event");
+            check(key == null || key.equals(taken), "the two takes answered different keys");
+            key = taken;
+        }
+
+        ConfluenceChange change = find(drain(created, c -> c.getEntity().getEntityId().equals(id)),
+                created, c -> c.getEntity().getEntityId().equals(id));
+        check(change.getOperation() == ChangeOperation.CHANGE_OPERATION_UPSERT,
+                "operation " + change.getOperation());
+
+        queue.ack(List.of(key));
+
+        second.drainNow();
+        List<ForgeEventQueue.Queued> later = secondWatched.awaitDrain(STREAM_WAIT);
+        check(later.stream().noneMatch(queued -> created.test(queued.event())),
+                "the second collector took the acknowledged event");
+        List<WatchChangesResponse> streamed = new ArrayList<>();
+        secondWatched.drainTo(streamed);
+        check(streamed.stream().noneMatch(message -> message.hasChange()
+                && message.getChange().getEntity().getEntityId().equals(id)),
+                "the second collector streamed the acknowledged event");
+        return "two takes answered the event; the first collector streamed and acknowledged it;"
+                + " a second acknowledgement was accepted; the second collector then took "
+                + later.size() + " event(s) and streamed nothing about it (its opening drain took "
+                + opening + ")";
     }
 
     // --- copies and the archive ------------------------------------------------------------
@@ -1285,22 +1365,30 @@ final class ChangeScenarios {
         return lines;
     }
 
-    /** The time between an event and the moment the Forge app queued it; null when either is unknown. */
-    static Duration delay(ForgeEventQueue.Queued queued) {
+    /** When the Forge app stored an event, read from its queue key; null when the key holds no time. */
+    static Instant stored(ForgeEventQueue.Queued queued) {
         String key = queued.key();
         int start = key.indexOf(':');
         int end = key.indexOf(':', start + 1);
-        if (start < 0 || end < 0 || !queued.event().hasOccurredAt()) {
+        if (start < 0 || end < 0) {
             return null;
         }
         try {
-            Instant stored = Instant.ofEpochMilli(Long.parseLong(key.substring(start + 1, end)));
-            Instant occurred = Instant.ofEpochSecond(queued.event().getOccurredAt().getSeconds(),
-                    queued.event().getOccurredAt().getNanos());
-            return Duration.between(occurred, stored);
+            return Instant.ofEpochMilli(Long.parseLong(key.substring(start + 1, end)));
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    /** The time between an event and the moment the Forge app queued it; null when either is unknown. */
+    static Duration delay(ForgeEventQueue.Queued queued) {
+        Instant stored = stored(queued);
+        if (stored == null || !queued.event().hasOccurredAt()) {
+            return null;
+        }
+        Instant occurred = Instant.ofEpochSecond(queued.event().getOccurredAt().getSeconds(),
+                queued.event().getOccurredAt().getNanos());
+        return Duration.between(occurred, stored);
     }
 
     private static String lag(ForgeEventQueue.Queued queued) {
