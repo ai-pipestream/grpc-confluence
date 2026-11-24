@@ -3161,20 +3161,56 @@ public final class ConfluenceGrpcService
                 new ConfluenceMapper(resolved.baseUrl()), row.getOutput());
     }
 
+    /**
+     * Opens the output a Sync of {@code session} writes to: the connection's
+     * own, else the process output from the catalog's settings.
+     *
+     * <p>Only "no output configured" returns {@code null}. An operator who
+     * configured an output expects every Sync to write to it, so a store
+     * that is not loaded or cannot be opened fails the rpc with
+     * {@code FAILED_PRECONDITION}, and a catalog that cannot say what the
+     * process output is fails it with {@code UNAVAILABLE} (or
+     * {@code INTERNAL} when the catalog refuses the read).
+     *
+     * @param session the resolved connection
+     * @return the sink, or {@code null} when no output is configured
+     */
     private OutputChangeSink bindOutput(Session session) {
-        if (OutputChangeSink.configured(session.output)) {
-            return OutputChangeSink.from(session.output);
-        }
-        if (connections == null) {
-            return null;
+        ConnectionOutput output = session.output;
+        if (!OutputChangeSink.configured(output)) {
+            if (connections == null) {
+                return null;
+            }
+            try {
+                output = connections.getSettings(GetSettingsRequest.getDefaultInstance())
+                        .getSettings()
+                        .getOutput();
+            } catch (io.grpc.StatusRuntimeException e) {
+                // The catalog's own code is not this call's: its
+                // PERMISSION_DENIED would read as Confluence's.
+                Status status = switch (e.getStatus().getCode()) {
+                    case UNAVAILABLE, DEADLINE_EXCEEDED, RESOURCE_EXHAUSTED, CANCELLED, ABORTED ->
+                            Status.UNAVAILABLE;
+                    default -> Status.INTERNAL;
+                };
+                String description = e.getStatus().getDescription();
+                throw status.withDescription("connection catalog GetSettings failed, so the "
+                        + "configured output is unknown: " + e.getStatus().getCode()
+                        + (description == null ? "" : ": " + description))
+                        .withCause(e).asRuntimeException();
+            }
+            if (!OutputChangeSink.configured(output)) {
+                return null;
+            }
         }
         try {
-            ConnectionOutput output = connections.getSettings(GetSettingsRequest.getDefaultInstance())
-                    .getSettings()
-                    .getOutput();
-            return OutputChangeSink.configured(output) ? OutputChangeSink.from(output) : null;
-        } catch (RuntimeException e) {
-            return null;
+            return OutputChangeSink.from(output);
+        } catch (IllegalStateException | IllegalArgumentException | java.io.UncheckedIOException e) {
+            Throwable cause = e instanceof java.io.UncheckedIOException ? e.getCause() : e;
+            throw Status.FAILED_PRECONDITION
+                    .withDescription("the configured output could not be opened: "
+                            + cause.getMessage())
+                    .withCause(e).asRuntimeException();
         }
     }
 
