@@ -1,5 +1,7 @@
 # Buf STANDARD + COMMENTS. Lint only — codegen stays protoc /
-# protobuf-gradle-plugin.
+# protobuf-gradle-plugin. The protos import the shared core's
+# ai/pipestream/sync/v1 protos, so CI lints from a workspace holding this
+# module and grpc-integration's grpc-sync-api module (see ci.yml, buf job).
 version: v2
 modules:
   - path: grpc-confluence-api/src/main/proto

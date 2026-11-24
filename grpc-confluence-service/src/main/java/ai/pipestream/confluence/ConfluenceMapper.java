@@ -1,5 +1,6 @@
 package ai.pipestream.confluence;
 
+import ai.pipestream.confluence.v1.Group;
 import ai.pipestream.confluence.v1.AccountStatus;
 import ai.pipestream.confluence.v1.DetailedVersion;
 import ai.pipestream.confluence.v1.SpacePermission;
@@ -464,6 +465,17 @@ public final class ConfluenceMapper {
     }
 
     /**
+     * A v1 group JSON object as a {@link Group}.
+     *
+     * @param node the group JSON
+     * @return the group
+     */
+    public static Group toGroup(JsonNode node) {
+        return Group.newBuilder().setId(node.path("id").asText(""))
+                .setName(node.path("name").asText("")).setType(node.path("type").asText("")).build();
+    }
+
+    /**
      * Maps a REST v2 {@code User} JSON object to the domain proto.
      *
      * @param node the API object
@@ -481,6 +493,7 @@ public final class ConfluenceMapper {
                 .setEmail(text(node, "email"))
                 .setTimeZone(text(node, "timeZone"))
                 .setIsExternalCollaborator(node.path("isExternalCollaborator").asBoolean(false));
+        node.path("operations").forEach(operation -> b.addOperations(toOperation(operation)));
         if (hasText(node, "personalSpaceId")) {
             b.setPersonalSpaceId(text(node, "personalSpaceId"));
         }

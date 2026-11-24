@@ -1,0 +1,115 @@
+{
+  "scenario" : "private-space",
+  "sequence" : 24,
+  "unordered" : 5,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/spaces/31653890/permissions",
+    "query" : [ {
+      "name" : "cursor",
+      "value" : "opaque-9"
+    }, {
+      "name" : "limit",
+      "value" : "25"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "id" : "31654061",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-1"
+          },
+          "operation" : {
+            "key" : "update",
+            "targetType" : "blogpost"
+          }
+        }, {
+          "id" : "31654062",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-1"
+          },
+          "operation" : {
+            "key" : "update",
+            "targetType" : "page"
+          }
+        }, {
+          "id" : "31654063",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-1"
+          },
+          "operation" : {
+            "key" : "delete",
+            "targetType" : "comment"
+          }
+        }, {
+          "id" : "31654064",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-1"
+          },
+          "operation" : {
+            "key" : "archive_space",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "31654065",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-1"
+          },
+          "operation" : {
+            "key" : "manage_nonlicensed_users",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "31654066",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-1"
+          },
+          "operation" : {
+            "key" : "create",
+            "targetType" : "attachment"
+          }
+        }, {
+          "id" : "31654067",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-1"
+          },
+          "operation" : {
+            "key" : "restrict_content",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "31654068",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-1"
+          },
+          "operation" : {
+            "key" : "manage_look_and_feel",
+            "targetType" : "space"
+          }
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

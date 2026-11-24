@@ -38,6 +38,7 @@ tasks.named<Test>("test") {
     exclude("**/ConfluenceLiveCoverageIT.class")
     exclude("**/ConfluenceLiveWriteIT.class")
     exclude("**/ConfluenceLiveChangeIT.class")
+    exclude("**/ConfluenceLiveAclIT.class")
     exclude("**/ConfluenceLiveAppPropertyIT.class")
 }
 
@@ -94,6 +95,22 @@ tasks.register<Test>("liveWriteTest") {
     systemProperty("liveWrite.report", layout.buildDirectory.file("live-write.md").get().asFile.path)
     systemProperty("liveWrite.recordings", layout.projectDirectory.dir("src/test/resources/recordings/confluence").asFile.path)
     // A live run is never up to date, and the report goes to stdout too.
+    outputs.upToDateWhen { false }
+    testLogging {
+        showStandardStreams = true
+    }
+}
+
+tasks.register<Test>("liveAclTest") {
+    description = "Runs the ACL read rpcs against the real Confluence workspace under a fresh restricted parent page, writes build/live-acl.md and records the exchanges under src/test/resources/recordings/confluence-acl; needs the liveSmokeTest credentials and CONFLUENCE_LIVE_ACL=1, optional CONFLUENCE_SPACE_KEY (default CLAUDEGRPC), skips otherwise"
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    filter {
+        includeTestsMatching("ai.pipestream.confluence.ConfluenceLiveAclIT")
+    }
+    systemProperty("liveAcl.report", layout.buildDirectory.file("live-acl.md").get().asFile.path)
+    systemProperty("liveAcl.recordings", layout.projectDirectory.dir("src/test/resources/recordings/confluence-acl").asFile.path)
     outputs.upToDateWhen { false }
     testLogging {
         showStandardStreams = true

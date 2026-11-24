@@ -30,6 +30,14 @@ on:
         description: Gradle task run after the change run with the app-api trigger URL and secret (empty = none)
         type: string
         default: ""
+      run_live_acl:
+        description: Run the live ACL read test (restricted parent page, groups) against the real Confluence workspace and record it
+        type: boolean
+        default: false
+      import_acl_recordings_run_id:
+        description: Commit the confluence-acl-recordings artifact of this run id to the branch as replay data
+        type: string
+        default: ""
       probe_confluence_account:
         description: Report whether the Confluence test account is an admin (read-only, prints no names)
         type: boolean
@@ -82,6 +90,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          path: grpc-confluence
+      - id: core
+        name: Pick the grpc-integration ref (same branch if it exists, else main)
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git ls-remote --exit-code --heads https://github.com/ai-pipestream/grpc-integration "$BRANCH" >/dev/null; then
+            echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=$INTEGRATION_REF" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v5
+        with:
+          repository: ai-pipestream/grpc-integration
+          ref: ${{ steps.core.outputs.ref }}
+          path: grpc-integration
+      # The Confluence protos import the shared core's protos, so lint runs
+      # in a workspace holding both modules (the core passes the same lint).
+      - name: Write the lint workspace
+        run: |
+          cat > buf.yaml <<'YAML'
+          version: v2
+          modules:
+            - path: grpc-confluence/grpc-confluence-api/src/main/proto
+            - path: grpc-integration/grpc-sync-api/src/main/proto
+          lint:
+            use:
+              - STANDARD
+              - COMMENTS
+          YAML
       - uses: bufbuild/buf-setup-action@v1
         with:
           version: "1.54.0"
@@ -427,10 +466,20 @@ jobs:
       - uses: actions/checkout@v5
         with:
           path: grpc-confluence
+      - id: core
+        name: Pick the grpc-integration ref (same branch if it exists, else main)
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git ls-remote --exit-code --heads https://github.com/ai-pipestream/grpc-integration "$BRANCH" >/dev/null; then
+            echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=$INTEGRATION_REF" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v5
         with:
           repository: ai-pipestream/grpc-integration
-          ref: ${{ env.INTEGRATION_REF }}
+          ref: ${{ steps.core.outputs.ref }}
           path: grpc-integration
       - name: Drop the previous recordings
         run: |
@@ -498,6 +547,146 @@ jobs:
             exit 0
           fi
           git commit -m "Add recorded Confluence exchanges from live run ${RUN_ID}"
+          git push origin "HEAD:${BRANCH}"
+
+  live-confluence-acl:
+    needs: buf
+    if: github.event_name == 'workflow_dispatch' && inputs.run_live_acl
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: grpc-confluence
+      - id: core
+        name: Pick the grpc-integration ref (same branch if it exists, else main)
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git ls-remote --exit-code --heads https://github.com/ai-pipestream/grpc-integration "$BRANCH" >/dev/null; then
+            echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=$INTEGRATION_REF" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v5
+        with:
+          repository: ai-pipestream/grpc-integration
+          ref: ${{ steps.core.outputs.ref }}
+          path: grpc-integration
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+      - name: Live Confluence ACL run
+        working-directory: grpc-confluence
+        env:
+          CONFLUENCE_BASE_URL: ${{ secrets.CONFLUENCE_BASE_URL }}
+          CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
+          CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          CONFLUENCE_LIVE_ACL: "1"
+          JOIN_PROOF_EMAIL: ${{ secrets.JOIN_PROOF_EMAIL }}
+          CONFLUENCE_SPACE_KEY: CLAUDEGRPC
+        run: |
+          if [ -z "${CONFLUENCE_EMAIL}" ] || [ -z "${CONFLUENCE_API_TOKEN}" ]; then
+            echo "Confluence secrets not configured; the live ACL run needs them"
+            exit 1
+          fi
+          ./gradlew --no-daemon -PintegrationDir=../grpc-integration :grpc-confluence-service:liveAclTest
+      - name: Report
+        if: always()
+        working-directory: grpc-confluence
+        run: |
+          if [ -f grpc-confluence-service/build/live-acl.md ]; then
+            cat grpc-confluence-service/build/live-acl.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No live ACL report was written." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: confluence-acl-recordings
+          path: grpc-confluence/grpc-confluence-service/src/test/resources/recordings/confluence-acl/
+          if-no-files-found: warn
+
+  # Copies the recordings a live ACL run uploaded into the branch, after a
+  # leak check and the recordings guard test. Only ever started by hand.
+  import-confluence-acl-recordings:
+    if: github.event_name == 'workflow_dispatch' && inputs.import_acl_recordings_run_id != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: grpc-confluence
+      - id: core
+        name: Pick the grpc-integration ref (same branch if it exists, else main)
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git ls-remote --exit-code --heads https://github.com/ai-pipestream/grpc-integration "$BRANCH" >/dev/null; then
+            echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=$INTEGRATION_REF" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v5
+        with:
+          repository: ai-pipestream/grpc-integration
+          ref: ${{ steps.core.outputs.ref }}
+          path: grpc-integration
+      - name: Drop the previous ACL recordings
+        run: rm -rf grpc-confluence/grpc-confluence-service/src/test/resources/recordings/confluence-acl
+      - uses: actions/download-artifact@v4
+        with:
+          name: confluence-acl-recordings
+          run-id: ${{ inputs.import_acl_recordings_run_id }}
+          github-token: ${{ github.token }}
+          path: grpc-confluence/grpc-confluence-service/src/test/resources/recordings/confluence-acl/
+      - name: Leak check
+        working-directory: grpc-confluence/grpc-confluence-service/src/test/resources/recordings/confluence-acl
+        run: |
+          echo "files: $(find . -type f | wc -l)"
+          fail=0
+          check() {
+            n=$(grep -rIlE -e "$2" . | wc -l)
+            echo "$1: $n files"
+            if [ "$n" -gt 0 ]; then grep -rIlE -e "$2" . | head -20; fail=1; fi
+          }
+          check "api token" 'ATATT'
+          check "basic credential" 'Basic [A-Za-z0-9+/=]{8,}'
+          check "bearer credential" 'Bearer [A-Za-z0-9._-]{8,}'
+          check "cookie value" '"(set-)?cookie"[[:space:]]*:'
+          n=$(grep -rIhoE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' . | grep -vcE '@example\.invalid$' || true)
+          echo "email address: $n matches outside the placeholder domain"
+          if [ "$n" -gt 0 ]; then
+            grep -rIlE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' . | head -20
+            fail=1
+          fi
+          echo "site host mentions: $(grep -rIlE 'atlassian\.net' . | wc -l) files"
+          exit $fail
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+      - name: Guard and replay tests on the imported recordings
+        working-directory: grpc-confluence
+        run: |
+          ./gradlew --no-daemon -PintegrationDir=../grpc-integration :grpc-confluence-service:test \
+            --tests '*RecordingsGuardTest' --tests '*ConfluenceAclReplayTest'
+      - name: Commit the recordings
+        working-directory: grpc-confluence
+        env:
+          BRANCH: ${{ github.ref_name }}
+          RUN_ID: ${{ inputs.import_acl_recordings_run_id }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add grpc-confluence-service/src/test/resources/recordings/confluence-acl
+          if git diff --cached --quiet; then
+            echo "Nothing to commit"
+            exit 0
+          fi
+          git commit -m "Add recorded Confluence ACL exchanges from live run ${RUN_ID}"
           git push origin "HEAD:${BRANCH}"
 
   probe-confluence-account:

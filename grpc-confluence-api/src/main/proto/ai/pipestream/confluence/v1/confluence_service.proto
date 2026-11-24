@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package ai.pipestream.confluence.v1;
 
+import "ai/pipestream/confluence/v1/access.proto";
 import "ai/pipestream/confluence/v1/admin_key.proto";
 import "ai/pipestream/confluence/v1/attachment.proto";
 import "ai/pipestream/confluence/v1/blogpost.proto";
@@ -345,6 +346,31 @@ service ConfluenceService {
   rpc GetAppProperty(GetAppPropertyRequest) returns (GetAppPropertyResponse);
 
   // ----------------------------------------- permissions (read side only) --
+
+  // One group.
+  // v1: GET /rest/api/group/by-id?id={groupId}.
+  rpc GetGroup(GetGroupRequest) returns (GetGroupResponse);
+
+  // The members of a group, as a stream.
+  // v1: GET /rest/api/group/{groupId}/membersByGroupId.
+  rpc ListGroupMembers(ListGroupMembersRequest) returns (stream ListGroupMembersResponse);
+
+  // The groups a user belongs to, as a stream.
+  // v1: GET /rest/api/user/memberof?accountId={accountId}.
+  rpc ListUserGroups(ListUserGroupsRequest) returns (stream ListUserGroupsResponse);
+
+  // The space permissions, space role assignments, and the restriction
+  // state and permission entries of a content item and each of its
+  // ancestors.
+  // v2: GET /{content-type}/{id}, /ancestors, /restriction-state,
+  // /permissions; GET /spaces/{id}/permissions, /role-assignments.
+  rpc GetContentAccess(GetContentAccessRequest) returns (GetContentAccessResponse);
+
+  // Whether a user or group may view or edit a content item, as Confluence
+  // decides it from the space permissions and every restriction.
+  // v1: POST /rest/api/content/{id}/permission/check.
+  rpc CheckContentPermission(CheckContentPermissionRequest) returns (CheckContentPermissionResponse);
+
 
   // The direct restriction state of a page, blog post, database, whiteboard
   // or folder.
@@ -1901,6 +1927,41 @@ message ListSpacePropertiesResponse {
 // ============================================================================
 // PERMISSIONS (READ SIDE)
 // ============================================================================
+
+// Request to ask Confluence whether a principal may do an operation on a
+// content item.
+message CheckContentPermissionRequest {
+  // Id of the content item.
+  string content_id = 1;
+  // The user or group to check.
+  ContentPermissionPrincipal subject = 2;
+  // The operation to check: READ or UPDATE.
+  ContentPermissionOperation operation = 3;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 4;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One reason Confluence gives for a permission check.
+message PermissionCheckReason {
+  // Message key, verbatim.
+  string key = 1;
+  // Message arguments, verbatim.
+  repeated string args = 2;
+  // The message as Confluence renders it, empty when omitted.
+  string translation = 3;
+}
+
+// Confluence's answer to a permission check.
+message CheckContentPermissionResponse {
+  // True when the principal may do the operation.
+  bool has_permission = 1;
+  // The reasons Confluence gives, usually why the permission is missing.
+  repeated PermissionCheckReason reasons = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
 
 // Request to read the direct restriction state of a content item.
 message GetRestrictionStateRequest {

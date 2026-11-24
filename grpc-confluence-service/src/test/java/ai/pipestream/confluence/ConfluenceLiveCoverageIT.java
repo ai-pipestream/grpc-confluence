@@ -1,5 +1,6 @@
 package ai.pipestream.confluence;
 
+import ai.pipestream.sync.v1.AclCompleteness;
 import ai.pipestream.confluence.v1.*;
 import com.google.protobuf.Message;
 import io.grpc.Context;
@@ -137,6 +138,10 @@ class ConfluenceLiveCoverageIT {
             Map.entry("ListAppProperties", "GET /app/properties"),
             Map.entry("GetAppProperty", "GET /app/properties/{key}"),
             Map.entry("GetRestrictionState", "GET /{type}/{id}/restriction-state"),
+            Map.entry("GetContentAccess", "GET /{type}/{id}, /ancestors, /restriction-state, /permissions"),
+            Map.entry("GetGroup", "v1 GET /rest/api/group/by-id"),
+            Map.entry("ListGroupMembers", "v1 GET /rest/api/group/{groupId}/membersByGroupId"),
+            Map.entry("ListUserGroups", "v1 GET /rest/api/user/memberof"),
             Map.entry("ListContentPermissions", "GET /{type}/{id}/permissions"),
             Map.entry("ListSpacePermissionAssignments", "GET /spaces/{id}/permissions"),
             Map.entry("ListSpaceRoles", "GET /space-roles"),
@@ -471,6 +476,10 @@ class ConfluenceLiveCoverageIT {
                     s -> s.listContentPermissions(ListContentPermissionsRequest.newBuilder()
                             .setContent(pageRef).build()),
                     list -> "");
+            unary("GetContentAccess", "GetContentAccess [page]",
+                    s -> s.getContentAccess(GetContentAccessRequest.newBuilder().setContent(pageRef).build()),
+                    r -> r.getOwnersCount() + " owners, " + r.getSpacePermissionsCount() + " space permissions, "
+                            + r.getCompleteness().name());
             unary("GetClassificationLevel", "GetClassificationLevel [page]",
                     s -> s.getClassificationLevel(GetClassificationLevelRequest.newBuilder()
                             .setContent(pageRef).build()),
@@ -557,10 +566,12 @@ class ConfluenceLiveCoverageIT {
                             .setPropertyId(propertyId).build()),
                     r -> "id " + r.getProperty().getId());
         }
-        stream("ListSpacePermissionAssignments", "ListSpacePermissionAssignments", LIST_CAP,
+        List<ListSpacePermissionAssignmentsResponse> assignments = stream("ListSpacePermissionAssignments",
+                "ListSpacePermissionAssignments", LIST_CAP,
                 s -> s.listSpacePermissionAssignments(ListSpacePermissionAssignmentsRequest.newBuilder()
                         .setSpaceId(spaceId).build()),
                 list -> "");
+        groupsAndMembers(assignments);
         List<ListSpaceRolesResponse> roles = stream("ListSpaceRoles", "ListSpaceRoles", LIST_CAP,
                 s -> s.listSpaceRoles(ListSpaceRolesRequest.getDefaultInstance()),
                 list -> join(list, r -> r.getRole().getName()));
@@ -937,7 +948,7 @@ class ConfluenceLiveCoverageIT {
                                         "MAPPING", clip(v.toString()), true));
                             }
                             if (SECURITY_OWNERS.contains(kind) && entity.getSecurityCompleteness()
-                                    != SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE
+                                    != AclCompleteness.ACL_COMPLETENESS_COMPLETE
                                     && incomplete.size() < 50) {
                                 incomplete.add(kind.name().toLowerCase(java.util.Locale.ROOT) + " "
                                         + entity.getEntityId() + ": " + entity.getSecurityCompleteness().name());
@@ -1000,6 +1011,34 @@ class ConfluenceLiveCoverageIT {
 
     private ConfluenceServiceGrpc.ConfluenceServiceBlockingStub stub() {
         return stub.withDeadlineAfter(CALL_DEADLINE_SECONDS, TimeUnit.SECONDS);
+    }
+
+    /** GetGroup, ListGroupMembers and ListUserGroups from the first group a space permission names. */
+    private void groupsAndMembers(List<ListSpacePermissionAssignmentsResponse> assignments) {
+        String groupId = assignments == null ? null : assignments.stream()
+                .map(ListSpacePermissionAssignmentsResponse::getAssignment)
+                .filter(a -> a.getPrincipal().getType()
+                        == SpacePermissionPrincipalType.SPACE_PERMISSION_PRINCIPAL_TYPE_GROUP)
+                .map(a -> a.getPrincipal().getId()).findFirst().orElse(null);
+        if (groupId == null) {
+            skip("GetGroup", "no space permission names a group");
+            skip("ListGroupMembers", "no space permission names a group");
+            skip("ListUserGroups", "no space permission names a group");
+            return;
+        }
+        unary("GetGroup", "GetGroup", s -> s.getGroup(GetGroupRequest.newBuilder().setGroupId(groupId).build()),
+                r -> "\"" + r.getGroup().getName() + "\"");
+        List<ListGroupMembersResponse> members = stream("ListGroupMembers", "ListGroupMembers", LIST_CAP,
+                s -> s.listGroupMembers(ListGroupMembersRequest.newBuilder().setGroupId(groupId).build()),
+                list -> list.size() + " members");
+        if (members == null || members.isEmpty()) {
+            skip("ListUserGroups", "the group has no members");
+            return;
+        }
+        String accountId = members.get(0).getUser().getAccountId();
+        stream("ListUserGroups", "ListUserGroups", LIST_CAP,
+                s -> s.listUserGroups(ListUserGroupsRequest.newBuilder().setAccountId(accountId).build()),
+                list -> list.size() + " groups");
     }
 
     private <T extends Message> UnaryResult<T> unary(String rpc, String label,

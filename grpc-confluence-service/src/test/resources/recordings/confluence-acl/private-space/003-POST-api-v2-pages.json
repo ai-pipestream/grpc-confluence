@@ -1,0 +1,67 @@
+{
+  "scenario" : "private-space",
+  "sequence" : 3,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "spaceId" : "31653890",
+        "title" : "pipestream-live-acl-20261123T133843Z-a02b9f60 private page",
+        "body" : {
+          "representation" : "storage",
+          "value" : "<p>Private page.</p>"
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "authorId" : "account-1",
+        "parentType" : "page",
+        "parentId" : "31654016",
+        "ownerId" : "account-1",
+        "lastOwnerId" : null,
+        "createdAt" : "2026-11-23T13:39:05.816Z",
+        "position" : 830,
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-23T13:39:05.816Z",
+          "ncsStepVersion" : "1"
+        },
+        "id" : "30180610",
+        "spaceId" : "31653890",
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<p>Private page.</p>"
+          }
+        },
+        "status" : "current",
+        "title" : "pipestream-live-acl-20261123T133843Z-a02b9f60 private page",
+        "_links" : {
+          "editui" : "/pages/resumedraft.action?draftId=30180610",
+          "webui" : "/spaces/ACLP4111346B/pages/30180610/pipestream-live-acl-20261123T133843Z-a02b9f60+private+page",
+          "edituiv2" : "/spaces/ACLP4111346B/pages/edit-v2/30180610",
+          "tinyui" : "/x/AoXMAQ",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

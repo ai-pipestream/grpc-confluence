@@ -1,0 +1,72 @@
+{
+  "scenario" : "groups",
+  "sequence" : 1,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/user/memberof",
+    "query" : [ {
+      "name" : "accountId",
+      "value" : "account-1"
+    }, {
+      "name" : "limit",
+      "value" : "25"
+    }, {
+      "name" : "start",
+      "value" : "0"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "id" : "bffdde11-b4c9-472e-bf8e-fd47650a1942",
+          "name" : "org-admins",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/bffdde11-b4c9-472e-bf8e-fd47650a1942",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/org-admins"
+          }
+        }, {
+          "id" : "f3bd6600-bc73-48d0-a1b0-24ee41947087",
+          "name" : "confluence-users-pipestreamai",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/f3bd6600-bc73-48d0-a1b0-24ee41947087",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/confluence-users-pipestreamai"
+          }
+        }, {
+          "id" : "7c989546-0d14-4a91-99ec-a0afdaaedc22",
+          "name" : "confluence-admins-pipestreamai",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/7c989546-0d14-4a91-99ec-a0afdaaedc22",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/confluence-admins-pipestreamai"
+          }
+        } ],
+        "start" : 0,
+        "limit" : 25,
+        "size" : 3,
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki",
+          "context" : "/wiki",
+          "self" : "https://site-1.example.invalid/wiki/rest/api/user/memberof?accountId=712020%3Af1b6e7f9-37de-4557-9538-31810c217787"
+        }
+      }
+    }
+  }
+}
