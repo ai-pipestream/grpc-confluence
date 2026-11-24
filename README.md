@@ -168,6 +168,14 @@ gRPC wire.
 Output can also be set at runtime through MCP (`app_set_output` or
 `connection_set_output`) without restarting the process.
 
+A `Sync` runs without an output only when none is configured. When the
+connection or the process has one and it cannot be used, the `Sync` fails
+before it streams anything: `FAILED_PRECONDITION` when the store is not
+loaded or cannot be opened (the text names the store or the path),
+`UNAVAILABLE` when the catalog could not be reached to read the process
+output (run the `Sync` again), `INTERNAL` when the catalog refused that
+read.
+
 ## Multiple connections
 
 The grpc-integration sync-table process hosts `ConnectionService` on the
