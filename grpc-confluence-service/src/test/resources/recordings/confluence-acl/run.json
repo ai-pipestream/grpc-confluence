@@ -1,0 +1,47 @@
+{
+  "baseUrl" : "https://site-1.example.invalid/wiki",
+  "spaceKey" : "CLAUDEGRPC",
+  "run" : "pipestream-live-acl-20261123T133843Z-a02b9f60",
+  "outcomes" : [ {
+    "rpc" : "CreatePage",
+    "step" : "parent page restricted to the caller, open child page",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "GetContentAccess",
+    "step" : "GetContentAccess (child under a view-restricted parent)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "ListUserGroups",
+    "step" : "ListUserGroups (the caller)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "GetGroup",
+    "step" : "GetGroup (a group of the caller)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "ListGroupMembers",
+    "step" : "ListGroupMembers (same group)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "AddContentPermissions",
+    "step" : "READ on the parent for up to 8 other users of the space and the caller's group",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "Sync",
+    "step" : "Sync (incremental, after granting one of the caller's groups READ on the parent)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CheckContentPermission",
+    "step" : "Confluence's own READ answer for each user granted on the parent",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CreateSpace",
+    "step" : "a private space with a page granted to users who cannot view the space",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "DeleteSpace",
+    "step" : "delete the private space",
+    "outcome" : "PASS"
+  } ],
+  "scenarios" : [ "setup", "content-access", "groups", "permission-grants", "sync", "permission-checks", "private-space", "cleanup" ]
+}

@@ -6,21 +6,32 @@ import ai.pipestream.confluence.v1.ChangeOperation;
 import ai.pipestream.confluence.v1.ChangeSource;
 import ai.pipestream.confluence.v1.Comment;
 import ai.pipestream.confluence.v1.CommentKind;
+import ai.pipestream.confluence.v1.ContentAccessChain;
+import ai.pipestream.confluence.v1.ContentAccessOwner;
 import ai.pipestream.confluence.v1.ContentPermission;
+import ai.pipestream.confluence.v1.ContentPermissionPrincipalType;
+import ai.pipestream.confluence.v1.ContentRef;
+import ai.pipestream.confluence.v1.ContentType;
 import ai.pipestream.confluence.v1.DatabaseEntry;
 import ai.pipestream.confluence.v1.DatabaseField;
 import ai.pipestream.confluence.v1.ConfluenceChange;
 import ai.pipestream.confluence.v1.ConfluenceEntity;
 import ai.pipestream.confluence.v1.ConfluenceSnapshot;
 import ai.pipestream.confluence.v1.ContentProperty;
+import ai.pipestream.confluence.v1.Group;
+import ai.pipestream.confluence.v1.GroupMember;
 import ai.pipestream.confluence.v1.Label;
 import ai.pipestream.confluence.v1.Page;
+import ai.pipestream.confluence.v1.PrincipalType;
 import ai.pipestream.confluence.v1.RestrictionState;
-import ai.pipestream.confluence.v1.SecurityCompleteness;
+import ai.pipestream.sync.v1.AclCompleteness;
 import ai.pipestream.confluence.v1.Space;
+import ai.pipestream.confluence.v1.SpaceAccess;
 import ai.pipestream.confluence.v1.SpacePermissionAssignment;
+import ai.pipestream.confluence.v1.SpacePermissionPrincipalType;
 import ai.pipestream.confluence.v1.SpaceProperty;
 import ai.pipestream.confluence.v1.SpaceRoleAssignment;
+import ai.pipestream.confluence.v1.User;
 import ai.pipestream.confluence.ConfluenceClient.CursorGuard;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.protobuf.Timestamp;
@@ -29,6 +40,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Locale;
@@ -36,7 +48,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -66,10 +80,16 @@ import java.util.concurrent.atomic.AtomicReference;
  * non-page nodes, and every crawled database also emits its field
  * definitions and entries. These sub-entities have no id of their own,
  * so their {@code entity_id} is composed from the owner and the item's
- * identity, for example {@code page:123/permission/read/user/abc}.</p>
+ * identity, for example {@code page:123/permission/read/user/abc}. Each
+ * owner also gets its owner chain ({@code page:123/access}: the item, then
+ * its restrictable ancestors, nearest first, each with its restriction
+ * state and direct permissions, read once per run), each space its grants
+ * in one record ({@code space:<id>/access}), and every group a permission
+ * names is emitted with its members ({@code group:<id>/member/<account id>})
+ * and every named user with what the API shows of them, email included.</p>
  *
  * <p>Security data fails closed: each owner is emitted with a
- * {@link SecurityCompleteness} on its envelope, and every security read
+ * {@link AclCompleteness} on its envelope, and every security read
  * also emits the owner's {@code restriction-state} record carrying the
  * same marker. A security route answering 404 is not served (complete,
  * nothing to emit); any other 4xx, on the first page or a later one,
@@ -83,10 +103,23 @@ public final class ConfluenceCrawler {
 
     private static final System.Logger LOG = System.getLogger(ConfluenceCrawler.class.getName());
 
+    /** The most ancestors one {@code ancestors} read returns. */
+    private static final int ANCESTORS_LIMIT = 250;
+
     private final ConfluenceConnectorConfig config;
     private final ConfluenceClient client;
     private final ConfluenceMapper mapper;
     private final ChangeSink sink;
+    /** Group ids named by a permission this run. */
+    private final Set<String> groupIds = ConcurrentHashMap.newKeySet();
+    /** Account ids named by a permission this run. */
+    private final Set<String> accountIds = ConcurrentHashMap.newKeySet();
+    /** The security reads of each owner this run, by {@code <segment>/<id>}. */
+    private final Map<String, CompletableFuture<OwnerRead>> ownerReads = new ConcurrentHashMap<>();
+
+    /** The restriction state and direct permissions of one owner, and whether both were read in full. */
+    private record OwnerRead(RestrictionState state, List<ContentPermission> permissions, boolean complete) {
+    }
 
     /**
      * Creates a crawler that maps REST entities and emits them to {@code sink}.
@@ -112,6 +145,9 @@ public final class ConfluenceCrawler {
      */
     public void crawl() throws IOException, InterruptedException {
         String runId = UUID.randomUUID().toString();
+        groupIds.clear();
+        accountIds.clear();
+        ownerReads.clear();
         CursorGuard spacesGuard = new CursorGuard("GET /spaces");
         for (JsonNode spaceNode : listAll("/api/v2/spaces", spacesQuery(), spacesGuard)) {
             Space space = mapper.toSpace(spaceNode);
@@ -120,6 +156,7 @@ public final class ConfluenceCrawler {
             }
             crawlSpace(space, runId, ChangeSource.CHANGE_SOURCE_CRAWL, null, runId);
         }
+        crawlPrincipals(ChangeSource.CHANGE_SOURCE_CRAWL, runId);
     }
 
     /**
@@ -150,6 +187,9 @@ public final class ConfluenceCrawler {
         Objects.requireNonNull(sinceRfc3339, "sinceRfc3339");
         Timestamp since = ConfluenceMapper.timestamp(sinceRfc3339);
         AtomicReference<Timestamp> newest = new AtomicReference<>(since);
+        groupIds.clear();
+        accountIds.clear();
+        ownerReads.clear();
         CursorGuard spacesGuard = new CursorGuard("GET /spaces");
         for (JsonNode spaceNode : listAll("/api/v2/spaces", spacesQuery(), spacesGuard)) {
             Space space = mapper.toSpace(spaceNode);
@@ -160,6 +200,7 @@ public final class ConfluenceCrawler {
                     ChangeSource.CHANGE_SOURCE_CQL_INCREMENTAL, since, sinceRfc3339);
             newest.accumulateAndGet(spaceNewest, ConfluenceCrawler::later);
         }
+        crawlPrincipals(ChangeSource.CHANGE_SOURCE_CQL_INCREMENTAL, sinceRfc3339);
         Timestamp result = newest.get();
         return result == null ? sinceRfc3339 : rfc3339(result);
     }
@@ -169,7 +210,7 @@ public final class ConfluenceCrawler {
      * incremental: content lists walk newest-first and stop at that
      * timestamp, and the security data of the unchanged content is re-read.
      * The space itself is emitted after its security data, carrying its
-     * {@link SecurityCompleteness}. Returns the newest modification
+     * {@link AclCompleteness}. Returns the newest modification
      * timestamp observed.
      */
     private Timestamp crawlSpace(Space space, String runId, ChangeSource source, Timestamp stopAt,
@@ -180,7 +221,7 @@ public final class ConfluenceCrawler {
         AtomicReference<Throwable> failure = new AtomicReference<>();
         Set<String> seenTree = ConcurrentHashMap.newKeySet();
 
-        SecurityCompleteness spaceSecurity = crawlSpaceSecurity(space, source, changeCursor, counts);
+        AclCompleteness spaceSecurity = crawlSpaceSecurity(space, source, changeCursor, counts);
         emit(entity(space.getId()).setSpace(space).setSecurityCompleteness(spaceSecurity).build(),
                 source, changeCursor);
 
@@ -331,10 +372,10 @@ public final class ConfluenceCrawler {
                 }
                 executor.submit(() -> {
                     try {
-                        crawlSecurity(segment, kind, id, source, changeCursor, counts);
+                        crawlSecurity(segment, kind, id, space.getId(), source, changeCursor, counts);
                         if ("page".equals(kind)) {
-                            crawlTreeChildren("pages", id, source, changeCursor, counts, seenTree,
-                                    stopAt);
+                            crawlTreeChildren("pages", id, space.getId(), source, changeCursor,
+                                    counts, seenTree, stopAt);
                         }
                     } catch (Throwable t) {
                         failure.compareAndSet(null, t);
@@ -348,22 +389,23 @@ public final class ConfluenceCrawler {
             Map<String, Long> counts, Set<String> seenTree, Timestamp stopAt)
             throws IOException, InterruptedException {
         Page page = mapper.toPage(node);
-        SecurityCompleteness security = crawlSecurity("pages", "page", page.getId(), source,
-                changeCursor, counts);
+        AclCompleteness security = crawlSecurity("pages", "page", page.getId(),
+                page.getSpaceId(), source, changeCursor, counts);
         emit(entity(page.getId()).setPage(page).setSecurityCompleteness(security).build(), source,
                 changeCursor);
         count(counts, "page");
         crawlComments("/api/v2/pages/" + page.getId(), source, changeCursor, counts);
         crawlSubEntities("/api/v2/pages/" + page.getId(), "page:" + page.getId(), source,
                 changeCursor, counts);
-        crawlTreeChildren("pages", page.getId(), source, changeCursor, counts, seenTree, stopAt);
+        crawlTreeChildren("pages", page.getId(), page.getSpaceId(), source, changeCursor, counts,
+                seenTree, stopAt);
     }
 
     private void crawlBlogPost(JsonNode node, ChangeSource source, String changeCursor,
             Map<String, Long> counts) throws IOException, InterruptedException {
         BlogPost blogPost = mapper.toBlogPost(node);
-        SecurityCompleteness security = crawlSecurity("blogposts", "blogpost", blogPost.getId(),
-                source, changeCursor, counts);
+        AclCompleteness security = crawlSecurity("blogposts", "blogpost", blogPost.getId(),
+                blogPost.getSpaceId(), source, changeCursor, counts);
         emit(entity(blogPost.getId()).setBlogPost(blogPost).setSecurityCompleteness(security)
                 .build(), source, changeCursor);
         count(counts, "blogpost");
@@ -430,14 +472,21 @@ public final class ConfluenceCrawler {
      *
      * @return whether both lists were read in full
      */
-    private SecurityCompleteness crawlSpaceSecurity(Space space, ChangeSource source,
+    private AclCompleteness crawlSpaceSecurity(Space space, ChangeSource source,
             String changeCursor, Map<String, Long> counts) throws IOException, InterruptedException {
         String owner = "space:" + space.getId();
+        SpaceAccess.Builder access = SpaceAccess.newBuilder().setSpaceId(space.getId());
         Map<String, String> limit = Map.of("limit", String.valueOf(config.pageSize()));
         SecurityRead<List<JsonNode>> permissions = listSecurity(
                 "/api/v2/spaces/" + space.getId() + "/permissions", limit, "space permissions");
         for (JsonNode node : permissions.value()) {
             SpacePermissionAssignment assignment = mapper.toSpacePermissionAssignment(node);
+            if (assignment.getPrincipal().getType() == SpacePermissionPrincipalType.SPACE_PERMISSION_PRINCIPAL_TYPE_GROUP) {
+                groupIds.add(assignment.getPrincipal().getId());
+            } else if (assignment.getPrincipal().getType()
+                    == SpacePermissionPrincipalType.SPACE_PERMISSION_PRINCIPAL_TYPE_USER) {
+                accountIds.add(assignment.getPrincipal().getId());
+            }
             String identity = !assignment.getId().isEmpty() ? assignment.getId()
                     : wire(assignment.getPrincipal().getType().name(), "SPACE_PERMISSION_PRINCIPAL_TYPE_")
                             + "/" + assignment.getPrincipal().getId() + "/"
@@ -446,6 +495,7 @@ public final class ConfluenceCrawler {
                                     "SPACE_PERMISSION_OPERATION_TARGET_TYPE_");
             emit(entity(owner + "/permission/" + identity)
                     .setSpacePermissionAssignment(assignment).build(), source, changeCursor);
+            access.addPermissions(assignment);
             count(counts, "space_permission_assignment");
         }
         // Role-based-access tenants only; classic tenants answer 404 (not served).
@@ -454,64 +504,272 @@ public final class ConfluenceCrawler {
                 "space role assignments");
         for (JsonNode node : roles.value()) {
             SpaceRoleAssignment assignment = mapper.toSpaceRoleAssignment(node);
+            if (assignment.getPrincipal().getPrincipalType() == PrincipalType.PRINCIPAL_TYPE_GROUP) {
+                groupIds.add(assignment.getPrincipal().getPrincipalId());
+            } else if (assignment.getPrincipal().getPrincipalType() == PrincipalType.PRINCIPAL_TYPE_USER) {
+                accountIds.add(assignment.getPrincipal().getPrincipalId());
+            }
             emit(entity(owner + "/role-assignment/" + assignment.getRoleId() + "/"
                     + wire(assignment.getPrincipal().getPrincipalType().name(), "PRINCIPAL_TYPE_")
                     + "/" + assignment.getPrincipal().getPrincipalId())
                     .setSpaceRoleAssignment(assignment).build(), source, changeCursor);
+            access.addRoleAssignments(assignment);
             count(counts, "space_role_assignment");
         }
-        return completeness(permissions.complete() && roles.complete());
+        AclCompleteness completeness = completeness(permissions.complete() && roles.complete());
+        emit(entity(owner + "/access").setSpaceAccess(access).setSecurityCompleteness(completeness).build(),
+                source, changeCursor);
+        return completeness;
     }
 
     /**
      * Direct permissions and restriction state of one page, blog post,
      * whiteboard, database or folder. The restriction-state record is
      * emitted on every call, after the permission entries and even when
-     * its route failed, as the owner's per-run {@link SecurityCompleteness}
+     * its route failed, as the owner's per-run {@link AclCompleteness}
      * marker; a failed read leaves its state UNSPECIFIED.
      *
      * @param segment the v2 route segment ({@code pages}, ...)
      * @param kind the entity-id owner prefix ({@code page}, ...)
+     * @param spaceId the space the owner is in
      * @return whether every security read of the owner was complete
      */
-    private SecurityCompleteness crawlSecurity(String segment, String kind, String id,
-            ChangeSource source, String changeCursor, Map<String, Long> counts)
+    private AclCompleteness crawlSecurity(String segment, String kind, String id,
+            String spaceId, ChangeSource source, String changeCursor, Map<String, Long> counts)
             throws IOException, InterruptedException {
-        String path = "/api/v2/" + segment + "/" + id;
         String owner = kind + ":" + id;
-        SecurityRead<List<JsonNode>> permissions = listSecurity(path + "/permissions",
-                Map.of("limit", String.valueOf(config.pageSize())), "content permissions");
-        for (JsonNode node : permissions.value()) {
-            ContentPermission permission = mapper.toContentPermission(node);
+        OwnerRead read = readOwner(segment, id);
+        for (ContentPermission permission : read.permissions()) {
+            String principalId = permission.getPrincipal().getPrincipalId();
+            if (permission.getPrincipal().getPrincipalType()
+                    == ContentPermissionPrincipalType.CONTENT_PERMISSION_PRINCIPAL_TYPE_GROUP) {
+                groupIds.add(principalId);
+            } else if (permission.getPrincipal().getPrincipalType()
+                    == ContentPermissionPrincipalType.CONTENT_PERMISSION_PRINCIPAL_TYPE_USER) {
+                accountIds.add(principalId);
+            }
             emit(entity(owner + "/permission/"
                     + wire(permission.getOperation().name(), "CONTENT_PERMISSION_OPERATION_") + "/"
                     + wire(permission.getPrincipal().getPrincipalType().name(),
                             "CONTENT_PERMISSION_PRINCIPAL_TYPE_")
-                    + "/" + permission.getPrincipal().getPrincipalId())
+                    + "/" + principalId)
                     .setContentPermission(permission).build(), source, changeCursor);
             count(counts, "content_permission");
         }
-        SecurityRead<JsonNode> state = getSecurity(path + "/restriction-state", "restriction state");
-        RestrictionState restriction = state.value() == null
-                ? RestrictionState.getDefaultInstance() : mapper.toRestrictionState(state.value());
-        SecurityCompleteness completeness = completeness(permissions.complete() && state.complete());
-        emit(entity(owner + "/restriction-state").setRestrictionState(restriction)
+        AclCompleteness completeness = completeness(read.complete());
+        emit(entity(owner + "/restriction-state").setRestrictionState(read.state())
                 .setSecurityCompleteness(completeness).build(), source, changeCursor);
         count(counts, "restriction_state");
+        crawlAccessChain(segment, kind, id, spaceId, source, changeCursor, counts);
         return completeness;
+    }
+
+    /**
+     * The restriction state and direct permissions of one owner, read once
+     * per run: a later call for the same owner waits for and shares the
+     * first read.
+     */
+    private OwnerRead readOwner(String segment, String id) throws IOException, InterruptedException {
+        CompletableFuture<OwnerRead> mine = new CompletableFuture<>();
+        CompletableFuture<OwnerRead> first = ownerReads.putIfAbsent(segment + "/" + id, mine);
+        if (first != null) {
+            try {
+                return first.get();
+            } catch (ExecutionException e) {
+                rethrow(e.getCause());
+                throw new IllegalStateException(e.getCause());
+            }
+        }
+        try {
+            String path = "/api/v2/" + segment + "/" + id;
+            SecurityRead<List<JsonNode>> permissions = listSecurity(path + "/permissions",
+                    Map.of("limit", String.valueOf(config.pageSize())), "content permissions");
+            SecurityRead<JsonNode> state = getSecurity(path + "/restriction-state", "restriction state");
+            OwnerRead read = new OwnerRead(state.value() == null ? RestrictionState.getDefaultInstance()
+                    : mapper.toRestrictionState(state.value()),
+                    permissions.value().stream().map(mapper::toContentPermission).toList(),
+                    permissions.complete() && state.complete());
+            mine.complete(read);
+            return read;
+        } catch (IOException | InterruptedException | RuntimeException e) {
+            mine.completeExceptionally(e);
+            ownerReads.remove(segment + "/" + id, mine);
+            throw e;
+        }
+    }
+
+    /**
+     * The owner chain of one content item: the item, then each ancestor
+     * that can carry restrictions, nearest first, emitted as
+     * {@code <kind>:<id>/access}. Blog posts have no tree, so their chain
+     * is the item alone. A 4xx other than 404 on the ancestors read marks
+     * the record UNAVAILABLE.
+     */
+    private void crawlAccessChain(String segment, String kind, String id, String spaceId,
+            ChangeSource source, String changeCursor, Map<String, Long> counts)
+            throws IOException, InterruptedException {
+        ContentType type = contentType(kind);
+        ContentAccessChain.Builder chain = ContentAccessChain.newBuilder().setSpaceId(spaceId);
+        boolean complete = addOwner(chain, type, id);
+        if (type != ContentType.CONTENT_TYPE_BLOG_POST) {
+            List<JsonNode> ancestors = new ArrayList<>();
+            Set<String> seen = new HashSet<>();
+            String path = "/api/v2/" + segment + "/" + id;
+            while (path != null) {
+                SecurityRead<JsonNode> read = getSecurity(path + "/ancestors",
+                        Map.of("limit", String.valueOf(ANCESTORS_LIMIT)), "ancestors");
+                complete &= read.complete();
+                List<JsonNode> batch = new ArrayList<>();
+                if (read.value() != null) {
+                    read.value().path("results").forEach(batch::add);
+                }
+                ancestors.addAll(0, batch);
+                path = null;
+                if (batch.size() >= ANCESTORS_LIMIT) {
+                    JsonNode top = batch.getFirst();
+                    ContentType topType = contentType(top.path("type").asText(""));
+                    String topId = top.path("id").asText("");
+                    if (topType != null && !topId.isEmpty() && seen.add(topType + "/" + topId)) {
+                        path = "/api/v2/" + segmentOf(topType) + "/" + topId;
+                    }
+                }
+            }
+            for (JsonNode ancestor : ancestors.reversed()) {
+                ContentType ancestorType = contentType(ancestor.path("type").asText(""));
+                String ancestorId = ancestor.path("id").asText("");
+                if (ancestorType != null && ancestorType != ContentType.CONTENT_TYPE_BLOG_POST
+                        && !ancestorId.isEmpty()) {
+                    complete &= addOwner(chain, ancestorType, ancestorId);
+                }
+            }
+        }
+        emit(entity(kind + ":" + id + "/access").setAccessChain(chain)
+                .setSecurityCompleteness(completeness(complete)).build(), source, changeCursor);
+        count(counts, "access_chain");
+    }
+
+    /** Adds one owner with its security reads to {@code chain}; whether they were complete. */
+    private boolean addOwner(ContentAccessChain.Builder chain, ContentType type, String id)
+            throws IOException, InterruptedException {
+        OwnerRead read = readOwner(segmentOf(type), id);
+        chain.addOwners(ContentAccessOwner.newBuilder()
+                .setContent(ContentRef.newBuilder().setType(type).setId(id))
+                .setRestrictionState(read.state()).addAllPermissions(read.permissions()));
+        return read.complete();
+    }
+
+    /** The content kind of a tree node type as the API names it; null for others (Smart Links). */
+    private static ContentType contentType(String apiType) {
+        return switch (apiType) {
+            case "page" -> ContentType.CONTENT_TYPE_PAGE;
+            case "blogpost" -> ContentType.CONTENT_TYPE_BLOG_POST;
+            case "whiteboard" -> ContentType.CONTENT_TYPE_WHITEBOARD;
+            case "database" -> ContentType.CONTENT_TYPE_DATABASE;
+            case "folder" -> ContentType.CONTENT_TYPE_FOLDER;
+            default -> null;
+        };
+    }
+
+    /** The v2 route segment of a tree node kind. */
+    private static String segmentOf(ContentType type) {
+        return switch (type) {
+            case CONTENT_TYPE_PAGE -> "pages";
+            case CONTENT_TYPE_WHITEBOARD -> "whiteboards";
+            case CONTENT_TYPE_DATABASE -> "databases";
+            case CONTENT_TYPE_FOLDER -> "folders";
+            case CONTENT_TYPE_BLOG_POST -> "blogposts";
+            default -> throw new IllegalArgumentException("no owner route for " + type);
+        };
+    }
+
+    /**
+     * Every group and user a permission named this run: each group with
+     * its members ({@code group:<id>/member/<account id>}), then each named
+     * user and each member with the operations it may do in Confluence. A group whose read
+     * fails with a 4xx other than 404 is emitted UNAVAILABLE.
+     */
+    private void crawlPrincipals(ChangeSource source, String changeCursor)
+            throws IOException, InterruptedException {
+        Set<String> memberIds = new HashSet<>();
+        for (String groupId : new java.util.TreeSet<>(groupIds)) {
+            if (groupId.isEmpty()) {
+                continue;
+            }
+            SecurityRead<JsonNode> read = getSecurity("/rest/api/group/by-id", Map.of("id", groupId),
+                    "group");
+            Group group = read.value() == null ? Group.newBuilder().setId(groupId).build()
+                    : ConfluenceMapper.toGroup(read.value());
+            boolean complete = read.complete() && read.value() != null;
+            if (complete) {
+                SecurityRead<List<JsonNode>> members = walkOffsets(
+                        "/rest/api/group/" + groupId + "/membersByGroupId", "group members");
+                complete = members.complete();
+                for (JsonNode node : members.value()) {
+                    User user = mapper.toUser(node);
+                    emit(entity("group:" + groupId + "/member/" + user.getAccountId())
+                            .setGroupMember(GroupMember.newBuilder().setGroupId(groupId).setUser(user))
+                            .build(), source, changeCursor);
+                    memberIds.add(user.getAccountId());
+                }
+            }
+            emit(entity(groupId).setGroup(group).setSecurityCompleteness(completeness(complete)).build(),
+                    source, changeCursor);
+        }
+        Set<String> users = new java.util.TreeSet<>(accountIds);
+        users.addAll(memberIds);
+        users.remove("");
+        for (String accountId : users) {
+            Map<String, String> query = new java.util.LinkedHashMap<>();
+            query.put("accountId", accountId);
+            query.put("expand", "operations");
+            SecurityRead<JsonNode> read = getSecurity("/rest/api/user", query, "user");
+            if (read.value() != null) {
+                emit(entity(accountId).setUser(mapper.toUser(read.value())).build(), source, changeCursor);
+            }
+        }
+    }
+
+    /**
+     * Walks a v1 offset-paged list ({@code start}/{@code limit}) until a
+     * short page; a 4xx other than 429 keeps what was read and marks it
+     * incomplete.
+     */
+    private SecurityRead<List<JsonNode>> walkOffsets(String path, String what)
+            throws IOException, InterruptedException {
+        List<JsonNode> results = new ArrayList<>();
+        int pageSize = config.pageSize();
+        for (int start = 0; ; start += pageSize) {
+            JsonNode page;
+            try {
+                page = client.get(path, Map.of("start", String.valueOf(start),
+                        "limit", String.valueOf(pageSize)));
+            } catch (ConfluenceClient.ConfluenceApiException e) {
+                if (!unserved(e)) {
+                    throw e;
+                }
+                LOG.log(System.Logger.Level.WARNING, "{0} at {1} unavailable after {2} entries: HTTP {3}",
+                        what, path, results.size(), e.status());
+                return new SecurityRead<>(results, false);
+            }
+            JsonNode batch = page.path("results");
+            batch.forEach(results::add);
+            if (batch.size() < pageSize) {
+                return new SecurityRead<>(results, true);
+            }
+        }
     }
 
     /**
      * The non-page direct children of a tree node: each whiteboard,
      * database, folder or Smart Link is read, given its security data,
-     * emitted (with its {@link SecurityCompleteness}) and, for databases,
+     * emitted (with its {@link AclCompleteness}) and, for databases,
      * its fields and entries, then descended into. Pages are skipped: the
      * space's page list already crawls them. When {@code stopAt} is set
      * (incremental), a node whose version is not newer than it is not
      * re-emitted and its database data is not re-read, but its security
      * data is and its children are still visited.
      */
-    private void crawlTreeChildren(String segment, String id, ChangeSource source,
+    private void crawlTreeChildren(String segment, String id, String spaceId, ChangeSource source,
             String changeCursor, Map<String, Long> counts, Set<String> seenTree, Timestamp stopAt)
             throws IOException, InterruptedException {
         for (JsonNode child : listAllOptional("/api/v2/" + segment + "/" + id + "/direct-children",
@@ -536,9 +794,9 @@ public final class ConfluenceCrawler {
                     node.path("version").path("createdAt").asText(""));
             boolean changed = stopAt == null || modified == null || compare(modified, stopAt) > 0;
             // Smart Links have no restriction or permission routes.
-            SecurityCompleteness security = "embed".equals(type)
-                    ? SecurityCompleteness.SECURITY_COMPLETENESS_UNSPECIFIED
-                    : crawlSecurity(childSegment, type, childId, source, changeCursor, counts);
+            AclCompleteness security = "embed".equals(type)
+                    ? AclCompleteness.ACL_COMPLETENESS_UNSPECIFIED
+                    : crawlSecurity(childSegment, type, childId, spaceId, source, changeCursor, counts);
             if (changed) {
                 ConfluenceEntity.Builder entity = entity(childId).setSecurityCompleteness(security);
                 switch (type) {
@@ -553,7 +811,8 @@ public final class ConfluenceCrawler {
                     crawlDatabaseData(childId, source, changeCursor, counts);
                 }
             }
-            crawlTreeChildren(childSegment, childId, source, changeCursor, counts, seenTree, stopAt);
+            crawlTreeChildren(childSegment, childId, spaceId, source, changeCursor, counts, seenTree,
+                    stopAt);
         }
     }
 
@@ -588,9 +847,9 @@ public final class ConfluenceCrawler {
         return e.status() >= 400 && e.status() < 500 && e.status() != 429;
     }
 
-    private static SecurityCompleteness completeness(boolean complete) {
-        return complete ? SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE
-                : SecurityCompleteness.SECURITY_COMPLETENESS_UNAVAILABLE;
+    private static AclCompleteness completeness(boolean complete) {
+        return complete ? AclCompleteness.ACL_COMPLETENESS_COMPLETE
+                : AclCompleteness.ACL_COMPLETENESS_UNAVAILABLE;
     }
 
     /**
@@ -643,8 +902,14 @@ public final class ConfluenceCrawler {
     /** One security GET: 404 = not served (complete, no value); other 4xx = UNAVAILABLE (WARN). */
     private SecurityRead<JsonNode> getSecurity(String path, String what)
             throws IOException, InterruptedException {
+        return getSecurity(path, Map.of(), what);
+    }
+
+    /** {@link #getSecurity(String, String)} with a query. */
+    private SecurityRead<JsonNode> getSecurity(String path, Map<String, String> query, String what)
+            throws IOException, InterruptedException {
         try {
-            return new SecurityRead<>(client.get(path), true);
+            return new SecurityRead<>(client.get(path, query), true);
         } catch (ConfluenceClient.ConfluenceApiException e) {
             if (!unserved(e)) {
                 throw e;

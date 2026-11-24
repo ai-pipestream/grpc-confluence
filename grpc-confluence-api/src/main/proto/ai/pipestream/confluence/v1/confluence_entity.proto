@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package ai.pipestream.confluence.v1;
 
+import "ai/pipestream/confluence/v1/access.proto";
 import "ai/pipestream/confluence/v1/admin_key.proto";
 import "ai/pipestream/confluence/v1/attachment.proto";
 import "ai/pipestream/confluence/v1/blogpost.proto";
@@ -19,6 +20,7 @@ import "ai/pipestream/confluence/v1/redaction.proto";
 import "ai/pipestream/confluence/v1/space.proto";
 import "ai/pipestream/confluence/v1/task.proto";
 import "ai/pipestream/confluence/v1/user.proto";
+import "ai/pipestream/sync/v1/acl.proto";
 import "google/protobuf/timestamp.proto";
 
 option java_multiple_files = true;
@@ -45,8 +47,8 @@ message ConfluenceEntity {
   // database, folder) and on the `restriction_state` record Sync emits for
   // each owner on every run, which is the per-run marker for owners whose
   // content did not change. UNSPECIFIED on every other entity and outside
-  // Sync. See SecurityCompleteness: consumers should deny unless COMPLETE.
-  SecurityCompleteness security_completeness = 3;
+  // Sync. See ai.pipestream.sync.v1.AclCompleteness: consumers should deny unless COMPLETE.
+  ai.pipestream.sync.v1.AclCompleteness security_completeness = 3;
   // The wrapped entity. Exactly one arm is set; the set arm identifies the
   // entity kind.
   oneof entity {
@@ -117,6 +119,14 @@ message ConfluenceEntity {
     RestrictionState restriction_state = 40;
     // Set when the wrapped entity is a space role assignment.
     SpaceRoleAssignment space_role_assignment = 41;
+    // Set when the wrapped entity is a group.
+    Group group = 42;
+    // Set when the wrapped entity is a group membership.
+    GroupMember group_member = 43;
+    // Set when the wrapped entity is the access-control owners of a content item.
+    ContentAccessChain access_chain = 44;
+    // Set when the wrapped entity is the space-level grants of a space.
+    SpaceAccess space_access = 45;
   }
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
