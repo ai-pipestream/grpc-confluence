@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/34668567/attachments",
+    "path" : "/wiki/api/v2/pages/34930836/attachments",
     "query" : [ {
       "name" : "limit",
       "value" : "25"
@@ -23,27 +23,27 @@
       "json" : {
         "results" : [ {
           "mediaTypeDescription" : "Text File",
-          "webuiLink" : "/pages/viewpageattachments.action?pageId=34668567&preview=%2F34668567%2F35225619%2Fpipestream-live-change-20261124T172634Z-d3d0dc52.txt",
-          "createdAt" : "2026-11-24T17:29:23.257Z",
+          "webuiLink" : "/pages/viewpageattachments.action?pageId=34930836&preview=%2F34930836%2F35651661%2Fpipestream-live-change-20261124T182204Z-090b1ad6.txt",
+          "downloadLink" : "/rest/api/content/34930836/child/attachment/att35651661/download",
+          "createdAt" : "2026-11-24T18:24:35.606Z",
           "comment" : "live change run",
           "version" : {
             "number" : 1,
             "message" : "live change run",
             "minorEdit" : true,
             "authorId" : "account-1",
-            "createdAt" : "2026-11-24T17:29:23.257Z"
+            "createdAt" : "2026-11-24T18:24:35.606Z"
           },
-          "id" : "att35225619",
-          "pageId" : "34668567",
+          "pageId" : "34930836",
           "mediaType" : "text/plain",
-          "fileId" : "46552c5d-3946-49f3-ba95-0331e65ab66d",
-          "downloadLink" : "/rest/api/content/34668567/child/attachment/att35225619/download",
+          "fileId" : "a2019003-75d7-4348-95ae-39fc705e53ab",
           "status" : "current",
-          "title" : "pipestream-live-change-20261124T172634Z-d3d0dc52.txt",
+          "title" : "pipestream-live-change-20261124T182204Z-090b1ad6.txt",
           "fileSize" : 72,
+          "id" : "att35651661",
           "_links" : {
-            "download" : "/rest/api/content/34668567/child/attachment/att35225619/download",
-            "webui" : "/pages/viewpageattachments.action?pageId=34668567&preview=%2F34668567%2F35225619%2Fpipestream-live-change-20261124T172634Z-d3d0dc52.txt"
+            "download" : "/rest/api/content/34930836/child/attachment/att35651661/download",
+            "webui" : "/pages/viewpageattachments.action?pageId=34930836&preview=%2F34930836%2F35651661%2Fpipestream-live-change-20261124T182204Z-090b1ad6.txt"
           }
         } ],
         "_links" : {

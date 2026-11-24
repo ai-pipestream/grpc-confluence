@@ -4,7 +4,7 @@
   "request" : {
     "method" : "POST",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/whiteboards/35487777/permissions",
+    "path" : "/wiki/api/v2/whiteboards/35684616/permissions",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -36,7 +36,7 @@
             "principalType" : "user",
             "principalId" : "account-1"
           },
-          "createdAt" : "2026-11-24T17:31:29.502Z",
+          "createdAt" : "2026-11-24T18:26:39.608Z",
           "createdByAaid" : "account-1",
           "createdBy" : "account-1"
         } ],

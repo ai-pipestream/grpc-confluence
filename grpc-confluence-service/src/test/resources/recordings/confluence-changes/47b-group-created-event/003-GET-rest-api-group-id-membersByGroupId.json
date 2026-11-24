@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/rest/api/group/4b3fd9c9-dc07-483f-9ef2-48056906d443/membersByGroupId",
+    "path" : "/wiki/rest/api/group/ee660541-01e7-4f58-816d-b9fa4292cdbf/membersByGroupId",
     "query" : [ {
       "name" : "limit",
       "value" : "25"
@@ -31,7 +31,7 @@
         "_links" : {
           "base" : "https://site-1.example.invalid/wiki",
           "context" : "/wiki",
-          "self" : "https://site-1.example.invalid/wiki/rest/api/group/4b3fd9c9-dc07-483f-9ef2-48056906d443/membersByGroupId"
+          "self" : "https://site-1.example.invalid/wiki/rest/api/group/ee660541-01e7-4f58-816d-b9fa4292cdbf/membersByGroupId"
         }
       }
     }

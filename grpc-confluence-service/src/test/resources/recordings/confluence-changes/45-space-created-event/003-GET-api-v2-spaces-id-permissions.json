@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/spaces/35684393/permissions",
+    "path" : "/wiki/api/v2/spaces/35258429/permissions",
     "query" : [ {
       "name" : "limit",
       "value" : "25"
@@ -22,258 +22,258 @@
     "body" : {
       "json" : {
         "results" : [ {
-          "id" : "35684419",
+          "id" : "35258455",
           "principal" : {
-            "type" : "access-class",
-            "id" : "ALL_PRODUCT_ADMINS"
+            "type" : "user",
+            "id" : "account-1"
           },
           "operation" : {
             "key" : "create",
-            "targetType" : "comment"
+            "targetType" : "page"
           }
         }, {
-          "id" : "35684420",
+          "id" : "35258456",
+          "principal" : {
+            "type" : "access-class",
+            "id" : "ALL_LICENSED_USERS"
+          },
+          "operation" : {
+            "key" : "update",
+            "targetType" : "blogpost"
+          }
+        }, {
+          "id" : "35258457",
           "principal" : {
             "type" : "access-class",
             "id" : "ALL_PRODUCT_ADMINS"
           },
           "operation" : {
-            "key" : "archive",
+            "key" : "manage_templates",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "35258458",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-1"
+          },
+          "operation" : {
+            "key" : "update",
+            "targetType" : "blogpost"
+          }
+        }, {
+          "id" : "35258459",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-1"
+          },
+          "operation" : {
+            "key" : "delete_space",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "35258460",
+          "principal" : {
+            "type" : "access-class",
+            "id" : "ALL_LICENSED_USERS"
+          },
+          "operation" : {
+            "key" : "create",
             "targetType" : "page"
           }
         }, {
-          "id" : "35684421",
+          "id" : "35258461",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-1"
+          },
+          "operation" : {
+            "key" : "restrict_content",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "35258462",
           "principal" : {
             "type" : "access-class",
-            "id" : "ALL_PRODUCT_ADMINS"
+            "id" : "ALL_LICENSED_USERS"
+          },
+          "operation" : {
+            "key" : "create",
+            "targetType" : "blogpost"
+          }
+        }, {
+          "id" : "35258463",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-1"
+          },
+          "operation" : {
+            "key" : "manage_nonlicensed_users",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "35258464",
+          "principal" : {
+            "type" : "user",
+            "id" : "account-1"
           },
           "operation" : {
             "key" : "delete",
             "targetType" : "comment"
           }
         }, {
-          "id" : "35684422",
+          "id" : "35258465",
           "principal" : {
             "type" : "access-class",
             "id" : "ALL_PRODUCT_ADMINS"
-          },
-          "operation" : {
-            "key" : "manage_guest_users",
-            "targetType" : "space"
-          }
-        }, {
-          "id" : "35684423",
-          "principal" : {
-            "type" : "access-class",
-            "id" : "ALL_PRODUCT_ADMINS"
-          },
-          "operation" : {
-            "key" : "update",
-            "targetType" : "page"
-          }
-        }, {
-          "id" : "35684424",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-1"
           },
           "operation" : {
             "key" : "administer",
             "targetType" : "space"
           }
         }, {
-          "id" : "35684425",
-          "principal" : {
-            "type" : "access-class",
-            "id" : "ALL_PRODUCT_ADMINS"
-          },
-          "operation" : {
-            "key" : "export_content",
-            "targetType" : "space"
-          }
-        }, {
-          "id" : "35684426",
+          "id" : "35258466",
           "principal" : {
             "type" : "access-class",
             "id" : "ALL_LICENSED_USERS"
           },
           "operation" : {
-            "key" : "export_content",
-            "targetType" : "space"
-          }
-        }, {
-          "id" : "35684427",
-          "principal" : {
-            "type" : "access-class",
-            "id" : "ALL_PRODUCT_ADMINS"
-          },
-          "operation" : {
             "key" : "delete",
-            "targetType" : "page"
+            "targetType" : "comment"
           }
         }, {
-          "id" : "35684428",
+          "id" : "35258467",
           "principal" : {
             "type" : "access-class",
             "id" : "ALL_PRODUCT_ADMINS"
-          },
-          "operation" : {
-            "key" : "manage_templates",
-            "targetType" : "space"
-          }
-        }, {
-          "id" : "35684429",
-          "principal" : {
-            "type" : "access-class",
-            "id" : "ALL_PRODUCT_ADMINS"
-          },
-          "operation" : {
-            "key" : "delete",
-            "targetType" : "blogpost"
-          }
-        }, {
-          "id" : "35684430",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-1"
           },
           "operation" : {
             "key" : "create",
             "targetType" : "attachment"
           }
         }, {
-          "id" : "35684431",
+          "id" : "35258468",
           "principal" : {
-            "type" : "user",
-            "id" : "account-1"
+            "type" : "access-class",
+            "id" : "ALL_PRODUCT_ADMINS"
           },
           "operation" : {
             "key" : "manage_public_links",
             "targetType" : "space"
           }
         }, {
-          "id" : "35684432",
+          "id" : "35258469",
           "principal" : {
-            "type" : "access-class",
-            "id" : "ALL_PRODUCT_ADMINS"
-          },
-          "operation" : {
-            "key" : "delete",
-            "targetType" : "space"
-          }
-        }, {
-          "id" : "35684433",
-          "principal" : {
-            "type" : "access-class",
-            "id" : "ALL_LICENSED_USERS"
+            "type" : "user",
+            "id" : "account-1"
           },
           "operation" : {
             "key" : "create",
             "targetType" : "blogpost"
           }
         }, {
-          "id" : "35684434",
-          "principal" : {
-            "type" : "access-class",
-            "id" : "ALL_LICENSED_USERS"
-          },
-          "operation" : {
-            "key" : "create",
-            "targetType" : "comment"
-          }
-        }, {
-          "id" : "35684435",
+          "id" : "35258470",
           "principal" : {
             "type" : "user",
             "id" : "account-1"
-          },
-          "operation" : {
-            "key" : "manage_guest_users",
-            "targetType" : "space"
-          }
-        }, {
-          "id" : "35684436",
-          "principal" : {
-            "type" : "access-class",
-            "id" : "ALL_PRODUCT_ADMINS"
           },
           "operation" : {
             "key" : "manage_look_and_feel",
             "targetType" : "space"
           }
         }, {
-          "id" : "35684437",
+          "id" : "35258471",
           "principal" : {
             "type" : "access-class",
-            "id" : "ALL_LICENSED_USERS"
+            "id" : "ALL_PRODUCT_ADMINS"
+          },
+          "operation" : {
+            "key" : "update",
+            "targetType" : "blogpost"
+          }
+        }, {
+          "id" : "35258472",
+          "principal" : {
+            "type" : "access-class",
+            "id" : "ALL_PRODUCT_ADMINS"
+          },
+          "operation" : {
+            "key" : "manage_nonlicensed_users",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "35258473",
+          "principal" : {
+            "type" : "access-class",
+            "id" : "ALL_PRODUCT_ADMINS"
           },
           "operation" : {
             "key" : "update",
             "targetType" : "page"
           }
         }, {
-          "id" : "35684438",
+          "id" : "35258474",
           "principal" : {
             "type" : "user",
             "id" : "account-1"
-          },
-          "operation" : {
-            "key" : "create",
-            "targetType" : "comment"
-          }
-        }, {
-          "id" : "35684439",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-1"
-          },
-          "operation" : {
-            "key" : "delete",
-            "targetType" : "comment"
-          }
-        }, {
-          "id" : "35684440",
-          "principal" : {
-            "type" : "user",
-            "id" : "account-1"
-          },
-          "operation" : {
-            "key" : "create",
-            "targetType" : "page"
-          }
-        }, {
-          "id" : "35684441",
-          "principal" : {
-            "type" : "access-class",
-            "id" : "ALL_PRODUCT_ADMINS"
           },
           "operation" : {
             "key" : "create",
             "targetType" : "attachment"
           }
         }, {
-          "id" : "35684442",
-          "principal" : {
-            "type" : "access-class",
-            "id" : "ALL_LICENSED_USERS"
-          },
-          "operation" : {
-            "key" : "delete",
-            "targetType" : "comment"
-          }
-        }, {
-          "id" : "35684443",
+          "id" : "35258475",
           "principal" : {
             "type" : "user",
             "id" : "account-1"
           },
           "operation" : {
-            "key" : "manage_templates",
+            "key" : "manage_users",
             "targetType" : "space"
+          }
+        }, {
+          "id" : "35258476",
+          "principal" : {
+            "type" : "access-class",
+            "id" : "ALL_LICENSED_USERS"
+          },
+          "operation" : {
+            "key" : "restrict_content",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "35258477",
+          "principal" : {
+            "type" : "access-class",
+            "id" : "ALL_PRODUCT_ADMINS"
+          },
+          "operation" : {
+            "key" : "delete_space",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "35258478",
+          "principal" : {
+            "type" : "access-class",
+            "id" : "ALL_PRODUCT_ADMINS"
+          },
+          "operation" : {
+            "key" : "delete",
+            "targetType" : "space"
+          }
+        }, {
+          "id" : "35258479",
+          "principal" : {
+            "type" : "access-class",
+            "id" : "ALL_PRODUCT_ADMINS"
+          },
+          "operation" : {
+            "key" : "delete",
+            "targetType" : "comment"
           }
         } ],
         "_links" : {
-          "next" : "/wiki/api/v2/spaces/35684393/permissions?limit=25&cursor=opaque-5",
+          "next" : "/wiki/api/v2/spaces/35258429/permissions?limit=25&cursor=opaque-5",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

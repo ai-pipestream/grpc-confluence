@@ -4,7 +4,7 @@
   "request" : {
     "method" : "POST",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/rest/api/content/34668567/child/attachment",
+    "path" : "/wiki/rest/api/content/34930836/child/attachment",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -21,9 +21,9 @@
         "value" : "true"
       }, {
         "name" : "file",
-        "filename" : "pipestream-live-change-20261124T172634Z-d3d0dc52.txt",
+        "filename" : "pipestream-live-change-20261124T182204Z-090b1ad6.txt",
         "contentType" : "text/plain",
-        "sha256" : "85963d4393a6ab5b2856036636a04ae67026c6e7ad5fc27bf98429ad6c7e23fc",
+        "sha256" : "838b8707a3809fb9c6e735031cd53a5310f38db88c664889fa56f966def78494",
         "length" : 72
       } ]
     }
@@ -36,26 +36,26 @@
     "body" : {
       "json" : {
         "results" : [ {
-          "id" : "att35225619",
+          "id" : "att35651661",
           "type" : "attachment",
-          "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:attachment/35225619",
+          "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:attachment/35651661",
           "base64EncodedAri" : "opaque-3",
           "status" : "current",
-          "title" : "pipestream-live-change-20261124T172634Z-d3d0dc52.txt",
+          "title" : "pipestream-live-change-20261124T182204Z-090b1ad6.txt",
           "version" : {
             "by" : {
               "type" : "known",
               "accountId" : "account-1",
               "accountType" : "atlassian",
               "email" : "user-1@example.invalid",
-              "publicName" : "User 1",
+              "publicName" : "User 2",
               "profilePicture" : {
                 "path" : "/avatars/avatar-1.png",
                 "width" : 48,
                 "height" : 48,
                 "isDefault" : false
               },
-              "displayName" : "User 1",
+              "displayName" : "User 2",
               "isExternalCollaborator" : false,
               "isGuest" : false,
               "locale" : "en_US",
@@ -68,7 +68,7 @@
                 "self" : "https://site-1.example.invalid/wiki/rest/api/user?accountId=account-1"
               }
             },
-            "when" : "2026-11-24T17:29:23.257Z",
+            "when" : "2026-11-24T18:24:35.606Z",
             "friendlyWhen" : "just a moment ago",
             "message" : "live change run",
             "number" : 1,
@@ -76,46 +76,46 @@
             "contentTypeModified" : false,
             "_expandable" : {
               "collaborators" : "",
-              "content" : "/rest/api/content/att35225619"
+              "content" : "/rest/api/content/att35651661"
             },
             "_links" : {
-              "self" : "https://site-1.example.invalid/wiki/rest/api/content/att35225619/version/1"
+              "self" : "https://site-1.example.invalid/wiki/rest/api/content/att35651661/version/1"
             }
           },
           "container" : {
-            "id" : "34668567",
+            "id" : "34930836",
             "type" : "page",
-            "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:page/34668567",
+            "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:page/34930836",
             "base64EncodedAri" : "opaque-1",
             "status" : "current",
-            "title" : "pipestream-live-change-20261124T172634Z-d3d0dc52",
+            "title" : "pipestream-live-change-20261124T182204Z-090b1ad6",
             "macroRenderedOutput" : { },
             "extensions" : {
-              "position" : 318703082
+              "position" : 235250712
             },
             "_expandable" : {
               "container" : "/rest/api/space/CLAUDEGRPC",
               "metadata" : "",
-              "restrictions" : "/rest/api/content/34668567/restriction/byOperation",
-              "history" : "/rest/api/content/34668567/history",
+              "restrictions" : "/rest/api/content/34930836/restriction/byOperation",
+              "history" : "/rest/api/content/34930836/history",
               "body" : "",
               "version" : "",
-              "descendants" : "/rest/api/content/34668567/descendant",
+              "descendants" : "/rest/api/content/34930836/descendant",
               "space" : "/rest/api/space/CLAUDEGRPC",
               "childTypes" : "",
               "schedulePublishInfo" : "",
               "operations" : "",
               "schedulePublishDate" : "",
-              "children" : "/rest/api/content/34668567/child",
+              "children" : "/rest/api/content/34930836/child",
               "ancestors" : "",
               "draftVersion" : ""
             },
             "_links" : {
-              "self" : "https://site-1.example.invalid/wiki/rest/api/content/34668567",
-              "tinyui" : "/x/FwARAg",
-              "editui" : "/pages/resumedraft.action?draftId=34668567",
-              "webui" : "/spaces/CLAUDEGRPC/pages/34668567/pipestream-live-change-20261124T172634Z-d3d0dc52",
-              "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/34668567"
+              "self" : "https://site-1.example.invalid/wiki/rest/api/content/34930836",
+              "tinyui" : "/x/lAAVAg",
+              "editui" : "/pages/resumedraft.action?draftId=34930836",
+              "webui" : "/spaces/CLAUDEGRPC/pages/34930836/pipestream-live-change-20261124T182204Z-090b1ad6",
+              "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/34930836"
             }
           },
           "macroRenderedOutput" : { },
@@ -128,8 +128,8 @@
               "limit" : 200,
               "size" : 0,
               "_links" : {
-                "next" : "/rest/api/content/att35225619/label?next=true&limit=200&start=200",
-                "self" : "https://site-1.example.invalid/wiki/rest/api/content/att35225619/label"
+                "next" : "/rest/api/content/att35651661/label?next=true&limit=200&start=200",
+                "self" : "https://site-1.example.invalid/wiki/rest/api/content/att35651661/label"
               }
             },
             "_expandable" : {
@@ -150,27 +150,27 @@
             "fileSize" : 72,
             "comment" : "live change run",
             "mediaTypeDescription" : "Text File",
-            "fileId" : "46552c5d-3946-49f3-ba95-0331e65ab66d",
-            "collectionName" : "contentId-34668567"
+            "fileId" : "a2019003-75d7-4348-95ae-39fc705e53ab",
+            "collectionName" : "contentId-34930836"
           },
           "_expandable" : {
             "childTypes" : "",
             "schedulePublishInfo" : "",
             "operations" : "",
             "schedulePublishDate" : "",
-            "children" : "/rest/api/content/att35225619/child",
-            "restrictions" : "/rest/api/content/att35225619/restriction/byOperation",
-            "history" : "/rest/api/content/att35225619/history",
+            "children" : "/rest/api/content/att35651661/child",
+            "restrictions" : "/rest/api/content/att35651661/restriction/byOperation",
+            "history" : "/rest/api/content/att35651661/history",
             "ancestors" : "",
             "body" : "",
             "draftVersion" : "",
-            "descendants" : "/rest/api/content/att35225619/descendant",
+            "descendants" : "/rest/api/content/att35651661/descendant",
             "space" : "/rest/api/space/CLAUDEGRPC"
           },
           "_links" : {
-            "webui" : "/pages/viewpageattachments.action?pageId=34668567&preview=%2F34668567%2F35225619%2Fpipestream-live-change-20261124T172634Z-d3d0dc52.txt",
-            "self" : "https://site-1.example.invalid/wiki/rest/api/content/att35225619",
-            "download" : "/rest/api/content/34668567/child/attachment/att35225619/download"
+            "webui" : "/pages/viewpageattachments.action?pageId=34930836&preview=%2F34930836%2F35651661%2Fpipestream-live-change-20261124T182204Z-090b1ad6.txt",
+            "self" : "https://site-1.example.invalid/wiki/rest/api/content/att35651661",
+            "download" : "/rest/api/content/34930836/child/attachment/att35651661/download"
           }
         } ],
         "size" : 1,

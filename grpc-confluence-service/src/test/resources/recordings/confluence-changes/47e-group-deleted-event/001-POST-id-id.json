@@ -25,7 +25,7 @@
     "body" : {
       "json" : {
         "events" : [ {
-          "key" : "evt:001795541833766:b91ae512-2a23-48d5-82c1-e7e0b517b7d8",
+          "key" : "evt:001795545141266:50c1181f-670d-4cc3-9a5b-6a57509e5cbc",
           "event" : {
             "context" : {
               "cloudId" : "00000000-0000-0000-0000-000000000001",
@@ -34,12 +34,12 @@
                 "enabled" : false
               }
             },
-            "eventCreatedDate" : "2026-11-24T17:37:07.598Z",
+            "eventCreatedDate" : "2026-11-24T18:32:18.034Z",
             "eventType" : "avi:confluence:deleted:group",
             "group" : {
-              "id" : "4b3fd9c9-dc07-483f-9ef2-48056906d443",
-              "name" : "pipestream-live-change-20261124T172634Z-d3d0dc52-group",
-              "resourceAri" : "ari:cloud:identity::group/4b3fd9c9-dc07-483f-9ef2-48056906d443",
+              "id" : "ee660541-01e7-4f58-816d-b9fa4292cdbf",
+              "name" : "pipestream-live-change-20261124T182204Z-090b1ad6-group",
+              "resourceAri" : "ari:cloud:identity::group/ee660541-01e7-4f58-816d-b9fa4292cdbf",
               "type" : "group"
             },
             "permissions" : {
@@ -47,7 +47,7 @@
             },
             "selfGenerated" : false
           },
-          "expireTime" : "2026-12-01T17:37:13.000Z"
+          "expireTime" : "2026-12-01T18:32:21.000Z"
         } ]
       }
     }

@@ -25,18 +25,18 @@
     "body" : {
       "json" : {
         "events" : [ {
-          "key" : "evt:001795541566020:c0fc6b2b-370c-429e-ac79-32f33b2c1326",
+          "key" : "evt:001795544872995:4fb227b1-311f-495f-8d62-99014a7aff99",
           "event" : {
             "atlassianId" : "account-1",
             "content" : {
-              "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:page/34668567",
+              "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:page/34930836",
               "base64EncodedAri" : "opaque-1",
               "history" : {
                 "createdBy" : {
                   "accountId" : "account-1",
                   "accountStatus" : "active",
                   "accountType" : "atlassian",
-                  "displayName" : "User 1",
+                  "displayName" : "User 2",
                   "email" : "user-1@example.invalid",
                   "isExternalCollaborator" : false,
                   "isGuest" : false,
@@ -47,16 +47,16 @@
                     "path" : "/avatars/avatar-1.png",
                     "width" : 48
                   },
-                  "publicName" : "User 1",
+                  "publicName" : "User 2",
                   "type" : "known"
                 },
-                "createdDate" : "2026-11-24T17:26:38.962Z",
+                "createdDate" : "2026-11-24T18:22:08.594Z",
                 "latest" : true,
                 "ownedBy" : {
                   "accountId" : "account-1",
                   "accountStatus" : "active",
                   "accountType" : "atlassian",
-                  "displayName" : "User 1",
+                  "displayName" : "User 2",
                   "email" : "user-1@example.invalid",
                   "isExternalCollaborator" : false,
                   "isGuest" : false,
@@ -67,11 +67,11 @@
                     "path" : "/avatars/avatar-1.png",
                     "width" : 48
                   },
-                  "publicName" : "User 1",
+                  "publicName" : "User 2",
                   "type" : "known"
                 }
               },
-              "id" : "34668567",
+              "id" : "34930836",
               "space" : {
                 "alias" : "CLAUDEGRPC",
                 "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:space/7798786",
@@ -88,14 +88,14 @@
                 "type" : "global"
               },
               "status" : "current",
-              "title" : "pipestream-live-change-20261124T172634Z-d3d0dc52",
+              "title" : "pipestream-live-change-20261124T182204Z-090b1ad6",
               "type" : "page",
               "version" : {
                 "by" : {
                   "accountId" : "account-1",
                   "accountStatus" : "active",
                   "accountType" : "atlassian",
-                  "displayName" : "User 1",
+                  "displayName" : "User 2",
                   "email" : "user-1@example.invalid",
                   "isExternalCollaborator" : false,
                   "isGuest" : false,
@@ -106,14 +106,14 @@
                     "path" : "/avatars/avatar-1.png",
                     "width" : 48
                   },
-                  "publicName" : "User 1",
+                  "publicName" : "User 2",
                   "type" : "known"
                 },
                 "collaborators" : {
                   "userAccountIds" : [ "account-1" ]
                 },
                 "number" : 4,
-                "when" : "2026-11-24T17:32:40.433Z"
+                "when" : "2026-11-24T18:27:50.289Z"
               }
             },
             "context" : {
@@ -123,7 +123,7 @@
                 "enabled" : false
               }
             },
-            "eventCreatedDate" : "2026-11-24T17:32:40.494Z",
+            "eventCreatedDate" : "2026-11-24T18:27:50.339Z",
             "eventType" : "avi:confluence:updated:task",
             "oldTask" : {
               "globalId" : 1,
@@ -143,9 +143,9 @@
             },
             "taskGlobalId" : 0
           },
-          "expireTime" : "2026-12-01T17:32:46.000Z"
+          "expireTime" : "2026-12-01T18:27:53.000Z"
         }, {
-          "key" : "evt:001795541566221:007cb8c1-3825-4961-bec2-e18c269ff9c2",
+          "key" : "evt:001795544873168:72ce12e3-2f93-441e-b210-417dc9930bef",
           "event" : {
             "atlassianId" : "account-1",
             "content" : {
@@ -166,7 +166,7 @@
                   "type" : "known",
                   "username" : "account-1"
                 },
-                "createdDate" : "2026-11-24T17:26:38.962Z",
+                "createdDate" : "2026-11-24T18:22:08.594Z",
                 "latest" : true,
                 "ownedBy" : {
                   "accountId" : "account-1",
@@ -185,7 +185,7 @@
                   "username" : "account-1"
                 }
               },
-              "id" : "34668567",
+              "id" : "34930836",
               "metadata" : {
                 "notificationsPlatformEmail" : false
               },
@@ -205,7 +205,7 @@
                 "type" : "global"
               },
               "status" : "current",
-              "title" : "pipestream-live-change-20261124T172634Z-d3d0dc52",
+              "title" : "pipestream-live-change-20261124T182204Z-090b1ad6",
               "type" : "page",
               "version" : {
                 "by" : {
@@ -228,7 +228,7 @@
                   "userAccountIds" : [ "account-1" ]
                 },
                 "number" : 4,
-                "when" : "2026-11-24T17:32:40.433Z"
+                "when" : "2026-11-24T18:27:50.289Z"
               }
             },
             "context" : {
@@ -238,7 +238,7 @@
                 "enabled" : false
               }
             },
-            "eventCreatedDate" : "2026-11-24T17:32:40.558Z",
+            "eventCreatedDate" : "2026-11-24T18:27:50.391Z",
             "eventType" : "avi:confluence:updated:page",
             "permissions" : {
               "scopes" : [ "delete:custom-content:confluence", "read:app-data:confluence", "read:confluence-content.all", "read:confluence-content.summary", "read:confluence-groups", "read:confluence-space.summary", "read:confluence-user", "read:custom-content:confluence", "storage:app", "write:app-data:confluence", "write:confluence-content", "write:confluence-space", "write:custom-content:confluence" ]
@@ -247,7 +247,7 @@
             "suppressNotifications" : false,
             "updateTrigger" : "inline_task"
           },
-          "expireTime" : "2026-12-01T17:32:46.000Z"
+          "expireTime" : "2026-12-01T18:27:53.000Z"
         } ]
       }
     }

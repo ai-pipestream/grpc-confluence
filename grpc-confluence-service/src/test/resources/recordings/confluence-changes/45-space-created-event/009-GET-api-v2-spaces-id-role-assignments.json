@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/spaces/35684393/role-assignments",
+    "path" : "/wiki/api/v2/spaces/35258429/role-assignments",
     "query" : [ {
       "name" : "limit",
       "value" : "25"

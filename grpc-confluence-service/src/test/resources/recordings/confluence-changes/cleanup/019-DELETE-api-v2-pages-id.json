@@ -4,7 +4,7 @@
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/34668567",
+    "path" : "/wiki/api/v2/pages/34635829",
     "query" : [ {
       "name" : "purge",
       "value" : "true"
@@ -15,19 +15,7 @@
     "authorized" : true
   },
   "response" : {
-    "status" : 404,
-    "headers" : {
-      "content-type" : "application/json"
-    },
-    "body" : {
-      "json" : {
-        "errors" : [ {
-          "status" : 404,
-          "code" : "NOT_FOUND",
-          "title" : "Not Found",
-          "detail" : null
-        } ]
-      }
-    }
+    "status" : 204,
+    "headers" : { }
   }
 }

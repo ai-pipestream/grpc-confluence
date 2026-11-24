@@ -4,7 +4,7 @@
   "request" : {
     "method" : "POST",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/rest/api/content/34930767/pagehierarchy/copy",
+    "path" : "/wiki/rest/api/content/35258394/pagehierarchy/copy",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -13,7 +13,7 @@
     "authorized" : true,
     "body" : {
       "json" : {
-        "destinationPageId" : "34799658",
+        "destinationPageId" : "34799707",
         "copyAttachments" : false,
         "copyPermissions" : false,
         "copyProperties" : false,
@@ -32,10 +32,10 @@
     },
     "body" : {
       "json" : {
-        "id" : "35225618",
-        "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:long-running-task/activation/b1593a2f-bf8a-4c2e-a0c6-8b31a89d2389/35225618",
+        "id" : "34766932",
+        "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:long-running-task/activation/b1593a2f-bf8a-4c2e-a0c6-8b31a89d2389/34766932",
         "links" : {
-          "status" : "/rest/api/longtask/35225618"
+          "status" : "/rest/api/longtask/34766932"
         }
       }
     }

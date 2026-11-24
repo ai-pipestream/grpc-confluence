@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/35061780",
+    "path" : "/wiki/api/v2/pages/35160115",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -23,34 +23,34 @@
       "json" : {
         "authorId" : "account-1",
         "parentType" : "page",
-        "parentId" : "34799658",
+        "parentId" : "35160099",
         "ownerId" : "account-1",
-        "createdAt" : "2026-11-24T17:28:02.049Z",
+        "createdAt" : "2026-11-24T18:23:30.882Z",
         "lastOwnerId" : null,
-        "position" : 318703789,
+        "position" : 469,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-24T17:28:02.049Z",
+          "createdAt" : "2026-11-24T18:23:30.882Z",
           "ncsStepVersion" : null
         },
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>Tree of pipestream-live-change-20261124T172634Z-d3d0dc52.</p>"
+            "value" : "<p>Leaf of pipestream-live-change-20261124T182204Z-090b1ad6.</p>"
           }
         },
         "status" : "current",
-        "title" : "Copy of pipestream-live-change-20261124T172634Z-d3d0dc52 tree",
-        "id" : "35061780",
+        "title" : "Copy of pipestream-live-change-20261124T182204Z-090b1ad6 tree leaf",
+        "id" : "35160115",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=35061780",
-          "webui" : "/spaces/CLAUDEGRPC/pages/35061780/Copy+of+pipestream-live-change-20261124T172634Z-d3d0dc52+tree",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/35061780",
-          "tinyui" : "/x/FAAXAg",
+          "editui" : "/pages/resumedraft.action?draftId=35160115",
+          "webui" : "/spaces/CLAUDEGRPC/pages/35160115/Copy+of+pipestream-live-change-20261124T182204Z-090b1ad6+tree+leaf",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/35160115",
+          "tinyui" : "/x/M4AYAg",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

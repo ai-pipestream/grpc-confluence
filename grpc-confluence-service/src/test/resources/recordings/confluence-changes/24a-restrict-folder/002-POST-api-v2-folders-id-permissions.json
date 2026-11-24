@@ -4,7 +4,7 @@
   "request" : {
     "method" : "POST",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/folders/34635813/permissions",
+    "path" : "/wiki/api/v2/folders/35422264/permissions",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -36,7 +36,7 @@
             "principalType" : "user",
             "principalId" : "account-1"
           },
-          "createdAt" : "2026-11-24T17:30:53.975Z",
+          "createdAt" : "2026-11-24T18:26:05.296Z",
           "createdByAaid" : "account-1",
           "createdBy" : "account-1"
         } ],
