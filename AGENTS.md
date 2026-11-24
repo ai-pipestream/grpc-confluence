@@ -8,11 +8,10 @@ specific to the Confluence connector.
 
 ## Which branch this describes
 
-On `main` this repository is the read side only. Writes, the recordings,
-ACL data and the change stream are on open pull requests (#25 writes,
-#28 ACL, #29 changes; see the workspace guide). The sections below describe
-the write branch `claude/project-thread-i7updt` unless they say "ACL
-branch" or "change branch".
+`main` has the reads, the write rpcs, the ACL data and custom content. The
+change stream (`ConfluenceChangeService` and the `grpc-confluence-forge`
+app) is still on open PR #29, branch `claude/project-thread-sbyfoc`; the
+parts below marked "change branch" describe that branch.
 
 ## Build
 
@@ -31,7 +30,7 @@ build. Do not change how tests are run.
 
 | Module | What |
 |---|---|
-| `grpc-confluence-api` | `ai.pipestream.confluence.v1`. `confluence_service.proto` is the service; `write.proto` the write messages; `adf.proto` the typed ADF document model; `property.proto` typed property values (no `Struct`); `permission.proto` and, on the ACL branch, `access.proto`; on the change branch, `change_feed.proto` and `events.proto`. |
+| `grpc-confluence-api` | `ai.pipestream.confluence.v1`. `confluence_service.proto` is the service; `write.proto` the write messages; `adf.proto` the typed ADF document model; `property.proto` typed property values (no `Struct`); `permission.proto`, `access.proto` (ACL records); on the change branch, `change_feed.proto` and `events.proto`. |
 | `grpc-confluence-service` | The process (port 9095). `ConfluenceGrpcService` (rpc handlers), `ConfluenceClient` (REST, retries), `ConfluenceRoutes`, `ConfluenceMapper` (JSON to proto), `ConfluenceWriter` and `AdfCodec` (proto to JSON), `ConfluenceValidator`, `ConfluenceCrawler` (`Sync`), the change sinks (`SyncTableChangeSink`, `KafkaChangeSink`, `OutputChangeSink`, `OkfChangeSink`). On the change branch: `ConfluenceChangeGrpcService`, `ForgeEventQueue`. |
 | `grpc-confluence-forge` | (change branch) Forge app with no UI: product events into Forge KVS, `event-queue` and `app-api` web triggers behind a shared-secret header. `npm test`. |
 | `grpc-confluence-output` | Store keys and OKF catalog mapping (`OkfCatalogSource`). |
@@ -55,7 +54,8 @@ build. Do not change how tests are run.
 |---|---|---|---|
 | `WriteScenarios` | `liveWriteTest` (`CONFLUENCE_LIVE_WRITE=1`) | `ConfluenceWriteReplayTest` | `recordings/confluence/` |
 | app properties | `liveAppPropertiesTest` | `ConfluenceWriteReplayTest` | `recordings/confluence-app-properties/` |
-| `AclScenarios` (ACL branch) | `liveAclTest` | `ConfluenceAclReplayTest` | `recordings/confluence-acl/` |
+| custom content | `liveWriteTest` with `CONFLUENCE_LIVE_WRITE_CUSTOM_CONTENT_TYPE` (a Forge custom content type) | `ConfluenceWriteReplayTest` | `recordings/confluence-custom-content/` |
+| `AclScenarios` | `liveAclTest` | `ConfluenceAclReplayTest` | `recordings/confluence-acl/` |
 | `ChangeScenarios` (change branch) | `liveChangesTest` | `ConfluenceChangeReplayTest` | `recordings/confluence-changes/` |
 | read coverage | `liveCoverageTest` | none | report only |
 | smoke | `liveSmokeTest` | none | none |
@@ -65,8 +65,9 @@ Recording and scrubbing rules:
 `RecordingsGuardTest` checks every committed file in every build.
 
 Live runs go through `.github/workflows/ci.yml` `workflow_dispatch` inputs
-(`run_live_write`, `import_recordings_run_id`, and on the stacked branches
-`run_live_acl`, `run_live_changes`). Reviewers do not dispatch them.
+(`run_live_write`, `live_write_custom_content`, `import_recordings_run_id`,
+`run_live_acl`, `import_acl_recordings_run_id`, and on the change branch
+`run_live_changes`). Reviewers do not dispatch them.
 
 ## Confluence specifics to keep in mind
 
@@ -85,9 +86,10 @@ Live runs go through `.github/workflows/ci.yml` `workflow_dispatch` inputs
   `CONFLUENCE_FORGE_APP_SECRET`).
 - Data policy rpcs answer `PERMISSION_DENIED` with API-token auth; upstream
   serves them to app credentials only.
+- Custom content is proven live against a custom content type that a Forge
+  app declares (PR #46).
 - Not proven live: classification levels and Guard Premium redaction (the
-  owner chose not to start a Guard Premium trial), custom content without a
-  configured type.
+  owner chose not to start a Guard Premium trial).
 
 ## Review hot spots
 
