@@ -15,6 +15,7 @@ public final class InMemoryChangeSink implements ChangeSink {
     private final List<ConfluenceChange> changes = new CopyOnWriteArrayList<>();
     private final List<ConfluenceSnapshot> snapshots = new CopyOnWriteArrayList<>();
     private final List<String> completedRuns = new CopyOnWriteArrayList<>();
+    private final List<String> partialRuns = new CopyOnWriteArrayList<>();
 
     /** Creates an empty collector. */
     public InMemoryChangeSink() {}
@@ -32,6 +33,11 @@ public final class InMemoryChangeSink implements ChangeSink {
     @Override
     public void completeRun(String runId) {
         completedRuns.add(runId);
+    }
+
+    @Override
+    public void completeRun(String runId, boolean fullSweep) {
+        (fullSweep ? completedRuns : partialRuns).add(runId);
     }
 
     /**
@@ -53,7 +59,7 @@ public final class InMemoryChangeSink implements ChangeSink {
     }
 
     /**
-     * The run ids passed to {@link #completeRun(String)}, in call order.
+     * The run ids of the full sweeps completed, in call order.
      *
      * @return a snapshot copy of the completed run ids
      */
@@ -61,10 +67,21 @@ public final class InMemoryChangeSink implements ChangeSink {
         return List.copyOf(completedRuns);
     }
 
+    /**
+     * The run ids of the completed passes that were not full sweeps, in call
+     * order.
+     *
+     * @return a snapshot copy of those run ids
+     */
+    public List<String> partialRuns() {
+        return List.copyOf(partialRuns);
+    }
+
     /** Drops every collected change, snapshot, and completed run id. */
     public void clear() {
         changes.clear();
         snapshots.clear();
         completedRuns.clear();
+        partialRuns.clear();
     }
 }

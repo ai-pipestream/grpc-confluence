@@ -40,8 +40,19 @@ public final class CompositeChangeSink implements ChangeSink {
 
     @Override
     public void completeRun(String runId) {
+        completeRun(runId, true);
+    }
+
+    @Override
+    public void completeRun(String runId, boolean fullSweep) {
         for (ChangeSink sink : sinks) {
-            sink.completeRun(runId);
+            sink.completeRun(runId, fullSweep);
         }
+    }
+
+    @Override
+    public ChangeSink forConnection(String connectionId) {
+        return new CompositeChangeSink(
+                sinks.stream().map(sink -> sink.forConnection(connectionId)).toList());
     }
 }
