@@ -167,6 +167,69 @@ class ConfluenceCatalogTest {
     }
 
     @Test
+    void anAttachmentWithoutItsBinaryIsNotFetchedAndKeepsItsMediaType() {
+        CatalogEntry entry = ConfluenceCatalog.from(ConfluenceEntity.newBuilder()
+                .setEntityId("a1")
+                .setIngestedAt(ts())
+                .setAttachment(Attachment.newBuilder().setId("a1").setTitle("report.pdf")
+                        .setMediaType("application/pdf")
+                        .setFileSize(1_048_576)
+                        .setDownloadUrl("https://example/wiki/download/a1"))
+                .build());
+
+        assertThat(entry.capture()).isEqualTo(CatalogEntry.Capture.NOT_FETCHED);
+        assertThat(entry.resourceBody()).isEmpty();
+        assertThat(entry.mediaType()).isEqualTo("application/pdf");
+        assertThat(entry.targetUri()).isEqualTo("https://example/wiki/download/a1");
+        assertThat(entry.concept().extra())
+                .containsEntry(CatalogEntry.CAPTURE_KEY, "not_fetched")
+                .containsEntry("file_size", "1048576")
+                .doesNotContainKey("sha256");
+    }
+
+    @Test
+    void aFetchedAttachmentAndABodiedPageAreCaptured() {
+        CatalogEntry attachment = ConfluenceCatalog.from(ConfluenceEntity.newBuilder()
+                .setEntityId("a1")
+                .setIngestedAt(ts())
+                .setAttachment(Attachment.newBuilder().setId("a1").setTitle("blob")
+                        .setDownloadUrl("https://example/wiki/download/a1")
+                        .setContent(ByteString.copyFrom(new byte[] {1, 2})))
+                .build());
+        assertThat(attachment.capture()).isEqualTo(CatalogEntry.Capture.CAPTURED);
+        // Bytes without a reported media type are opaque, not text.
+        assertThat(attachment.mediaType()).isEqualTo("application/octet-stream");
+
+        CatalogEntry page = ConfluenceCatalog.from(ConfluenceEntity.newBuilder()
+                .setEntityId("200")
+                .setIngestedAt(ts())
+                .setPage(Page.newBuilder().setId("200").setTitle("Doc")
+                        .setBody(Body.newBuilder().setStorage(
+                                BodyType.newBuilder().setValue("<p>hi</p>"))))
+                .build());
+        assertThat(page.capture()).isEqualTo(CatalogEntry.Capture.CAPTURED);
+        assertThat(page.mediaType()).isEqualTo("text/html");
+    }
+
+    @Test
+    void aDeleteOfAnEntityWithoutItsBodyStaysNotFetched() {
+        CatalogEntry entry = ConfluenceCatalog.from(ConfluenceChange.newBuilder()
+                .setChangeId("c2")
+                .setOperation(ChangeOperation.CHANGE_OPERATION_DELETE)
+                .setEntity(ConfluenceEntity.newBuilder()
+                        .setEntityId("200")
+                        .setIngestedAt(ts())
+                        .setPage(Page.newBuilder().setId("200").setTitle("Doc")
+                                .setWebUrl("https://example/wiki/pages/200")))
+                .build()).orElseThrow();
+
+        assertThat(entry.capture()).isEqualTo(CatalogEntry.Capture.NOT_FETCHED);
+        assertThat(entry.resourceBody()).isEmpty();
+        assertThat(entry.concept().status()).contains(OkfConcept.Status.DEPRECATED);
+        assertThat(entry.concept().body()).isEmpty();
+    }
+
+    @Test
     void emptyChangeIsSkipped() {
         assertThat(ConfluenceCatalog.from(ConfluenceChange.newBuilder().setChangeId("x").build()))
                 .isEmpty();

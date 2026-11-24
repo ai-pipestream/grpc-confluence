@@ -27,6 +27,12 @@ import java.util.Locale;
 /**
  * Maps Confluence protobuf entities onto OKF catalog entries (one concept
  * per entity, live {@code web_url} as {@code WARC-Target-URI}).
+ *
+ * <p>A page, blog post or comment that came without its body, and an
+ * attachment that came without its binary, becomes a
+ * {@link CatalogEntry#notFetched} entry: its concept and its link are
+ * written, and no resource record, because no bytes of it were read.
+ * Nothing is made up to stand in for content that was not fetched.
  */
 public final class ConfluenceCatalog {
 
@@ -51,7 +57,7 @@ public final class ConfluenceCatalog {
         if (change.getOperation() == ChangeOperation.CHANGE_OPERATION_DELETE) {
             OkfConcept deprecated = withStatus(entry.concept(), OkfConcept.Status.DEPRECATED);
             entry = new CatalogEntry(entry.path(), deprecated, entry.targetUri(),
-                    entry.mediaType(), entry.resourceBody(), entry.kind());
+                    entry.mediaType(), entry.resourceBody(), entry.kind(), entry.capture());
         }
         return java.util.Optional.of(entry);
     }
@@ -87,12 +93,8 @@ public final class ConfluenceCatalog {
                 .extra("parent_id", page.getParentId())
                 .extra("author_id", page.getAuthorId())
                 .tags(labelNames(page.getLabelsList()))
-                .body(html.isBlank() ? "_No body fetched._" : html);
-        return new CatalogEntry(path, b.build(), uri,
-                html.isBlank() ? "text/plain" : "text/html",
-                html.isBlank() ? page.getTitle().getBytes(StandardCharsets.UTF_8)
-                        : html.getBytes(StandardCharsets.UTF_8),
-                "page");
+                .body(html);
+        return bodied(path, b.build(), uri, html, "page");
     }
 
     private static CatalogEntry blog(BlogPost post, Instant at) {
@@ -104,13 +106,9 @@ public final class ConfluenceCatalog {
                 .extra("space_id", post.getSpaceId())
                 .extra("author_id", post.getAuthorId())
                 .tags(labelNames(post.getLabelsList()))
-                .body(html.isBlank() ? "_No body fetched._" : html)
+                .body(html)
                 .build();
-        return new CatalogEntry(path, concept, uri,
-                html.isBlank() ? "text/plain" : "text/html",
-                html.isBlank() ? post.getTitle().getBytes(StandardCharsets.UTF_8)
-                        : html.getBytes(StandardCharsets.UTF_8),
-                "blog");
+        return bodied(path, concept, uri, html, "blog");
     }
 
     private static CatalogEntry comment(Comment comment, Instant at) {
@@ -122,25 +120,29 @@ public final class ConfluenceCatalog {
                 .extra("confluence_id", comment.getId())
                 .extra("page_id", comment.getPageId())
                 .extra("blog_post_id", comment.getBlogPostId())
-                .body(html.isBlank() ? "_No body fetched._" : html)
+                .body(html)
                 .build();
-        return new CatalogEntry(path, concept, uri,
-                html.isBlank() ? "text/plain" : "text/html",
-                html.isBlank() ? title.getBytes(StandardCharsets.UTF_8)
-                        : html.getBytes(StandardCharsets.UTF_8),
-                "comment");
+        return bodied(path, concept, uri, html, "comment");
+    }
+
+    /**
+     * The entry of a page, blog post or comment: its body as the resource,
+     * or a not-fetched entry when it came without one.
+     */
+    private static CatalogEntry bodied(String path, OkfConcept concept, String uri, String html,
+            String kind) {
+        if (html.isBlank()) {
+            return CatalogEntry.notFetched(path, concept, uri, "text/html", kind);
+        }
+        return new CatalogEntry(path, concept, uri, "text/html",
+                html.getBytes(StandardCharsets.UTF_8), kind);
     }
 
     private static CatalogEntry attachment(Attachment attachment, Instant at) {
         String path = OkfPaths.join("attachments", OkfPaths.segment(attachment.getId()) + ".md");
         String uri = firstNonBlank(attachment.getDownloadUrl(), attachment.getWebUrl());
         uri = uriOrUrn(uri, "attachment", attachment.getId());
-        byte[] payload = attachment.hasContent() && !attachment.getContent().isEmpty()
-                ? attachment.getContent().toByteArray()
-                : attachment.getTitle().getBytes(StandardCharsets.UTF_8);
-        String media = attachment.getMediaType().isBlank()
-                ? (attachment.hasContent() ? "application/octet-stream" : "text/plain")
-                : attachment.getMediaType();
+        boolean fetched = attachment.hasContent() && !attachment.getContent().isEmpty();
         StringBuilder body = new StringBuilder();
         body.append("File size: ").append(attachment.getFileSize()).append(" bytes\n\n");
         if (!attachment.getComment().isBlank()) {
@@ -156,9 +158,15 @@ public final class ConfluenceCatalog {
                 .extra("file_size", Long.toString(attachment.getFileSize()))
                 .tags(labelNames(attachment.getLabelsList()))
                 .body(body.toString());
-        if (attachment.hasContent() && !attachment.getContent().isEmpty()) {
-            b.extra("sha256", ai.pipestream.okf.warc.WarcDigest.sha256Hex(payload));
+        if (!fetched) {
+            // Sync emits attachment metadata; the binary was not downloaded.
+            return CatalogEntry.notFetched(path, b.build(), uri, attachment.getMediaType(),
+                    "attachment");
         }
+        byte[] payload = attachment.getContent().toByteArray();
+        b.extra("sha256", ai.pipestream.okf.warc.WarcDigest.sha256Hex(payload));
+        String media = attachment.getMediaType().isBlank()
+                ? "application/octet-stream" : attachment.getMediaType();
         return new CatalogEntry(path, b.build(), uri, media, payload, "attachment");
     }
 

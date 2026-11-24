@@ -135,6 +135,14 @@ per-URI archive (ISO 28500): one `resource` record per live `web_url`, a
 `conversion` record for the OKF markdown, and an HTML collection page whose
 links are those same URIs. The zip is **not** stored inside the WARC.
 
+A `resource` record exists only for bytes read from Confluence. `Sync`
+emits attachment metadata without the binary, and with `include_bodies`
+off it emits pages, blog posts and comments without their bodies. Those
+entities keep their OKF markdown, marked `capture: not_fetched` in its
+frontmatter, and their link on the collection page, and they get no
+`resource` record: nothing is written in place of content that was not
+fetched.
+
 ```
 OUTPUT_DIR=/data/okf/confluence-run   # alias: OKF_DIR
 # OUTPUT_STORE=filesystem             # default; set s3 when grpc-output-s3 is loaded
