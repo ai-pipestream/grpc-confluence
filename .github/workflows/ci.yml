@@ -18,6 +18,10 @@ on:
         description: With run_live_write, also upload an attachment of this many bytes that the site must refuse as too large (not recorded)
         type: string
         default: ""
+      live_write_custom_content:
+        description: With run_live_write, also create, update and delete custom content of the Forge app's type pipestream-record
+        type: boolean
+        default: false
       import_recordings_run_id:
         description: Commit the confluence-recordings artifact of this run id to the branch as replay data
         type: string
@@ -246,6 +250,8 @@ jobs:
           CONFLUENCE_LIVE_WRITE: "1"
           CONFLUENCE_LIVE_WRITE_ADMIN: ${{ inputs.live_write_admin && '1' || '' }}
           CONFLUENCE_LIVE_WRITE_OVERSIZE_BYTES: ${{ inputs.live_write_oversize_bytes }}
+          # The Forge app's custom content type: app id and development environment id.
+          CONFLUENCE_LIVE_WRITE_CUSTOM_CONTENT_TYPE: ${{ inputs.live_write_custom_content && 'forge:d16971ce-921a-40d5-a97b-84b84a4cbfe1:b5506979-43d3-4c0e-9bd5-60f77934bdf3:pipestream-record' || '' }}
           CONFLUENCE_SPACE_KEY: CLAUDEGRPC
         run: |
           if [ -z "${CONFLUENCE_EMAIL}" ] || [ -z "${CONFLUENCE_API_TOKEN}" ]; then
