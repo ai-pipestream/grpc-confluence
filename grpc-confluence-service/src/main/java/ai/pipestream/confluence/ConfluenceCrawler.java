@@ -407,8 +407,8 @@ public final class ConfluenceCrawler {
             crawlBlogPost(node, source, cursor, counts);
         } else {
             Page page = mapper.toPage(node);
-            SecurityCompleteness security = crawlSecurity("pages", "page", page.getId(), source,
-                    cursor, counts);
+            AclCompleteness security = crawlSecurity("pages", "page", page.getId(),
+                    page.getSpaceId(), source, cursor, counts);
             emit(entity(page.getId()).setPage(page).setSecurityCompleteness(security).build(),
                     source, cursor);
             crawlComments("/api/v2/pages/" + page.getId(), source, cursor, counts);
@@ -429,7 +429,7 @@ public final class ConfluenceCrawler {
     public void rereadSpace(String id, ChangeSource source, String cursor)
             throws IOException, InterruptedException {
         Space space = mapper.toSpace(client.get("/api/v2/spaces/" + id, Map.of()));
-        SecurityCompleteness security = crawlSpaceSecurity(space, source, cursor,
+        AclCompleteness security = crawlSpaceSecurity(space, source, cursor,
                 new java.util.HashMap<>());
         emit(entity(space.getId()).setSpace(space).setSecurityCompleteness(security).build(),
                 source, cursor);
@@ -456,9 +456,10 @@ public final class ConfluenceCrawler {
         };
         JsonNode node = client.get("/api/v2/" + segment + "/" + id, Map.of());
         Map<String, Long> counts = new java.util.HashMap<>();
-        SecurityCompleteness security = "embed".equals(type)
-                ? SecurityCompleteness.SECURITY_COMPLETENESS_UNSPECIFIED
-                : crawlSecurity(segment, type, id, source, cursor, counts);
+        AclCompleteness security = "embed".equals(type)
+                ? AclCompleteness.ACL_COMPLETENESS_UNSPECIFIED
+                : crawlSecurity(segment, type, id, node.path("spaceId").asText(""), source, cursor,
+                        counts);
         ConfluenceEntity.Builder entity = entity(id).setSecurityCompleteness(security);
         switch (type) {
             case "whiteboard" -> entity.setWhiteboard(mapper.toWhiteboard(node));
