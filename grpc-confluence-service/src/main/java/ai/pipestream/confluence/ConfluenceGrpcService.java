@@ -3299,6 +3299,13 @@ public final class ConfluenceGrpcService
                 }).withDescription(e.getMessage());
             } else if (t instanceof ConfluenceCrawler.SpacesNotFoundException e) {
                 status = Status.NOT_FOUND.withDescription(e.getMessage());
+            } else if (t instanceof KafkaChangeSink.DeliveryFailedException e) {
+                // Kafka's refusal is not this call's: a missing grant there
+                // would read as Confluence's. Retriable (broker unreachable,
+                // timed out) is UNAVAILABLE, run the Sync again; any other
+                // refusal is INTERNAL. The description names topic and key.
+                status = (e.retriable() ? Status.UNAVAILABLE : Status.INTERNAL)
+                        .withDescription(e.getMessage());
             } else if (t instanceof ConfluenceClient.RepeatedCursorException e) {
                 status = Status.INTERNAL.withDescription(e.getMessage());
             } else if (t instanceof ConfluenceClient.UnsafePathException

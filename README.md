@@ -130,6 +130,17 @@ change as an upsert. A cursor stored by an older version may already be
 past edits that version skipped; one full `Sync` (empty `since_cursor`)
 picks them up.
 
+With the Kafka sink on, every change and snapshot of a pass has to reach
+its topic. The producer retries on its own (`delivery.timeout.ms`); a record
+it gives up on ends the `Sync` with an error whose description starts
+`kafka delivery failed for <n> records of this pass` and names the first
+key and topic: `UNAVAILABLE` when the failure is one Kafka calls retriable
+(the broker could not be reached or timed out; run the `Sync` again),
+`INTERNAL` for a refusal such as a record that is too large. The pass stops
+at the next change after the failure is known, and before its end it waits
+for every outstanding record. No resume cursor is handed out, because the
+next pass would start after the changes that were lost.
+
 A ledger write that fails ends the `Sync` with an error whose description
 starts `sync-table <rpc> failed for <row>`: `UNAVAILABLE` when the ledger
 could not be reached in time (run the `Sync` again), `INTERNAL` for any
