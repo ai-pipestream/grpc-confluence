@@ -159,6 +159,16 @@ and a description that names the read, for example
 No resume cursor is handed out and nothing is reconciled, because a pass
 that ended OK without a subtree would be taken for the whole space.
 
+Only a 2xx answer is an answer. The client does not follow a redirect on an
+API route (the credential must not travel to another origin), so a 3xx
+fails the call with `FAILED_PRECONDITION` and a description naming the
+status and the `Location` it pointed to: the connection's base URL is
+`http://`, or names a site that has moved. A list route that answers 2xx
+with no `results` array (an empty body, a 204, an error object sent with a
+success status) fails with `INTERNAL` naming the route. Neither is read as
+an empty last page, so a `Sync` cannot end OK and a probe cannot report a
+healthy connection on the strength of one.
+
 Completed `Sync` runs can also write an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
 v0.2 bundle (directory + zip) and a **sibling** WARC 1.1 file. WARC is a
 per-URI archive (ISO 28500): one `resource` record per live `web_url`, a

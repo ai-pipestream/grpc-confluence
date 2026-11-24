@@ -302,7 +302,7 @@ public final class ConfluenceGrpcService
             String id = request.getId();
             if (id.isBlank()) {
                 String key = requireId(request.getKey(), "id or key");
-                JsonNode found = session.client.get("/api/v2/spaces",
+                JsonNode found = session.client.getList("/api/v2/spaces",
                         new Query().put("keys", key).put("limit", "1").map())
                         .path("results").path(0);
                 if (!found.isObject() || found.path("id").asText("").isEmpty()) {
@@ -1064,7 +1064,7 @@ public final class ConfluenceGrpcService
             String path = ConfluenceRoutes.contentPath(request.getContent(), ConfluenceRoutes.TREE_NODES,
                     "ListAncestors");
             while (path != null) {
-                JsonNode body = session.client.get(path + "/ancestors",
+                JsonNode body = session.client.getList(path + "/ancestors",
                         Map.of("limit", String.valueOf(MAX_LIMIT)));
                 List<JsonNode> batch = new ArrayList<>();
                 body.path("results").forEach(batch::add);
@@ -1776,7 +1776,7 @@ public final class ConfluenceGrpcService
             Map<String, String> params = new java.util.TreeMap<>(query);
             params.put("start", String.valueOf(start));
             params.put("limit", String.valueOf(pageSize));
-            JsonNode results = session.client.get(path, params).path("results");
+            JsonNode results = session.client.getList(path, params).path("results");
             results.forEach(onNode);
             if (results.size() < pageSize) {
                 return;
@@ -2080,7 +2080,7 @@ public final class ConfluenceGrpcService
             String cursor = null;
             do {
                 Query query = limit(session).put("cursor", cursor);
-                JsonNode page = session.client.get(path, query.map());
+                JsonNode page = session.client.getList(path, query.map());
                 com.google.protobuf.Timestamp generatedAt =
                         ConfluenceMapper.timestamp(page.path("generatedAt").asText(""));
                 for (JsonNode node : page.path("results")) {
@@ -3276,13 +3276,17 @@ public final class ConfluenceGrpcService
             if (t instanceof io.grpc.StatusRuntimeException e) {
                 return new Failure(e.getStatus(), 0, -1L);
             } else if (t instanceof ConfluenceClient.ConfluenceApiException e) {
+                // A redirect is not followed: the base URL names another
+                // place than the one the API is served from, and no retry of
+                // this call changes that.
                 Status status = (switch (e.status()) {
                     case 400 -> Status.INVALID_ARGUMENT;
                     case 401, 403 -> Status.PERMISSION_DENIED;
                     case 404 -> Status.NOT_FOUND;
                     case 409 -> Status.ABORTED;
                     case 429 -> Status.RESOURCE_EXHAUSTED;
-                    default -> Status.INTERNAL;
+                    default -> e.status() >= 300 && e.status() < 400
+                            ? Status.FAILED_PRECONDITION : Status.INTERNAL;
                 }).withDescription(e.getMessage());
                 return new Failure(status, e.status(), e.retryAfterSeconds());
             }
@@ -3306,8 +3310,10 @@ public final class ConfluenceGrpcService
                 // refusal is INTERNAL. The description names topic and key.
                 status = (e.retriable() ? Status.UNAVAILABLE : Status.INTERNAL)
                         .withDescription(e.getMessage());
-            } else if (t instanceof ConfluenceClient.RepeatedCursorException e) {
-                status = Status.INTERNAL.withDescription(e.getMessage());
+            } else if (t instanceof ConfluenceClient.RepeatedCursorException
+                    || t instanceof ConfluenceClient.MalformedResponseException) {
+                // Confluence was reached and answered; the answer cannot be read.
+                status = Status.INTERNAL.withDescription(t.getMessage());
             } else if (t instanceof ConfluenceClient.UnsafePathException
                     || t instanceof AdfCodec.AdfException) {
                 status = Status.INVALID_ARGUMENT.withDescription(t.getMessage());

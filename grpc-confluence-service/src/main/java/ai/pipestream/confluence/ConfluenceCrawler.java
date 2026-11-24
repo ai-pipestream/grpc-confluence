@@ -802,7 +802,8 @@ public final class ConfluenceCrawler {
                 complete &= read.complete();
                 List<JsonNode> batch = new ArrayList<>();
                 if (read.value() != null) {
-                    read.value().path("results").forEach(batch::add);
+                    ConfluenceClient.requireResults(read.value(), path + "/ancestors")
+                            .forEach(batch::add);
                 }
                 ancestors.addAll(0, batch);
                 path = null;
@@ -922,7 +923,7 @@ public final class ConfluenceCrawler {
         for (int start = 0; ; start += pageSize) {
             JsonNode page;
             try {
-                page = client.get(path, Map.of("start", String.valueOf(start),
+                page = client.getList(path, Map.of("start", String.valueOf(start),
                         "limit", String.valueOf(pageSize)));
             } catch (ConfluenceClient.ConfluenceApiException e) {
                 if (!unserved(e)) {
