@@ -22,11 +22,20 @@ operations minus the four read `POST`s `convert-ids-to-types`,
 `check-access-by-email`, `users-bulk` and
 `space-permissions/transition/combinations`) are served by 54 unary rpcs;
 `ConfluenceWriteRpcTest` asserts the 100 of 100 against the document and
-calls each route. Three more rpcs use REST API v1, whose document is not
-vendored, so their routes are unverified: `UploadAttachment`
-(`POST`/`PUT /rest/api/content/{id}/child/attachment`), `AddLabels` and
-`RemoveLabel` (`POST`/`DELETE /rest/api/content/{id}/label`). `Mutate`
-streams any of the 56 unary writes.
+calls each route. Eleven more rpcs use REST API v1, where v2 has no route.
+`ConfluenceWriteRpcTest` asserts the ten unary ones against the vendored v1
+document (`docs/upstream/atlassian/confluence-v1.json`): `AddLabels` and
+`RemoveLabel` (`POST`/`DELETE /rest/api/content/{id}/label`), `DeleteSpace`
+(`DELETE /rest/api/space/{spaceKey}`), `CopyPage`
+(`POST /rest/api/content/{id}/copy`), `CopyPageHierarchy`
+(`POST /rest/api/content/{id}/pagehierarchy/copy`), `ArchivePages`
+(`POST /rest/api/content/archive`), `CreateGroup` (`POST /rest/api/group`),
+`DeleteGroup` (`DELETE /rest/api/group/by-id`), `AddGroupMember` and
+`RemoveGroupMember` (`POST`/`DELETE /rest/api/group/userByGroupId`). The
+eleventh is the streamed `UploadAttachment`
+(`POST`/`PUT /rest/api/content/{id}/child/attachment`). The v1 read
+`ListGroups` (`GET /rest/api/group`) lists every group of the site.
+`Mutate` streams any unary write.
 
 | v2 group | Operations | Rpcs |
 |---|---|---|

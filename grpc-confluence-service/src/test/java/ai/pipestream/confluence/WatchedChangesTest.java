@@ -42,10 +42,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class WatchedChangesTest {
 
     private static final String QUEUE = "/x/queue";
-    /** One group event: streamed as an unresolved event, with no Confluence read. */
-    private static final String GROUP_EVENT = """
-            {"events":[{"key":"k1","event":{"eventType":"avi:confluence:created:group",
-            "group":{"id":"g1","name":"team"}}}]}""";
+    /** One user event: streamed as an unresolved event, with no Confluence read. */
+    private static final String USER_EVENT = """
+            {"events":[{"key":"k1","event":{"eventType":"avi:confluence:created:user",
+            "user":{"accountId":"a1"}}}]}""";
     private static final Duration WAIT = Duration.ofSeconds(30);
     /** Far longer than the service needs to tell a drain has ended. */
     private static final Duration LATE = Duration.ofMillis(400);
@@ -59,7 +59,7 @@ class WatchedChangesTest {
     @BeforeEach
     void start() throws Exception {
         fake = FakeConfluenceServer.start();
-        fake.stub(QUEUE, GROUP_EVENT);
+        fake.stub(QUEUE, USER_EVENT);
         ConfluenceConnectorConfig config = ConfluenceConnectorConfig.builder()
                 .baseUrl(fake.baseUrl()).email("bot@pipestream.ai").apiToken("token-123").build();
         ConfluenceGrpcService read = new ConfluenceGrpcService(config,
@@ -97,7 +97,7 @@ class WatchedChangesTest {
 
         assertThat(streamed).as("what had arrived when the opening drain was awaited")
                 .extracting(m -> m.getUnresolvedEvent().getObject())
-                .containsExactly(ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_GROUP);
+                .containsExactly(ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_USER);
 
         service.drainNow();
         watched.awaitDrain(WAIT);

@@ -351,6 +351,10 @@ service ConfluenceService {
   // v1: GET /rest/api/group/by-id?id={groupId}.
   rpc GetGroup(GetGroupRequest) returns (GetGroupResponse);
 
+  // Every group of the site, ordered by name, as a stream.
+  // v1: GET /rest/api/group.
+  rpc ListGroups(ListGroupsRequest) returns (stream ListGroupsResponse);
+
   // The members of a group, as a stream.
   // v1: GET /rest/api/group/{groupId}/membersByGroupId.
   rpc ListGroupMembers(ListGroupMembersRequest) returns (stream ListGroupMembersResponse);
@@ -483,6 +487,20 @@ service ConfluenceService {
   // Updates the title of a page.
   // v2: PUT /pages/{id}/title.
   rpc UpdatePageTitle(UpdatePageTitleRequest) returns (UpdatePageTitleResponse);
+
+  // Copies one page, without its descendants, to a space, under a parent, or
+  // over an existing page.
+  // v1: POST /rest/api/content/{id}/copy.
+  rpc CopyPage(CopyPageRequest) returns (CopyPageResponse);
+
+  // Copies a page and its descendants under another page, as a background
+  // task. Follow it with GetLongRunningTask.
+  // v1: POST /rest/api/content/{id}/pagehierarchy/copy.
+  rpc CopyPageHierarchy(CopyPageHierarchyRequest) returns (CopyPageHierarchyResponse);
+
+  // Archives pages, as a background task. Follow it with GetLongRunningTask.
+  // v1: POST /rest/api/content/archive.
+  rpc ArchivePages(ArchivePagesRequest) returns (ArchivePagesResponse);
 
   // Creates a blog post.
   // v2: POST /blogposts.
@@ -699,6 +717,24 @@ service ConfluenceService {
   // Invites email addresses to the site.
   // v2: POST /user/access/invite-by-email.
   rpc InviteByEmail(InviteByEmailRequest) returns (InviteByEmailResponse);
+
+  // ------------------------------------------------------ group writes --
+
+  // Creates a group. Site admins only.
+  // v1: POST /rest/api/group.
+  rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse);
+
+  // Deletes a group. Site admins only.
+  // v1: DELETE /rest/api/group/by-id?id={groupId}.
+  rpc DeleteGroup(DeleteGroupRequest) returns (DeleteGroupResponse);
+
+  // Adds a user to a group. Site admins only.
+  // v1: POST /rest/api/group/userByGroupId?groupId={groupId}.
+  rpc AddGroupMember(AddGroupMemberRequest) returns (AddGroupMemberResponse);
+
+  // Removes a user from a group. Site admins only.
+  // v1: DELETE /rest/api/group/userByGroupId?groupId={groupId}&accountId={accountId}.
+  rpc RemoveGroupMember(RemoveGroupMemberRequest) returns (RemoveGroupMemberResponse);
 
   // -------------------------------------------------- redaction writes --
 
@@ -2694,6 +2730,20 @@ message MutateRequest {
     DisableAdminKeyRequest disable_admin_key = 65;
     // A DeleteSpace operation.
     DeleteSpaceRequest delete_space = 66;
+    // A CopyPage operation.
+    CopyPageRequest copy_page = 67;
+    // A CopyPageHierarchy operation.
+    CopyPageHierarchyRequest copy_page_hierarchy = 68;
+    // A ArchivePages operation.
+    ArchivePagesRequest archive_pages = 69;
+    // A CreateGroup operation.
+    CreateGroupRequest create_group = 70;
+    // A DeleteGroup operation.
+    DeleteGroupRequest delete_group = 71;
+    // A AddGroupMember operation.
+    AddGroupMemberRequest add_group_member = 72;
+    // A RemoveGroupMember operation.
+    RemoveGroupMemberRequest remove_group_member = 73;
   }
 }
 
@@ -2819,5 +2869,19 @@ message MutateResponse {
     DisableAdminKeyResponse disable_admin_key = 65;
     // The DeleteSpace operation succeeded.
     DeleteSpaceResponse delete_space = 66;
+    // The CopyPage operation succeeded.
+    CopyPageResponse copy_page = 67;
+    // The CopyPageHierarchy operation succeeded.
+    CopyPageHierarchyResponse copy_page_hierarchy = 68;
+    // The ArchivePages operation succeeded.
+    ArchivePagesResponse archive_pages = 69;
+    // The CreateGroup operation succeeded.
+    CreateGroupResponse create_group = 70;
+    // The DeleteGroup operation succeeded.
+    DeleteGroupResponse delete_group = 71;
+    // The AddGroupMember operation succeeded.
+    AddGroupMemberResponse add_group_member = 72;
+    // The RemoveGroupMember operation succeeded.
+    RemoveGroupMemberResponse remove_group_member = 73;
   }
 }

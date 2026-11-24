@@ -85,7 +85,7 @@ message WatchChangesResponse {
     // The end of a Sync pass.
     PassCompleted pass_completed = 5;
     // A queued event that names no object this server re-reads (users,
-    // groups, tasks, unknown types). Sent as is.
+    // unknown types). Sent as is.
     ConfluenceEvent unresolved_event = 6;
   }
 }

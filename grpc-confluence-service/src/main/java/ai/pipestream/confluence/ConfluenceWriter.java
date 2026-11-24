@@ -136,6 +136,13 @@ final class ConfluenceWriter {
         register(ops, RedactBlogPostRequest.class, ConfluenceWriter::redactBlogPost);
         register(ops, EnableAdminKeyRequest.class, ConfluenceWriter::enableAdminKey);
         register(ops, DisableAdminKeyRequest.class, ConfluenceWriter::disableAdminKey);
+        register(ops, CopyPageRequest.class, ConfluenceWriter::copyPage);
+        register(ops, CopyPageHierarchyRequest.class, ConfluenceWriter::copyPageHierarchy);
+        register(ops, ArchivePagesRequest.class, ConfluenceWriter::archivePages);
+        register(ops, CreateGroupRequest.class, ConfluenceWriter::createGroup);
+        register(ops, DeleteGroupRequest.class, ConfluenceWriter::deleteGroup);
+        register(ops, AddGroupMemberRequest.class, ConfluenceWriter::addGroupMember);
+        register(ops, RemoveGroupMemberRequest.class, ConfluenceWriter::removeGroupMember);
         return Map.copyOf(ops);
     }
 
@@ -197,6 +204,117 @@ final class ConfluenceWriter {
                 NO_QUERY, body);
         return UpdatePageTitleResponse.newBuilder().setPage(valid(session.mapper().toPage(node)))
                 .build();
+    }
+
+    static CopyPageResponse copyPage(Session session, CopyPageRequest request)
+            throws IOException, InterruptedException {
+        String id = id(request.getId(), "id");
+        ObjectNode body = NODES.objectNode();
+        CopyPageDestination destination = request.getDestination();
+        ObjectNode target = body.putObject("destination");
+        switch (destination.getTargetCase()) {
+            case SPACE_KEY -> target.put("type", "space")
+                    .put("value", requireId(destination.getSpaceKey(), "destination.space_key"));
+            case PARENT_PAGE_ID -> target.put("type", "parent_page")
+                    .put("value", requireId(destination.getParentPageId(), "destination.parent_page_id"));
+            case PARENT_CONTENT_ID -> target.put("type", "parent_content").put("value",
+                    requireId(destination.getParentContentId(), "destination.parent_content_id"));
+            case EXISTING_PAGE_ID -> target.put("type", "existing_page").put("value",
+                    requireId(destination.getExistingPageId(), "destination.existing_page_id"));
+            case TARGET_NOT_SET -> throw invalid("destination is required");
+        }
+        put(body, "pageTitle", request.getPageTitle());
+        body.put("copyAttachments", request.getCopyAttachments());
+        body.put("copyPermissions", request.getCopyPermissions());
+        body.put("copyProperties", request.getCopyProperties());
+        body.put("copyLabels", request.getCopyLabels());
+        body.put("copyCustomContents", request.getCopyCustomContents());
+        switch (request.getBody().getFormatCase()) {
+            case FORMAT_NOT_SET -> {
+                // The copy keeps the body of the source.
+            }
+            case STORAGE -> body.putObject("body").putObject("storage")
+                    .put("value", request.getBody().getStorage().getValue())
+                    .put("representation", "storage");
+            default -> throw invalid("CopyPage does not accept a "
+                    + request.getBody().getFormatCase() + " body; accepted: [STORAGE]");
+        }
+        String path = "/rest/api/content/" + id + "/copy";
+        JsonNode copy = session.client().post(path, NO_QUERY, body);
+        return CopyPageResponse.newBuilder().setPage(valid(copiedPage(session, path, copy))).build();
+    }
+
+    /** The copy as the v2 API reads it, or what the copy answer names when v2 answers 404. */
+    private static Page copiedPage(Session session, String path, JsonNode copy)
+            throws IOException, InterruptedException {
+        String id = copy.path("id").asText("");
+        if (id.isEmpty()) {
+            throw ConfluenceClient.MalformedResponseException.missing(path, "id", copy);
+        }
+        try {
+            return session.mapper().toPage(session.client().get("/api/v2/pages/" + id));
+        } catch (ConfluenceClient.ConfluenceApiException e) {
+            if (e.status() != 404) {
+                throw e;
+            }
+        }
+        return Page.newBuilder().setId(id).setTitle(copy.path("title").asText(""))
+                .setStatus(ConfluenceMapper.wireEnum(ContentStatus.class, "CONTENT_STATUS_",
+                        copy.path("status").asText(""), ContentStatus.CONTENT_STATUS_UNSPECIFIED))
+                .setSpaceId(copy.path("space").path("id").asText("")).build();
+    }
+
+    static CopyPageHierarchyResponse copyPageHierarchy(Session session,
+            CopyPageHierarchyRequest request) throws IOException, InterruptedException {
+        String id = id(request.getId(), "id");
+        ObjectNode body = NODES.objectNode();
+        body.put("destinationPageId",
+                requireId(request.getDestinationPageId(), "destination_page_id"));
+        body.put("copyAttachments", request.getCopyAttachments());
+        body.put("copyPermissions", request.getCopyPermissions());
+        body.put("copyProperties", request.getCopyProperties());
+        body.put("copyLabels", request.getCopyLabels());
+        body.put("copyCustomContents", request.getCopyCustomContents());
+        if (request.hasCopyDescendants()) {
+            body.put("copyDescendants", request.getCopyDescendants());
+        }
+        if (request.hasTitleOptions()) {
+            ObjectNode options = body.putObject("titleOptions");
+            put(options, "prefix", request.getTitleOptions().getPrefix());
+            put(options, "search", request.getTitleOptions().getSearch());
+            put(options, "replace", request.getTitleOptions().getReplace());
+        }
+        String path = "/rest/api/content/" + id + "/pagehierarchy/copy";
+        JsonNode task = session.client().post(path, NO_QUERY, body);
+        return CopyPageHierarchyResponse.newBuilder().setTaskId(taskId(path, task)).build();
+    }
+
+    static ArchivePagesResponse archivePages(Session session, ArchivePagesRequest request)
+            throws IOException, InterruptedException {
+        if (request.getPageIdsCount() == 0) {
+            throw invalid("page_ids is required");
+        }
+        ObjectNode body = NODES.objectNode();
+        ArrayNode pages = body.putArray("pages");
+        for (String pageId : request.getPageIdsList()) {
+            try {
+                pages.addObject().put("id", Long.parseLong(pageId));
+            } catch (NumberFormatException e) {
+                throw invalid("page_ids must be numeric page ids: " + pageId);
+            }
+        }
+        String path = "/rest/api/content/archive";
+        JsonNode task = session.client().post(path, NO_QUERY, body);
+        return ArchivePagesResponse.newBuilder().setTaskId(taskId(path, task)).build();
+    }
+
+    /** The id of the background task an accepted request answers. */
+    private static String taskId(String path, JsonNode task) throws IOException {
+        String id = task.path("id").asText("");
+        if (id.isEmpty()) {
+            throw ConfluenceClient.MalformedResponseException.missing(path, "id", task);
+        }
+        return id;
     }
 
     static CreateBlogPostResponse createBlogPost(Session session, CreateBlogPostRequest request)
@@ -671,6 +789,45 @@ final class ConfluenceWriter {
                 selfLockout(request.getAllowSelfLockout()), body);
         return SetRestrictionStateResponse.newBuilder()
                 .setRestrictionState(session.mapper().toRestrictionState(node)).build();
+    }
+
+    // ======================================================================
+    // GROUPS
+    // ======================================================================
+
+    static CreateGroupResponse createGroup(Session session, CreateGroupRequest request)
+            throws IOException, InterruptedException {
+        ObjectNode body = NODES.objectNode();
+        body.put("name", requireId(request.getName(), "name"));
+        JsonNode node = session.client().post("/rest/api/group", NO_QUERY, body);
+        if (node.path("id").asText("").isEmpty()) {
+            throw ConfluenceClient.MalformedResponseException.missing("/rest/api/group", "id", node);
+        }
+        return CreateGroupResponse.newBuilder().setGroup(ConfluenceMapper.toGroup(node)).build();
+    }
+
+    static DeleteGroupResponse deleteGroup(Session session, DeleteGroupRequest request)
+            throws IOException, InterruptedException {
+        session.client().delete("/rest/api/group/by-id",
+                Map.of("id", requireId(request.getGroupId(), "group_id")));
+        return DeleteGroupResponse.getDefaultInstance();
+    }
+
+    static AddGroupMemberResponse addGroupMember(Session session, AddGroupMemberRequest request)
+            throws IOException, InterruptedException {
+        ObjectNode body = NODES.objectNode();
+        body.put("accountId", requireId(request.getAccountId(), "account_id"));
+        session.client().post("/rest/api/group/userByGroupId",
+                Map.of("groupId", requireId(request.getGroupId(), "group_id")), body);
+        return AddGroupMemberResponse.getDefaultInstance();
+    }
+
+    static RemoveGroupMemberResponse removeGroupMember(Session session,
+            RemoveGroupMemberRequest request) throws IOException, InterruptedException {
+        session.client().delete("/rest/api/group/userByGroupId", new Query()
+                .put("groupId", requireId(request.getGroupId(), "group_id"))
+                .put("accountId", requireId(request.getAccountId(), "account_id")).map());
+        return RemoveGroupMemberResponse.getDefaultInstance();
     }
 
     // ======================================================================

@@ -51,6 +51,7 @@ class ConfluenceWriteRpcTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final Path V2_SPEC = Path.of("../docs/upstream/atlassian/confluence-v2.json");
+    private static final Path V1_SPEC = Path.of("../docs/upstream/atlassian/confluence-v1.json");
     /** The v2 POST routes that only read. */
     private static final Set<String> READ_POSTS = Set.of(
             "POST /content/convert-ids-to-types", "POST /user/access/check-access-by-email",
@@ -106,6 +107,19 @@ class ConfluenceWriteRpcTest {
 
         assertThat(writes).hasSize(100);
         assertThat(covered).isEqualTo(writes);
+    }
+
+    @Test
+    void everyV1WriteRouteIsAnOperationOfTheVendoredSpec() throws Exception {
+        JsonNode paths = JSON.readTree(Files.readString(V1_SPEC)).path("paths");
+        ConfluenceWriteRoutes.V1.forEach((rpc, templates) -> {
+            for (String template : templates) {
+                String verb = template.substring(0, template.indexOf(' ')).toLowerCase();
+                String route = "/wiki" + template.substring(template.indexOf(' ') + 1);
+                assertThat(paths.path(route).has(verb)).as("%s of %s", template, rpc).isTrue();
+            }
+        });
+        assertThat(ConfluenceWriteRoutes.V1.keySet()).containsAll(ConfluenceWriteRoutes.CHANGE_SUITE);
     }
 
     @Test
@@ -363,6 +377,222 @@ class ConfluenceWriteRpcTest {
                 .getTaskId()).isEqualTo("task-9");
         assertThat(fake.requests()).extracting(r -> r.method() + " " + r.path())
                 .containsExactly("DELETE /wiki/rest/api/space/ENG");
+    }
+
+    @Test
+    void copyPageSendsTheDestinationAndFlagsAndReturnsTheCopyAsV2ReadsIt() throws Exception {
+        fake.stub("POST", "/wiki/rest/api/content/501/copy", 200, """
+                {"id":"777","type":"page","status":"current","title":"Release notes copy",
+                 "space":{"id":100,"key":"ENG"},"version":{"number":1}}""");
+        fake.stub("/wiki/api/v2/pages/777",
+                ConfluenceFixtures.pageJson("777", "100", "Release notes copy", MODIFIED));
+
+        Page copy = stub.copyPage(CopyPageRequest.newBuilder().setId("501")
+                .setDestination(CopyPageDestination.newBuilder().setParentPageId("7"))
+                .setPageTitle("Release notes copy").setCopyLabels(true).setCopyAttachments(true)
+                .setBody(ContentBody.newBuilder().setStorage(StorageBody.newBuilder().setValue("<p>x</p>")))
+                .build()).getPage();
+
+        assertThat(copy.getId()).isEqualTo("777");
+        assertThat(copy.getSpaceId()).isEqualTo("100");
+        assertThat(copy.getTitle()).isEqualTo("Release notes copy");
+        assertThat(JSON.readTree(fake.lastTo("POST", "/wiki/rest/api/content/501/copy").body()))
+                .isEqualTo(JSON.readTree("""
+                        {"destination":{"type":"parent_page","value":"7"},
+                         "pageTitle":"Release notes copy","copyAttachments":true,
+                         "copyPermissions":false,"copyProperties":false,"copyLabels":true,
+                         "copyCustomContents":false,
+                         "body":{"storage":{"value":"<p>x</p>","representation":"storage"}}}"""));
+        assertThat(fake.requests()).extracting(r -> r.method() + " " + r.path()).containsExactly(
+                "POST /wiki/rest/api/content/501/copy", "GET /wiki/api/v2/pages/777");
+    }
+
+    @Test
+    void copyPageNamesEveryDestinationKind() throws Exception {
+        fake.stub("POST", "/wiki/rest/api/content/501/copy", 200,
+                "{\"id\":\"777\",\"status\":\"current\",\"title\":\"T\",\"space\":{\"id\":100}}");
+        Map<CopyPageDestination, String> wire = new java.util.LinkedHashMap<>();
+        wire.put(CopyPageDestination.newBuilder().setSpaceKey("ENG").build(),
+                "{\"type\":\"space\",\"value\":\"ENG\"}");
+        wire.put(CopyPageDestination.newBuilder().setParentContentId("9").build(),
+                "{\"type\":\"parent_content\",\"value\":\"9\"}");
+        wire.put(CopyPageDestination.newBuilder().setExistingPageId("8").build(),
+                "{\"type\":\"existing_page\",\"value\":\"8\"}");
+        for (Map.Entry<CopyPageDestination, String> entry : wire.entrySet()) {
+            Page copy = stub.copyPage(CopyPageRequest.newBuilder().setId("501")
+                    .setDestination(entry.getKey()).build()).getPage();
+            // v2 answers 404 for the copy here, so the page is what the copy answer names.
+            assertThat(copy.getId()).isEqualTo("777");
+            assertThat(copy.getTitle()).isEqualTo("T");
+            assertThat(copy.getSpaceId()).isEqualTo("100");
+            assertThat(copy.getStatus()).isEqualTo(ContentStatus.CONTENT_STATUS_CURRENT);
+            JsonNode sent = JSON.readTree(fake.lastTo("POST", "/wiki/rest/api/content/501/copy").body());
+            assertThat(sent.path("destination")).isEqualTo(JSON.readTree(entry.getValue()));
+            assertThat(sent.has("body")).isFalse();
+            assertThat(sent.has("pageTitle")).isFalse();
+        }
+    }
+
+    @Test
+    void copyPageRefusesAMissingDestinationAndABodyThatIsNotStorage() {
+        assertThatThrownBy(() -> stub.copyPage(CopyPageRequest.newBuilder().setId("501").build()))
+                .isInstanceOfSatisfying(StatusRuntimeException.class, e -> {
+                    assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.INVALID_ARGUMENT);
+                    assertThat(e.getStatus().getDescription()).contains("destination");
+                });
+        assertThatThrownBy(() -> stub.copyPage(CopyPageRequest.newBuilder().setId("501")
+                .setDestination(CopyPageDestination.newBuilder().setSpaceKey("ENG"))
+                .setBody(ContentBody.newBuilder().setWiki(WikiBody.newBuilder().setValue("h1. x")))
+                .build()))
+                .isInstanceOfSatisfying(StatusRuntimeException.class, e -> {
+                    assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.INVALID_ARGUMENT);
+                    assertThat(e.getStatus().getDescription()).contains("STORAGE");
+                });
+        assertThat(fake.requests()).isEmpty();
+    }
+
+    @Test
+    void copyPageFailsOnAnAnswerWithoutAnId() {
+        fake.stub("POST", "/wiki/rest/api/content/501/copy", 200, "{}");
+        assertThatThrownBy(() -> stub.copyPage(CopyPageRequest.newBuilder().setId("501")
+                .setDestination(CopyPageDestination.newBuilder().setSpaceKey("ENG")).build()))
+                .isInstanceOfSatisfying(StatusRuntimeException.class, e -> {
+                    assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.INTERNAL);
+                    assertThat(e.getStatus().getDescription()).contains("has no id");
+                });
+    }
+
+    @Test
+    void copyPageHierarchySendsTheOptionsAndReturnsTheTask() throws Exception {
+        fake.stub("POST", "/wiki/rest/api/content/501/pagehierarchy/copy", 202,
+                "{\"id\":\"1180606\",\"links\":{\"status\":\"/rest/api/longtask/1180606\"}}");
+
+        assertThat(stub.copyPageHierarchy(CopyPageHierarchyRequest.newBuilder().setId("501")
+                .setDestinationPageId("7").setCopyPermissions(true).setCopyDescendants(false)
+                .setTitleOptions(CopyPageTitleOptions.newBuilder().setPrefix("Copy of "))
+                .build()).getTaskId()).isEqualTo("1180606");
+
+        assertThat(JSON.readTree(fake.lastTo("POST", "/wiki/rest/api/content/501/pagehierarchy/copy")
+                .body())).isEqualTo(JSON.readTree("""
+                        {"destinationPageId":"7","copyAttachments":false,"copyPermissions":true,
+                         "copyProperties":false,"copyLabels":false,"copyCustomContents":false,
+                         "copyDescendants":false,"titleOptions":{"prefix":"Copy of "}}"""));
+    }
+
+    @Test
+    void copyPageHierarchyLeavesTheDescendantsDefaultToTheSite() throws Exception {
+        fake.stub("POST", "/wiki/rest/api/content/501/pagehierarchy/copy", 202, "{\"id\":\"9\"}");
+        stub.copyPageHierarchy(CopyPageHierarchyRequest.newBuilder().setId("501")
+                .setDestinationPageId("7").build());
+        JsonNode sent = JSON.readTree(
+                fake.lastTo("POST", "/wiki/rest/api/content/501/pagehierarchy/copy").body());
+        assertThat(sent.has("copyDescendants")).isFalse();
+        assertThat(sent.has("titleOptions")).isFalse();
+    }
+
+    @Test
+    void archivePagesSendsNumericIdsAndReturnsTheTask() throws Exception {
+        fake.stub("POST", "/wiki/rest/api/content/archive", 202,
+                "{\"id\":\"34045953\",\"links\":{\"status\":\"/rest/api/longtask/34045953\"}}");
+
+        assertThat(stub.archivePages(ArchivePagesRequest.newBuilder().addPageIds("34013185")
+                .addPageIds("12").build()).getTaskId()).isEqualTo("34045953");
+
+        assertThat(JSON.readTree(fake.lastTo("POST", "/wiki/rest/api/content/archive").body()))
+                .isEqualTo(JSON.readTree("{\"pages\":[{\"id\":34013185},{\"id\":12}]}"));
+    }
+
+    @Test
+    void archivePagesRefusesNoPagesAndAnIdThatIsNotANumber() {
+        for (ArchivePagesRequest request : List.of(ArchivePagesRequest.getDefaultInstance(),
+                ArchivePagesRequest.newBuilder().addPageIds("att12").build())) {
+            assertThatThrownBy(() -> stub.archivePages(request))
+                    .isInstanceOfSatisfying(StatusRuntimeException.class, e ->
+                            assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.INVALID_ARGUMENT));
+        }
+        assertThat(fake.requests()).isEmpty();
+    }
+
+    @Test
+    void archivePagesFailsOnAnAcceptedAnswerWithoutATask() {
+        fake.stub("POST", "/wiki/rest/api/content/archive", 202, "");
+        assertThatThrownBy(() -> stub.archivePages(ArchivePagesRequest.newBuilder().addPageIds("1")
+                .build()))
+                .isInstanceOfSatisfying(StatusRuntimeException.class, e ->
+                        assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.INTERNAL));
+    }
+
+    // ======================================================================
+    // GROUPS
+    // ======================================================================
+
+    @Test
+    void createGroupSendsTheNameAndReturnsTheGroup() throws Exception {
+        fake.stub("POST", "/wiki/rest/api/group", 201, """
+                {"id":"e0e5b93d-f259-470c-83fd-e461f7fc1905","name":"release-managers",
+                 "managedBy":"ADMINS","usageType":"USERBASE_GROUP",
+                 "resourceAri":"ari:cloud:identity::group/e0e5b93d-f259-470c-83fd-e461f7fc1905",
+                 "type":"group"}""");
+
+        Group group = stub.createGroup(CreateGroupRequest.newBuilder().setName("release-managers")
+                .build()).getGroup();
+
+        assertThat(group).isEqualTo(Group.newBuilder().setId("e0e5b93d-f259-470c-83fd-e461f7fc1905")
+                .setName("release-managers").setType("group")
+                .setManagedBy(GroupManagedBy.GROUP_MANAGED_BY_ADMINS)
+                .setUsageType(GroupUsageType.GROUP_USAGE_TYPE_USERBASE_GROUP)
+                .setResourceAri("ari:cloud:identity::group/e0e5b93d-f259-470c-83fd-e461f7fc1905")
+                .build());
+        assertThat(JSON.readTree(fake.lastTo("POST", "/wiki/rest/api/group").body()))
+                .isEqualTo(JSON.readTree("{\"name\":\"release-managers\"}"));
+    }
+
+    @Test
+    void createGroupRefusesAnEmptyName() {
+        assertThatThrownBy(() -> stub.createGroup(CreateGroupRequest.getDefaultInstance()))
+                .isInstanceOfSatisfying(StatusRuntimeException.class, e ->
+                        assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.INVALID_ARGUMENT));
+        assertThat(fake.requests()).isEmpty();
+    }
+
+    @Test
+    void deleteGroupNamesTheGroupInTheQuery() {
+        fake.stub("DELETE", "/wiki/rest/api/group/by-id", 204, "");
+        stub.deleteGroup(DeleteGroupRequest.newBuilder().setGroupId("g-1").build());
+        RecordedRequest request = fake.lastTo("DELETE", "/wiki/rest/api/group/by-id");
+        assertThat(request.params()).containsOnly(Map.entry("id", "g-1"));
+    }
+
+    @Test
+    void addAndRemoveGroupMemberNameTheGroupAndTheAccount() throws Exception {
+        fake.stub("POST", "/wiki/rest/api/group/userByGroupId", 201, "");
+        fake.stub("DELETE", "/wiki/rest/api/group/userByGroupId", 204, "");
+
+        stub.addGroupMember(AddGroupMemberRequest.newBuilder().setGroupId("g-1")
+                .setAccountId("712020:abc").build());
+        RecordedRequest add = fake.lastTo("POST", "/wiki/rest/api/group/userByGroupId");
+        assertThat(add.params()).containsOnly(Map.entry("groupId", "g-1"));
+        assertThat(JSON.readTree(add.body())).isEqualTo(JSON.readTree("{\"accountId\":\"712020:abc\"}"));
+
+        stub.removeGroupMember(RemoveGroupMemberRequest.newBuilder().setGroupId("g-1")
+                .setAccountId("712020:abc").build());
+        assertThat(fake.lastTo("DELETE", "/wiki/rest/api/group/userByGroupId").params())
+                .containsOnly(Map.entry("accountId", "712020:abc"), Map.entry("groupId", "g-1"));
+    }
+
+    @Test
+    void groupWritesRefuseMissingIds() {
+        List<Runnable> calls = List.of(
+                () -> stub.deleteGroup(DeleteGroupRequest.getDefaultInstance()),
+                () -> stub.addGroupMember(AddGroupMemberRequest.newBuilder().setGroupId("g").build()),
+                () -> stub.addGroupMember(AddGroupMemberRequest.newBuilder().setAccountId("a").build()),
+                () -> stub.removeGroupMember(RemoveGroupMemberRequest.newBuilder().setGroupId("g").build()),
+                () -> stub.removeGroupMember(RemoveGroupMemberRequest.newBuilder().setAccountId("a").build()));
+        for (Runnable call : calls) {
+            assertThatThrownBy(call::run).isInstanceOfSatisfying(StatusRuntimeException.class, e ->
+                    assertThat(e.getStatus().getCode()).isEqualTo(Status.Code.INVALID_ARGUMENT));
+        }
+        assertThat(fake.requests()).isEmpty();
     }
 
     @Test

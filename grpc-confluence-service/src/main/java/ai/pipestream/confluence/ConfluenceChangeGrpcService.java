@@ -13,6 +13,7 @@ import ai.pipestream.confluence.v1.PassTrigger;
 import ai.pipestream.confluence.v1.Attachment;
 import ai.pipestream.confluence.v1.BlogPost;
 import ai.pipestream.confluence.v1.Comment;
+import ai.pipestream.confluence.v1.Group;
 import ai.pipestream.confluence.v1.Page;
 import ai.pipestream.confluence.v1.Space;
 import ai.pipestream.confluence.v1.SyncRequest;
@@ -366,6 +367,24 @@ public final class ConfluenceChangeGrpcService
                 } else {
                     rereadOrDelete(() -> crawler.rereadTreeItem(type, id, source, cursor), sink,
                             item, cursor);
+                }
+            }
+            case CONFLUENCE_EVENT_OBJECT_GROUP -> {
+                ConfluenceEntity.Builder group = ConfluenceEntity.newBuilder().setEntityId(id)
+                        .setGroup(Group.newBuilder().setId(id).setName(event.getTitle()));
+                if (id.isBlank()) {
+                    out.unresolved(event);
+                } else if (gone) {
+                    sink.emit(delete(group, cursor));
+                } else {
+                    try {
+                        crawler.rereadGroup(id, source, cursor);
+                    } catch (ConfluenceClient.ConfluenceApiException e) {
+                        if (e.status() != 400 && e.status() != 404) {
+                            throw e;
+                        }
+                        sink.emit(delete(group, cursor));
+                    }
                 }
             }
             default -> out.unresolved(event);

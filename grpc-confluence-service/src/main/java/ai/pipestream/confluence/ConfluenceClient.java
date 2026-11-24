@@ -758,9 +758,10 @@ public final class ConfluenceClient {
     }
 
     /**
-     * A list route answered 2xx with a body that has no {@code results}
-     * array: an empty body, an error object sent with a success status, or
-     * another service's answer. It is not an empty list.
+     * A route answered 2xx with a body that lacks what the route must
+     * answer: a list without a {@code results} array (an empty body, an
+     * error object sent with a success status, or another service's answer,
+     * none of which is an empty list), or a write without the id it created.
      */
     public static final class MalformedResponseException extends IOException {
         /** Serialization identifier. */
@@ -768,8 +769,25 @@ public final class ConfluenceClient {
         private static final long serialVersionUID = 1L;
 
         MalformedResponseException(String route, JsonNode body) {
-            super("Confluence answered " + pathOf(route) + " with " + describe(body)
+            this("Confluence answered " + pathOf(route) + " with " + describe(body)
                     + ", which has no results array; not reading it as an empty list");
+        }
+
+        private MalformedResponseException(String message) {
+            super(message);
+        }
+
+        /**
+         * A 2xx answer of {@code route} that does not name {@code field}.
+         *
+         * @param route the route or URL that answered
+         * @param field the JSON member the answer must carry
+         * @param body the answer
+         * @return the failure
+         */
+        static MalformedResponseException missing(String route, String field, JsonNode body) {
+            return new MalformedResponseException("Confluence answered " + pathOf(route) + " with "
+                    + describe(body) + ", which has no " + field);
         }
 
         /** The path of a route or URL, without its query (a cursor is long and opaque). */

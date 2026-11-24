@@ -1,6 +1,8 @@
 package ai.pipestream.confluence;
 
 import ai.pipestream.confluence.v1.Group;
+import ai.pipestream.confluence.v1.GroupManagedBy;
+import ai.pipestream.confluence.v1.GroupUsageType;
 import ai.pipestream.confluence.v1.AccountStatus;
 import ai.pipestream.confluence.v1.DetailedVersion;
 import ai.pipestream.confluence.v1.SpacePermission;
@@ -472,7 +474,12 @@ public final class ConfluenceMapper {
      */
     public static Group toGroup(JsonNode node) {
         return Group.newBuilder().setId(node.path("id").asText(""))
-                .setName(node.path("name").asText("")).setType(node.path("type").asText("")).build();
+                .setName(node.path("name").asText("")).setType(node.path("type").asText(""))
+                .setUsageType(wireEnum(GroupUsageType.class, "GROUP_USAGE_TYPE_",
+                        node.path("usageType").asText(""), GroupUsageType.GROUP_USAGE_TYPE_UNSPECIFIED))
+                .setManagedBy(wireEnum(GroupManagedBy.class, "GROUP_MANAGED_BY_",
+                        node.path("managedBy").asText(""), GroupManagedBy.GROUP_MANAGED_BY_UNSPECIFIED))
+                .setResourceAri(node.path("resourceAri").asText("")).build();
     }
 
     /**

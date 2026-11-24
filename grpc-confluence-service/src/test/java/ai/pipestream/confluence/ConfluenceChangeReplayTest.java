@@ -57,8 +57,9 @@ class ConfluenceChangeReplayTest {
                 lost.add(row.path("step").asText());
             }
         });
-        ChangeScenarios scenarios = new ChangeScenarios(channel, client, service,
-                run.path("spaceKey").asText(), run.path("run").asText(), new ChangeScenarios.Events() {
+        ChangeScenarios scenarios = new ChangeScenarios(channel, service,
+                run.path("spaceKey").asText(), run.path("run").asText(),
+                run.path("groupMembers").asBoolean(), new ChangeScenarios.Events() {
                     @Override
                     public void await(java.util.function.Predicate<ConfluenceEvent> match) {
                         // The recorded take answers already hold the event, unless it was lost.

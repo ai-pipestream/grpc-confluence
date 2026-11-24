@@ -1216,7 +1216,10 @@ final class WriteScenarios {
         });
     }
 
-    /** Deletes what the run created, then adds a row for every rpc that has none. */
+    /**
+     * Deletes what the run created, then adds a row for every rpc that has
+     * none, except those {@link ChangeScenarios} runs.
+     */
     private void cleanUp() {
         for (int i = cleanups.size() - 1; i >= 0; i--) {
             try {
@@ -1230,7 +1233,7 @@ final class WriteScenarios {
         }
         Set<String> seen = new LinkedHashSet<>();
         rows.forEach(row -> seen.add(row.rpc()));
-        for (String rpc : ConfluenceWriteRoutes.rpcs()) {
+        for (String rpc : ConfluenceWriteRoutes.writeSuite()) {
             if (!seen.contains(rpc)) {
                 rows.add(parent == null
                         ? new Row(rpc, rpc, "SKIPPED", "the parent page could not be created")

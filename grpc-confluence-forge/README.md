@@ -42,6 +42,11 @@ forge install -e development --product confluence --site <site>.atlassian.net
 forge webtrigger                   # prints the queue and app-api URLs
 ```
 
+Use `-e production` on each command for the production environment. Each
+environment has its own queue, secret, web trigger URLs and custom content
+type id. The CI job `live-confluence-changes` deploys the environment its
+`forge_environment` input names.
+
 Then start `grpc-confluence` with `CONFLUENCE_FORGE_QUEUE_URL` set to that URL
 and `CONFLUENCE_FORGE_QUEUE_SECRET` set to the same secret.
 
