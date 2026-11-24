@@ -18,6 +18,7 @@ import ai.pipestream.confluence.v1.Page;
 import ai.pipestream.confluence.v1.Space;
 import ai.pipestream.confluence.v1.SyncRequest;
 import ai.pipestream.confluence.v1.SyncResponse;
+import ai.pipestream.confluence.v1.UnresolvedReason;
 import ai.pipestream.confluence.v1.WatchChangesRequest;
 import ai.pipestream.confluence.v1.WatchChangesResponse;
 import com.google.protobuf.Timestamp;
@@ -209,10 +210,12 @@ public final class ConfluenceChangeGrpcService
      * Takes queued events, resolves them, and acknowledges those handled. An
      * event followed in the same batch by one of the same type about the same
      * object is acknowledged without its own re-read, since the later re-read
-     * answers the same state. A failed read leaves the event and every later
-     * one in the queue, so the next drain retries them in order.
+     * answers the same state. A read that a retry cannot change sends the
+     * event unresolved and acknowledges it. Any other failed read leaves the
+     * event and every later one in the queue, so the next drain retries them
+     * in order.
      */
-    private void drain(SyncRequest scope, Emitter out) throws Exception {
+    void drain(SyncRequest scope, Emitter out) throws Exception {
         List<ForgeEventQueue.Queued> batch;
         try {
             batch = queue.take(ForgeEventQueue.DEFAULT_TAKE);
@@ -234,7 +237,18 @@ public final class ConfluenceChangeGrpcService
                 ForgeEventQueue.Queued queued = batch.get(i);
                 String key = coalesceKey(queued.event());
                 if (key == null || last.get(key) == i) {
-                    resolve(scope, queued.event(), out);
+                    try {
+                        resolve(scope, queued.event(), out);
+                    } catch (Exception e) {
+                        UnresolvedReason reason = permanent(e);
+                        if (reason == null) {
+                            throw e;
+                        }
+                        LOG.log(System.Logger.Level.WARNING,
+                                "event {0} sent unresolved and removed from the queue: {1}",
+                                queued.event().getEventType(), e.toString());
+                        out.unresolved(queued.event(), reason);
+                    }
                 }
                 handled.add(queued.key());
             }
@@ -251,6 +265,20 @@ public final class ConfluenceChangeGrpcService
             }
             drainListener.accept(new Drain(List.copyOf(batch), out.sequence()));
         }
+    }
+
+    /** Why a failed re-read can never succeed, or {@code null} when a retry may. */
+    static UnresolvedReason permanent(Exception failure) {
+        if (failure instanceof ConfluenceClient.MalformedResponseException) {
+            return UnresolvedReason.UNRESOLVED_REASON_READ_UNMAPPABLE;
+        }
+        if (failure instanceof ConfluenceClient.ConfluenceApiException api) {
+            int status = api.status();
+            if (status >= 400 && status < 500 && status != 401 && status != 408 && status != 429) {
+                return UnresolvedReason.UNRESOLVED_REASON_READ_REJECTED;
+            }
+        }
+        return null;
     }
 
     /** The key under which events of one type about one object coalesce; {@code null} = never. */
@@ -322,7 +350,7 @@ public final class ConfluenceChangeGrpcService
                 }
                 String container = container(event);
                 if (container.isBlank()) {
-                    out.unresolved(event);
+                    out.unresolved(event, UnresolvedReason.UNRESOLVED_REASON_NOT_REREAD);
                 } else {
                     boolean blog = event.getContentType().equals("blogpost")
                             || containerType(event).equals("blogpost");
@@ -344,7 +372,7 @@ public final class ConfluenceChangeGrpcService
             case CONFLUENCE_EVENT_OBJECT_TASK -> {
                 String container = container(event);
                 if (container.isBlank()) {
-                    out.unresolved(event);
+                    out.unresolved(event, UnresolvedReason.UNRESOLVED_REASON_NOT_REREAD);
                 } else {
                     boolean blog = containerType(event).equals("blogpost");
                     rereadOrDelete(() -> crawler.reread(blog, container, source, cursor), sink,
@@ -361,7 +389,7 @@ public final class ConfluenceChangeGrpcService
                 };
                 ConfluenceEntity.Builder item = treeItem(type, id);
                 if (id.isBlank()) {
-                    out.unresolved(event);
+                    out.unresolved(event, UnresolvedReason.UNRESOLVED_REASON_NOT_REREAD);
                 } else if (gone) {
                     sink.emit(delete(item, cursor));
                 } else {
@@ -373,7 +401,7 @@ public final class ConfluenceChangeGrpcService
                 ConfluenceEntity.Builder group = ConfluenceEntity.newBuilder().setEntityId(id)
                         .setGroup(Group.newBuilder().setId(id).setName(event.getTitle()));
                 if (id.isBlank()) {
-                    out.unresolved(event);
+                    out.unresolved(event, UnresolvedReason.UNRESOLVED_REASON_NOT_REREAD);
                 } else if (gone) {
                     sink.emit(delete(group, cursor));
                 } else {
@@ -387,7 +415,7 @@ public final class ConfluenceChangeGrpcService
                     }
                 }
             }
-            default -> out.unresolved(event);
+            default -> out.unresolved(event, UnresolvedReason.UNRESOLVED_REASON_NOT_REREAD);
         }
     }
 
@@ -474,8 +502,9 @@ public final class ConfluenceChangeGrpcService
             send(WatchChangesResponse.newBuilder().setPassCompleted(completed));
         }
 
-        void unresolved(ConfluenceEvent event) {
-            send(WatchChangesResponse.newBuilder().setUnresolvedEvent(event));
+        void unresolved(ConfluenceEvent event, UnresolvedReason reason) {
+            send(WatchChangesResponse.newBuilder().setUnresolvedEvent(event)
+                    .setUnresolvedReason(reason));
         }
 
         /** The sequence of the last message sent, 0 before the first. */
