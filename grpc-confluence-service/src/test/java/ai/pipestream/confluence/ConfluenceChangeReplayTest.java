@@ -83,6 +83,8 @@ class ConfluenceChangeReplayTest {
                 current[0] = scenario.id();
                 scenarios.run(scenario);
                 tape.finish();
+                assertThat(tape.violations()).as("requests that differ from the recording, by "
+                        + scenario.id()).isEmpty();
             }
             tape.scenario("cleanup");
             scenarios.cleanUp();
