@@ -83,7 +83,11 @@ in `ChangeScenarios`, not `WriteScenarios` (`ConfluenceWriteRoutes.CHANGE_SUITE`
   writes do not bump the page version; a v2 move fires `updated:page`;
   restrictions that drop the caller's own edit access are refused
   (allow-self-lockout); live sites return `access-class` principals the v2
-  spec does not list; a missing group id answers 400, not 404.
+  spec does not list; a missing group id answers 400, not 404; a deleted
+  group can still read back for a moment after the delete; an update of an
+  archived page answers 404, and no REST route takes a page out of the
+  archive; a page tree copy fires `created:page` and `copied:page` for each
+  copy.
 - App property rpcs are served to Forge apps only, so they go through the
   Forge `app-api` trigger (`CONFLUENCE_FORGE_APP_URL` /
   `CONFLUENCE_FORGE_APP_SECRET`).

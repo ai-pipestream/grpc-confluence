@@ -47,6 +47,7 @@ final class ChangeScenarios {
     private static final long CALL_DEADLINE_SECONDS = 120;
     private static final int MAX_BACKLOG_DRAINS = 40;
     private static final String TREE_COPY_PREFIX = "Copy of ";
+    private static final int GROUP_GONE_READS = 16;
 
     /** Where queued events come from: live waits for Forge, replay does nothing. */
     interface Events {
@@ -146,7 +147,6 @@ final class ChangeScenarios {
     private boolean restored;
     private String copyId;
     private boolean archived;
-    private boolean unarchived;
     private String treeCopyId;
     private String groupId;
     private boolean groupDeleted;
@@ -198,12 +198,10 @@ final class ChangeScenarios {
                 new Scenario("08b-copied-event", "page copied event resolved", this::copiedEvent),
                 new Scenario("08c-archive-copy", "ArchivePages", this::archiveCopy),
                 new Scenario("08d-archived-event", "page archived event resolved", this::archivedEvent),
-                new Scenario("08e-unarchive-copy", "UpdatePage (out of the archive)",
-                        this::unarchiveCopy),
-                new Scenario("08f-unarchived-event", "page unarchived event resolved",
-                        this::unarchivedEvent),
-                new Scenario("08g-copy-hierarchy", "CopyPageHierarchy", this::copyHierarchy),
-                new Scenario("08h-hierarchy-copied-event", "copied page tree event resolved",
+                new Scenario("08e-update-archived", "UpdatePage (archived page) is refused",
+                        this::updateArchived),
+                new Scenario("08f-copy-hierarchy", "CopyPageHierarchy", this::copyHierarchy),
+                new Scenario("08g-hierarchy-copied-event", "copied page tree event resolved",
                         this::hierarchyCopiedEvent),
                 new Scenario("09-create-comment", "CreateFooterComment", this::createComment),
                 new Scenario("10-comment-created-event", "comment created event resolved",
@@ -816,38 +814,23 @@ final class ChangeScenarios {
         return event(change) + " -> " + state;
     }
 
-    private String unarchiveCopy() throws Exception {
+    /** An archived page reads back, but an update of it answers not found. */
+    private String updateArchived() throws Exception {
         if (!archived) {
             throw new Skip("the copy was not archived");
         }
         Page copy = stub().getPage(GetPageRequest.newBuilder().setId(copyId).build()).getPage();
         try {
-            copy = update(copy, UpdatePageRequest.newBuilder().setTitle(run + " copy")
+            stub().updatePage(UpdatePageRequest.newBuilder().setId(copyId).setTitle(run + " copy")
                     .setStatus(ContentStatus.CONTENT_STATUS_CURRENT)
-                    .setBody(storage(pageBody(", out of the archive"))));
+                    .setBody(storage(pageBody(", out of the archive")))
+                    .setExpectedVersion(copy.getVersion().getNumber()).build());
         } catch (StatusRuntimeException e) {
-            throw new Skip("the site refused the update of an archived page: "
-                    + e.getStatus().getCode() + " " + e.getStatus().getDescription());
+            check(e.getStatus().getCode() == Status.Code.NOT_FOUND,
+                    "the update answered " + e.getStatus().getCode());
+            return "NOT_FOUND";
         }
-        check(copy.getStatus() == ContentStatus.CONTENT_STATUS_CURRENT, "status " + copy.getStatus());
-        unarchived = true;
-        return "current again at version " + copy.getVersion().getNumber();
-    }
-
-    /** Leaving the archive through an update arrives as an unarchived, restored or updated page event. */
-    private String unarchivedEvent() throws Exception {
-        if (!unarchived) {
-            throw new Skip("the copy did not leave the archive");
-        }
-        ConfluenceChange change = expect(event -> event.getObject()
-                == ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_PAGE
-                && event.getContentId().equals(copyId)
-                && (event.getAction() == ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_UNARCHIVED
-                        || event.getAction() == ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_RESTORED
-                        || event.getAction() == ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_UPDATED),
-                c -> c.getEntity().hasPage() && c.getEntity().getEntityId().equals(copyId)
-                        && c.getEntity().getPage().getStatus() == ContentStatus.CONTENT_STATUS_CURRENT);
-        return event(change) + " -> page upsert, status current";
+        throw new AssertionError("the update of an archived page was accepted");
     }
 
     private String copyHierarchy() throws Exception {
@@ -1109,19 +1092,26 @@ final class ChangeScenarios {
         return "the caller added, listed, removed and gone from the list";
     }
 
-    private String deleteGroup() {
+    /** Deletes the group; it can still read back for a while, so the read is retried for 30 seconds. */
+    private String deleteGroup() throws InterruptedException {
         stub().deleteGroup(DeleteGroupRequest.newBuilder().setGroupId(groupId).build());
         groupDeleted = true;
-        try {
-            Group read = stub().getGroup(GetGroupRequest.newBuilder().setGroupId(groupId).build())
-                    .getGroup();
-            throw new AssertionError("the deleted group still reads back as " + read.getName());
-        } catch (StatusRuntimeException e) {
-            Status.Code code = e.getStatus().getCode();
-            check(code == Status.Code.NOT_FOUND || code == Status.Code.INVALID_ARGUMENT,
-                    "GetGroup of the deleted group answered " + code);
-            return "group deleted; GetGroup answers " + code;
+        for (int attempt = 0; attempt < GROUP_GONE_READS; attempt++) {
+            if (attempt > 0) {
+                events.pause(Duration.ofSeconds(2));
+            }
+            try {
+                stub().getGroup(GetGroupRequest.newBuilder().setGroupId(groupId).build());
+            } catch (StatusRuntimeException e) {
+                Status.Code code = e.getStatus().getCode();
+                check(code == Status.Code.NOT_FOUND || code == Status.Code.INVALID_ARGUMENT,
+                        "GetGroup of the deleted group answered " + code);
+                return "group deleted; GetGroup answers " + code + " after " + (attempt + 1)
+                        + " read(s)";
+            }
         }
+        throw new AssertionError("the deleted group still reads back after " + GROUP_GONE_READS
+                + " reads");
     }
 
     private String groupDeletedEvent() throws Exception {
