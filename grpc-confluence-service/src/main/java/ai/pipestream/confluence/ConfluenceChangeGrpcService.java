@@ -55,8 +55,7 @@ public final class ConfluenceChangeGrpcService
     private final ForgeEventQueue queue;
     private final Clock clock;
     private final AtomicLong drainRequests = new AtomicLong();
-    private volatile java.util.function.Consumer<List<ForgeEventQueue.Queued>> drainListener =
-            taken -> { };
+    private volatile java.util.function.Consumer<Drain> drainListener = drain -> { };
 
     /**
      * Creates the service.
@@ -137,8 +136,21 @@ public final class ConfluenceChangeGrpcService
         }
     }
 
-    /** Sets what is told the events each drain took, after the drain. */
-    void onDrain(java.util.function.Consumer<List<ForgeEventQueue.Queued>> listener) {
+    /**
+     * One drain of one stream, as told to {@link #onDrain} when it ends.
+     *
+     * @param taken the events the drain took
+     * @param lastSequence the {@code sequence} of the last message the stream
+     *        had sent when the drain ended, 0 when it had sent none. The
+     *        listener is told from the stream's own thread, ahead of the
+     *        messages still on their way to the client: a caller that reads
+     *        the stream after a drain waits for this message first.
+     */
+    record Drain(List<ForgeEventQueue.Queued> taken, long lastSequence) {
+    }
+
+    /** Sets what is told each drain, after it ends. */
+    void onDrain(java.util.function.Consumer<Drain> listener) {
         this.drainListener = listener;
     }
 
@@ -236,7 +248,7 @@ public final class ConfluenceChangeGrpcService
                         "event queue busy, {0} handled events are taken again next drain: {1}",
                         handled.size(), e.getMessage());
             }
-            drainListener.accept(List.copyOf(batch));
+            drainListener.accept(new Drain(List.copyOf(batch), out.sequence()));
         }
     }
 
@@ -445,6 +457,11 @@ public final class ConfluenceChangeGrpcService
 
         void unresolved(ConfluenceEvent event) {
             send(WatchChangesResponse.newBuilder().setUnresolvedEvent(event));
+        }
+
+        /** The sequence of the last message sent, 0 before the first. */
+        long sequence() {
+            return sequence.get();
         }
 
         private synchronized void send(WatchChangesResponse.Builder message) {
