@@ -11,7 +11,6 @@ import ai.pipestream.confluence.v1.SyncRequest;
 import ai.pipestream.confluence.v1.SyncResponse;
 import io.grpc.Channel;
 
-import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -77,9 +76,11 @@ public final class ConfluenceSourceTask extends ChangeSourceTask<ConfluenceChang
         ConfluenceCrawler crawler = new ConfluenceCrawler(direct,
                 new ConfluenceClient(direct), (ChangeSink) sink);
         if (lastCursor == null || lastCursor.isBlank()) {
-            crawler.crawl();
+            // The crawl's own cursor is from before it listed anything. The
+            // clock at this point is after every edit made while it ran.
+            String next = crawler.crawl();
             out.addAll(sink.changes());
-            return Instant.now().toString();
+            return next;
         }
         String next = crawler.crawlIncremental(lastCursor);
         out.addAll(sink.changes());

@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.InstantSource;
 import java.util.List;
 import java.util.Map;
 
@@ -30,6 +31,10 @@ class ConfluenceCrawlerTest {
     private static final Instant T1 = Instant.parse("2024-03-01T00:00:00Z");
     private static final Instant T2 = Instant.parse("2024-03-02T00:00:00Z");
     private static final Instant T3 = Instant.parse("2024-03-03T00:00:00Z");
+    /** When every pass of these tests begins. */
+    private static final Instant PASS_START = Instant.parse("2024-03-10T12:00:00Z");
+    /** The resume cursor of a pass that began at {@link #PASS_START}. */
+    private static final Instant PASS_CURSOR = PASS_START.minus(ConfluenceCrawler.CURSOR_OVERLAP);
 
     private FakeConfluenceServer fake;
     private InMemoryChangeSink sink;
@@ -49,7 +54,7 @@ class ConfluenceCrawlerTest {
         return new ConfluenceCrawler(config,
                 new ConfluenceClient(config.baseUrl(), config.email(), config.apiToken(),
                         Duration.ZERO),
-                sink);
+                sink, InstantSource.fixed(PASS_START));
     }
 
     private ConfluenceConnectorConfig config(String... spaces) {
@@ -161,8 +166,9 @@ class ConfluenceCrawlerTest {
                 .containsEntry("label", 1L)
                 .containsEntry("content_property", 1L)
                 .containsEntry("space_property", 1L);
-        // The resume cursor is the newest modification observed (the page at T2).
-        assertThat(Instant.parse(snapshot.getCursor())).isEqualTo(T2);
+        // The resume cursor is from before the pass listed anything, not the
+        // newest modification it saw (the page at T2).
+        assertThat(Instant.parse(snapshot.getCursor())).isEqualTo(PASS_CURSOR);
         assertThat(snapshot.hasCompletedAt()).isTrue();
     }
 
@@ -395,7 +401,8 @@ class ConfluenceCrawlerTest {
         assertThat(change.getCursor()).isEqualTo(T2.toString());
         assertThat(change.getEntity().getEntityCase()).isEqualTo(ConfluenceEntity.EntityCase.PAGE);
         assertThat(change.getEntity().getEntityId()).isEqualTo("203");
-        assertThat(Instant.parse(newCursor)).isEqualTo(T3);
+        // Not T3, the newest modification seen: the cursor is the pass start.
+        assertThat(Instant.parse(newCursor)).isEqualTo(PASS_CURSOR);
 
         // The incremental pass asked for newest-first ordering.
         assertThat(fake.requestsTo("/wiki/api/v2/pages").get(0).query())
@@ -475,7 +482,29 @@ class ConfluenceCrawlerTest {
     }
 
     @Test
-    void incrementalWithNothingNewKeepsTheCursor() throws Exception {
+    void fullCrawlReturnsTheCursorItsSnapshotsCarry() throws Exception {
+        stubWorkspace();
+
+        String cursor = crawler(config()).crawl();
+
+        assertThat(Instant.parse(cursor)).isEqualTo(PASS_CURSOR);
+        assertThat(sink.snapshots()).extracting(ConfluenceSnapshot::getCursor).containsExactly(cursor);
+    }
+
+    @Test
+    void fullCrawlThatSweepsNoSpaceReturnsNoCursor() throws Exception {
+        stubWorkspace();
+
+        // The allowlist names a space the credentials cannot see.
+        String cursor = crawler(config("OPS")).crawl();
+
+        // Nothing was crawled, so the next pass has to be a full crawl again.
+        assertThat(cursor).isEmpty();
+        assertThat(sink.snapshots()).isEmpty();
+    }
+
+    @Test
+    void incrementalWithNothingNewStillMovesTheCursorToThePassStart() throws Exception {
         fake.stub("/wiki/api/v2/spaces",
                 ConfluenceFixtures.spaceListJson(null,
                         ConfluenceFixtures.spaceJson("100", "ENG", "Engineering")));
@@ -491,6 +520,7 @@ class ConfluenceCrawlerTest {
         assertThat(sink.changes()).extracting(c -> c.getEntity().getEntityId())
                 .containsExactlyInAnyOrder("100", "space:100/access", "page:202/restriction-state",
                         "page:202/access");
-        assertThat(Instant.parse(newCursor)).isEqualTo(T2);
+        // The cursor moves up to this pass even though nothing was new.
+        assertThat(Instant.parse(newCursor)).isEqualTo(PASS_CURSOR);
     }
 }

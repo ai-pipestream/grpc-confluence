@@ -2229,8 +2229,11 @@ message SyncResponse {
     // cursor and entity counts.
     ConfluenceSnapshot snapshot = 2;
     // Terminal message of every Sync stream: the cursor to pass back as
-    // since_cursor next time (the newest modification observed; empty when
-    // the pass observed nothing).
+    // since_cursor next time. It is the time this pass began, less a few
+    // minutes of overlap, and never a modification time the pass saw, so an
+    // edit made while the pass ran is not behind it. The next pass emits
+    // again what changed inside the overlap. Empty when a full crawl swept
+    // no space.
     string resume_cursor = 3;
   }
 }

@@ -2103,6 +2103,7 @@ class ConfluenceGrpcServiceTest {
     @Test
     void syncFullCrawlStreamsChangesSnapshotAndResumeCursor() {
         stubWorkspace();
+        Instant before = Instant.now();
 
         List<SyncResponse> events = sync(SyncRequest.getDefaultInstance());
 
@@ -2129,10 +2130,13 @@ class ConfluenceGrpcServiceTest {
         assertThat(snapshots).hasSize(1);
         assertThat(snapshots.get(0).getSpaceKey()).isEqualTo("ENG");
 
-        // The terminal message carries the resume cursor: the newest
-        // modification observed (the page at T2).
+        // The terminal message carries the resume cursor: the start of the
+        // pass less the overlap, not the newest modification observed (T2).
         assertThat(events.getLast().getEventCase()).isEqualTo(SyncResponse.EventCase.RESUME_CURSOR);
-        assertThat(Instant.parse(events.getLast().getResumeCursor())).isEqualTo(T2);
+        assertThat(Instant.parse(events.getLast().getResumeCursor()))
+                .isBetween(before.minus(ConfluenceCrawler.CURSOR_OVERLAP).minusSeconds(1),
+                        before.minus(ConfluenceCrawler.CURSOR_OVERLAP).plusSeconds(60));
+        assertThat(snapshots.get(0).getCursor()).isEqualTo(events.getLast().getResumeCursor());
     }
 
     @Test
@@ -2166,6 +2170,7 @@ class ConfluenceGrpcServiceTest {
             fake.stub("/wiki/api/v2/pages/203/" + sub, ConfluenceFixtures.emptyListJson());
         }
 
+        Instant before = Instant.now();
         List<SyncResponse> events = sync(SyncRequest.newBuilder()
                 .setSinceCursor(T2.toString()).setIncludeBodies(true).build());
 
@@ -2176,7 +2181,10 @@ class ConfluenceGrpcServiceTest {
         assertThat(changes.get(0).getEntity().getEntityId()).isEqualTo("203");
         assertThat(changes.get(0).getEntity().getPage().hasBody()).isTrue();
         assertThat(events.getLast().getEventCase()).isEqualTo(SyncResponse.EventCase.RESUME_CURSOR);
-        assertThat(Instant.parse(events.getLast().getResumeCursor())).isEqualTo(T3);
+        // Not T3, the newest modification seen: the start of the pass less the overlap.
+        assertThat(Instant.parse(events.getLast().getResumeCursor()))
+                .isBetween(before.minus(ConfluenceCrawler.CURSOR_OVERLAP).minusSeconds(1),
+                        before.minus(ConfluenceCrawler.CURSOR_OVERLAP).plusSeconds(60));
     }
 
     // ======================================================================

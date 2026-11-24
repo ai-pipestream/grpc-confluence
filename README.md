@@ -112,6 +112,16 @@ SYNC_TABLE_TARGET=localhost:9097
 SYNC_TABLE_PLAINTEXT=true
 ```
 
+The resume cursor a `Sync` ends with is the time the pass began, less five
+minutes of overlap (`ConfluenceCrawler.CURSOR_OVERLAP`), read before the
+pass lists anything. It is not the newest modification time the pass saw:
+a crawl runs for a long time, and a page edited after it was listed would
+sit behind such a cursor and never be emitted. The next incremental pass
+emits again whatever changed inside the overlap, so consumers must treat a
+change as an upsert. A cursor stored by an older version may already be
+past edits that version skipped; one full `Sync` (empty `since_cursor`)
+picks them up.
+
 A ledger write that fails ends the `Sync` with an error whose description
 starts `sync-table <rpc> failed for <row>`: `UNAVAILABLE` when the ledger
 could not be reached in time (run the `Sync` again), `INTERNAL` for any

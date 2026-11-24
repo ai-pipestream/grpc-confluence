@@ -45,7 +45,9 @@ message ConfluenceSnapshot {
   string space_key = 2;
   // Number of entities emitted per entity kind (e.g. "page_bulk": 4213).
   map<string, int64> entity_counts = 3;
-  // Opaque pagination cursor the sweep ended on, for resumable crawls.
+  // The resume cursor of the pass this sweep belongs to, as RFC3339: the
+  // time the pass began, less a few minutes of overlap. Every snapshot of
+  // one pass carries the same value, and so does the pass's resume_cursor.
   string cursor = 4;
   // When the sweep started.
   google.protobuf.Timestamp started_at = 5;

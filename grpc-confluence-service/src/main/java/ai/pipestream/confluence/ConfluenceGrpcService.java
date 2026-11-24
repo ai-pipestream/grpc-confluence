@@ -2165,7 +2165,6 @@ public final class ConfluenceGrpcService
                             session.config.pageSize(), session.config.bodyFormat(),
                             session.config.maxAttachmentBytes());
             Object lock = new Object();
-            AtomicReference<String> newestSnapshotCursor = new AtomicReference<>("");
             AtomicReference<String> runId = new AtomicReference<>("");
             ChangeSink observerSink = new ChangeSink() {
                 @Override
@@ -2181,8 +2180,6 @@ public final class ConfluenceGrpcService
                 @Override
                 public void snapshot(ConfluenceSnapshot snapshot) {
                     VALIDATOR.requireValid(snapshot);
-                    newestSnapshotCursor.accumulateAndGet(snapshot.getCursor(),
-                            ConfluenceGrpcService::laterCursor);
                     synchronized (lock) {
                         observer.onNext(SyncResponse.newBuilder().setSnapshot(snapshot).build());
                     }
@@ -2223,8 +2220,7 @@ public final class ConfluenceGrpcService
             try {
                 String resumeCursor;
                 if (request.getSinceCursor().isBlank()) {
-                    crawler.crawl();
-                    resumeCursor = newestSnapshotCursor.get();
+                    resumeCursor = crawler.crawl();
                     sink.completeRun(runId.get());
                 } else {
                     resumeCursor = crawler.crawlIncremental(request.getSinceCursor());
@@ -3192,16 +3188,6 @@ public final class ConfluenceGrpcService
             default -> entity;
         };
         return stripped == entity ? change : change.toBuilder().setEntity(stripped).build();
-    }
-
-    private static String laterCursor(String a, String b) {
-        if (a == null || a.isBlank()) {
-            return b == null ? "" : b;
-        }
-        if (b == null || b.isBlank()) {
-            return a;
-        }
-        return java.time.Instant.parse(a).compareTo(java.time.Instant.parse(b)) >= 0 ? a : b;
     }
 
     private static <T extends Message> T requireValid(T message) {

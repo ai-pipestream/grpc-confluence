@@ -38,7 +38,10 @@ import com.google.protobuf.Timestamp;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.InstantSource;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -70,6 +73,15 @@ import java.util.concurrent.atomic.AtomicReference;
  * {@code sort=-modified-date} (a v2 list-endpoint parameter per the spec's
  * PageSortOrder/BlogPostSortOrder), walks newest-first, stops at the stored
  * cursor timestamp, and emits {@code source=CQL_INCREMENTAL}.</p>
+ *
+ * <p>The resume cursor of a pass is the time the pass began, less
+ * {@link #CURSOR_OVERLAP}, read before the first list call. It is never
+ * taken from the modification times the pass saw: a pass runs for a long
+ * time, and an edit made to an item after the pass listed it is older than
+ * a later edit the pass did see, so a cursor at the newest time seen would
+ * put that edit behind it for good. The next pass therefore emits again
+ * whatever changed inside the overlap; consumers already treat every change
+ * as an upsert.</p>
  *
  * <p>Security-trimming data rides along: per space its permission
  * assignments and (role-based-access tenants) role assignments, per page,
@@ -103,6 +115,13 @@ public final class ConfluenceCrawler {
 
     private static final System.Logger LOG = System.getLogger(ConfluenceCrawler.class.getName());
 
+    /**
+     * How far before the start of a pass its resume cursor is set. It covers
+     * the difference between this host's clock and Confluence's, and an edit
+     * that a list call does not show yet although its timestamp has passed.
+     */
+    public static final Duration CURSOR_OVERLAP = Duration.ofMinutes(5);
+
     /** The most ancestors one {@code ancestors} read returns. */
     private static final int ANCESTORS_LIMIT = 250;
 
@@ -110,6 +129,7 @@ public final class ConfluenceCrawler {
     private final ConfluenceClient client;
     private final ConfluenceMapper mapper;
     private final ChangeSink sink;
+    private final InstantSource clock;
     /** Group ids named by a permission this run. */
     private final Set<String> groupIds = ConcurrentHashMap.newKeySet();
     /** Account ids named by a permission this run. */
@@ -130,20 +150,49 @@ public final class ConfluenceCrawler {
      */
     public ConfluenceCrawler(ConfluenceConnectorConfig config, ConfluenceClient client,
             ChangeSink sink) {
+        this(config, client, sink, InstantSource.system());
+    }
+
+    /**
+     * Creates a crawler that reads the start of each pass from {@code clock}.
+     *
+     * @param config crawl scope and credentials
+     * @param client the authorized REST client
+     * @param sink where changes and snapshots go
+     * @param clock the time source for resume cursors
+     */
+    ConfluenceCrawler(ConfluenceConnectorConfig config, ConfluenceClient client,
+            ChangeSink sink, InstantSource clock) {
         this.config = Objects.requireNonNull(config, "config");
         this.client = Objects.requireNonNull(client, "client");
         this.mapper = new ConfluenceMapper(config.baseUrl());
         this.sink = Objects.requireNonNull(sink, "sink");
+        this.clock = Objects.requireNonNull(clock, "clock");
+    }
+
+    /**
+     * The resume cursor of a pass that begins now. Call it before the pass
+     * lists anything.
+     */
+    private Timestamp passCursor() {
+        return timestamp(clock.instant().minus(CURSOR_OVERLAP).truncatedTo(ChronoUnit.MILLIS));
     }
 
     /**
      * A full crawl of every space the credentials can see, or of the
      * configured space-key allowlist.
      *
+     * @return the resume cursor for {@link #crawlIncremental(String)}: the
+     *         time this crawl began less {@link #CURSOR_OVERLAP}, as RFC3339,
+     *         which is also the cursor on every snapshot of the crawl; empty
+     *         when no space was swept, so that the next pass is a full crawl
+     *         again
      * @throws IOException if a REST call fails
      * @throws InterruptedException if the calling thread is interrupted while waiting
      */
-    public void crawl() throws IOException, InterruptedException {
+    public String crawl() throws IOException, InterruptedException {
+        Timestamp resume = passCursor();
+        boolean swept = false;
         String runId = UUID.randomUUID().toString();
         groupIds.clear();
         accountIds.clear();
@@ -154,9 +203,11 @@ public final class ConfluenceCrawler {
             if (config.hasSpaceAllowlist() && !config.spaces().contains(space.getKey())) {
                 continue;
             }
-            crawlSpace(space, runId, ChangeSource.CHANGE_SOURCE_CRAWL, null, runId);
+            crawlSpace(space, runId, ChangeSource.CHANGE_SOURCE_CRAWL, null, runId, resume);
+            swept = true;
         }
         crawlPrincipals(ChangeSource.CHANGE_SOURCE_CRAWL, runId);
+        return swept ? rfc3339(resume) : "";
     }
 
     /**
@@ -176,17 +227,17 @@ public final class ConfluenceCrawler {
      * for databases, its fields and entries re-read) only when its version
      * is newer than the cursor; its security data is re-read every run.</p>
      *
-     * @param sinceRfc3339 the cursor a previous crawl left on its snapshot
-     *        (an RFC3339 timestamp)
-     * @return the new cursor: the newest modification timestamp observed, or
-     *         {@code sinceRfc3339} unchanged when nothing moved
+     * @param sinceRfc3339 the cursor a previous pass returned (an RFC3339
+     *        timestamp)
+     * @return the new cursor: the time this pass began less
+     *         {@link #CURSOR_OVERLAP}, as RFC3339, whatever the pass saw
      * @throws IOException if a REST call fails
      * @throws InterruptedException if the calling thread is interrupted while waiting
      */
     public String crawlIncremental(String sinceRfc3339) throws IOException, InterruptedException {
         Objects.requireNonNull(sinceRfc3339, "sinceRfc3339");
         Timestamp since = ConfluenceMapper.timestamp(sinceRfc3339);
-        AtomicReference<Timestamp> newest = new AtomicReference<>(since);
+        Timestamp resume = passCursor();
         groupIds.clear();
         accountIds.clear();
         ownerReads.clear();
@@ -196,13 +247,11 @@ public final class ConfluenceCrawler {
             if (config.hasSpaceAllowlist() && !config.spaces().contains(space.getKey())) {
                 continue;
             }
-            Timestamp spaceNewest = crawlSpace(space, UUID.randomUUID().toString(),
-                    ChangeSource.CHANGE_SOURCE_CQL_INCREMENTAL, since, sinceRfc3339);
-            newest.accumulateAndGet(spaceNewest, ConfluenceCrawler::later);
+            crawlSpace(space, UUID.randomUUID().toString(),
+                    ChangeSource.CHANGE_SOURCE_CQL_INCREMENTAL, since, sinceRfc3339, resume);
         }
         crawlPrincipals(ChangeSource.CHANGE_SOURCE_CQL_INCREMENTAL, sinceRfc3339);
-        Timestamp result = newest.get();
-        return result == null ? sinceRfc3339 : rfc3339(result);
+        return rfc3339(resume);
     }
 
     /**
@@ -210,14 +259,13 @@ public final class ConfluenceCrawler {
      * incremental: content lists walk newest-first and stop at that
      * timestamp, and the security data of the unchanged content is re-read.
      * The space itself is emitted after its security data, carrying its
-     * {@link AclCompleteness}. Returns the newest modification
-     * timestamp observed.
+     * {@link AclCompleteness}. A full sweep's snapshot carries
+     * {@code resume}, the cursor of the whole pass.
      */
-    private Timestamp crawlSpace(Space space, String runId, ChangeSource source, Timestamp stopAt,
-            String changeCursor) throws IOException, InterruptedException {
-        Instant started = Instant.now();
+    private void crawlSpace(Space space, String runId, ChangeSource source, Timestamp stopAt,
+            String changeCursor, Timestamp resume) throws IOException, InterruptedException {
+        Instant started = clock.instant();
         Map<String, Long> counts = new ConcurrentHashMap<>();
-        AtomicReference<Timestamp> newest = new AtomicReference<>(stopAt);
         AtomicReference<Throwable> failure = new AtomicReference<>();
         Set<String> seenTree = ConcurrentHashMap.newKeySet();
 
@@ -228,15 +276,14 @@ public final class ConfluenceCrawler {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             executor.submit(() -> {
                 try {
-                    crawlContent(space, "page", source, stopAt, changeCursor, counts, newest,
-                            seenTree);
+                    crawlContent(space, "page", source, stopAt, changeCursor, counts, seenTree);
                 } catch (Throwable t) {
                     failure.compareAndSet(null, t);
                 }
             });
             executor.submit(() -> {
                 try {
-                    crawlContent(space, "blogpost", source, stopAt, changeCursor, counts, newest,
+                    crawlContent(space, "blogpost", source, stopAt, changeCursor, counts,
                             seenTree);
                 } catch (Throwable t) {
                     failure.compareAndSet(null, t);
@@ -268,14 +315,13 @@ public final class ConfluenceCrawler {
                     .setSnapshotId(runId + "-" + space.getKey())
                     .setSpaceKey(space.getKey())
                     .putAllEntityCounts(sortedCounts(counts))
-                    .setCursor(rfc3339(newest.get()))
+                    .setCursor(rfc3339(resume))
                     .setStartedAt(timestamp(started))
-                    .setCompletedAt(timestamp(Instant.now()))
+                    .setCompletedAt(timestamp(clock.instant()))
                     .build();
             ConfluenceValidator.create().requireValid(snapshot);
             sink.snapshot(snapshot);
         }
-        return newest.get();
     }
 
     /**
@@ -285,8 +331,8 @@ public final class ConfluenceCrawler {
      * crawl in full.
      */
     private void crawlContent(Space space, String kind, ChangeSource source, Timestamp stopAt,
-            String changeCursor, Map<String, Long> counts, AtomicReference<Timestamp> newest,
-            Set<String> seenTree) throws IOException, InterruptedException {
+            String changeCursor, Map<String, Long> counts, Set<String> seenTree)
+            throws IOException, InterruptedException {
         Map<String, String> query = new TreeMap<>();
         query.put("space-id", space.getId());
         query.put("limit", String.valueOf(config.pageSize()));
@@ -315,9 +361,6 @@ public final class ConfluenceCrawler {
                         // Content at or older than the cursor: the sweep is done.
                         reachedCursor = true;
                         break;
-                    }
-                    if (modified != null) {
-                        newest.accumulateAndGet(modified, ConfluenceCrawler::later);
                     }
                     crawled.add(node.path("id").asText(""));
                     executor.submit(() -> {
@@ -1018,17 +1061,6 @@ public final class ConfluenceCrawler {
     private static int compare(Timestamp a, Timestamp b) {
         int bySeconds = Long.compare(a.getSeconds(), b.getSeconds());
         return bySeconds != 0 ? bySeconds : Integer.compare(a.getNanos(), b.getNanos());
-    }
-
-    /** The later of two timestamps (null-safe). */
-    private static Timestamp later(Timestamp a, Timestamp b) {
-        if (a == null) {
-            return b;
-        }
-        if (b == null) {
-            return a;
-        }
-        return compare(a, b) >= 0 ? a : b;
     }
 
     private static String rfc3339(Timestamp timestamp) {
