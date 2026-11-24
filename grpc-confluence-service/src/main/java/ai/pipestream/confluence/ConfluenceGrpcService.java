@@ -2203,32 +2203,15 @@ public final class ConfluenceGrpcService
             List<ChangeSink> extras = new ArrayList<>();
             extras.add(observerSink);
             if (ledgerSink != null) {
-                SyncTableChangeSink bound = ledgerSink.boundTo(session.connectionId);
-                if (request.getSpaceKeysList().isEmpty()) {
-                    extras.add(bound);
-                } else {
-                    // A request-scoped subset crawl cannot prove absence outside
-                    // its spaces: letting completeRun reconcile would soft-delete
-                    // every other space's ledger rows for this connection.
-                    extras.add(new ChangeSink() {
-                        @Override
-                        public void emit(ConfluenceChange change) {
-                            bound.emit(change);
-                        }
-
-                        @Override
-                        public void snapshot(ConfluenceSnapshot snapshot) {
-                            bound.snapshot(snapshot);
-                        }
-                    });
-                }
+                // The ledger reconciles only on a full sweep, see below.
+                extras.add(ledgerSink.boundTo(session.connectionId));
             }
             OutputChangeSink runtimeOutput = bindOutput(session);
             if (runtimeOutput != null) {
                 extras.add(runtimeOutput);
             }
             if (downstream != null) {
-                extras.add(downstream);
+                extras.add(downstream.forConnection(session.connectionId));
             }
             ChangeSink sink = extras.size() == 1 ? extras.get(0) : new CompositeChangeSink(extras);
             ConfluenceCrawler crawler = new ConfluenceCrawler(effective, session.client, sink);
@@ -2236,9 +2219,20 @@ public final class ConfluenceGrpcService
                 String resumeCursor;
                 if (request.getSinceCursor().isBlank()) {
                     resumeCursor = crawler.crawl();
-                    sink.completeRun(runId.get());
+                    // A crawl of a requested subset of spaces cannot prove
+                    // absence outside those spaces: only a crawl of all the
+                    // connection covers is a full sweep, which lets the
+                    // ledger soft-delete the rows it did not see and the
+                    // outputs drop the records it did not emit. A crawl
+                    // that emitted nothing at all proves nothing either.
+                    boolean fullSweep = request.getSpaceKeysList().isEmpty()
+                            && !runId.get().isEmpty();
+                    sink.completeRun(runId.get(), fullSweep);
                 } else {
                     resumeCursor = crawler.crawlIncremental(request.getSinceCursor());
+                    // The outputs still write their end-of-run artifacts for
+                    // an incremental pass; nothing is reconciled.
+                    sink.completeRun(request.getSinceCursor(), false);
                 }
                 synchronized (lock) {
                     observer.onNext(SyncResponse.newBuilder().setResumeCursor(resumeCursor).build());

@@ -65,6 +65,101 @@ class OkfChangeSinkTest {
         assertThat(OkfConformance.check(check)).isEmpty();
     }
 
+    @Test
+    void anIncrementalPassMergesIntoTheBundleOfTheLastFullSweep(@TempDir Path dir) throws Exception {
+        Path tree = dir.resolve("okf");
+        OkfChangeSink sink = new OkfChangeSink(new OkfOutput(tree, dir.resolve("okf.zip"),
+                dir.resolve("okf.warc.gz")));
+        sink.emit(page("200", "Doc"));
+        sink.emit(page("201", "Other"));
+        sink.completeRun("run-1", true);
+
+        sink.emit(page("200", "Doc, edited"));
+        sink.completeRun("2026-01-01T00:00:00Z", false);
+
+        assertThat(Files.readString(tree.resolve("pages/200.md"))).contains("title: \"Doc, edited\"");
+        assertThat(Files.readString(tree.resolve("index.md"))).contains("pages");
+        assertThat(Files.readString(tree.resolve("pages/index.md"))).contains("200.md", "201.md");
+    }
+
+    @Test
+    void aFullSweepDropsWhatItDidNotEmit(@TempDir Path dir) throws Exception {
+        Path tree = dir.resolve("okf");
+        OkfChangeSink sink = new OkfChangeSink(new OkfOutput(tree, dir.resolve("okf.zip"),
+                dir.resolve("okf.warc.gz")));
+        sink.emit(page("200", "Doc"));
+        sink.emit(page("201", "Other"));
+        sink.completeRun("run-1", true);
+
+        sink.emit(page("200", "Doc"));
+        sink.completeRun("run-2", true);
+
+        assertThat(Files.readString(tree.resolve("pages/index.md")))
+                .contains("200.md").doesNotContain("201.md");
+    }
+
+    @Test
+    void anIncrementalPassWithNoFullSweepBeforeItWritesBesideTheBundle(@TempDir Path dir)
+            throws Exception {
+        Path tree = dir.resolve("okf");
+        OkfChangeSink sink = new OkfChangeSink(new OkfOutput(tree, dir.resolve("okf.zip"),
+                dir.resolve("okf.warc.gz")));
+        sink.emit(page("200", "Doc, edited"));
+
+        sink.completeRun("2026-01-01T00:00:00Z", false);
+
+        Path increment = dir.resolve("okf-increments-2026-01-01T00_00_00Z");
+        assertThat(increment.resolve("pages/200.md")).exists();
+        assertThat(dir.resolve("okf-increments-2026-01-01T00_00_00Z.zip")).exists();
+        assertThat(dir.resolve("okf-increments-2026-01-01T00_00_00Z.warc.gz")).exists();
+        assertThat(tree).doesNotExist();
+        assertThat(dir.resolve("okf.zip")).doesNotExist();
+    }
+
+    @Test
+    void anIncrementalPassThatEmittedNothingWritesNothing(@TempDir Path dir) {
+        Path tree = dir.resolve("okf");
+        OkfChangeSink sink = new OkfChangeSink(new OkfOutput(tree, dir.resolve("okf.zip"),
+                dir.resolve("okf.warc.gz")));
+
+        sink.completeRun("2026-01-01T00:00:00Z", false);
+
+        assertThat(dir).isEmptyDirectory();
+    }
+
+    @Test
+    void aFullSweepOfOneConnectionKeepsTheOtherConnectionInTheBundle(@TempDir Path dir)
+            throws Exception {
+        Path tree = dir.resolve("okf");
+        OkfChangeSink sink = new OkfChangeSink(new OkfOutput(tree, dir.resolve("okf.zip"),
+                dir.resolve("okf.warc.gz")));
+        ChangeSink acme = sink.forConnection("acme");
+        ChangeSink globex = sink.forConnection("globex");
+        acme.emit(page("200", "Acme doc"));
+        acme.completeRun("run-a", true);
+        globex.emit(page("900", "Globex doc"));
+        globex.completeRun("run-g", true);
+
+        ChangeSink acmeAgain = sink.forConnection("acme");
+        acmeAgain.emit(page("201", "Acme second doc"));
+        acmeAgain.completeRun("run-a2", true);
+
+        assertThat(Files.readString(tree.resolve("pages/index.md")))
+                .contains("201.md", "900.md").doesNotContain("200.md");
+    }
+
+    @Test
+    void anIncrementOfOneConnectionAmongSeveralCarriesTheConnectionInItsName(@TempDir Path dir) {
+        OkfChangeSink sink = new OkfChangeSink(new OkfOutput(dir.resolve("okf"),
+                dir.resolve("okf.zip"), dir.resolve("okf.warc.gz")));
+        ChangeSink globex = sink.forConnection("globex");
+        globex.emit(page("900", "Globex doc"));
+
+        globex.completeRun("2026-01-01T00:00:00Z", false);
+
+        assertThat(dir.resolve("okf-increments-globex-2026-01-01T00_00_00Z/pages/900.md")).exists();
+    }
+
     private static ConfluenceChange page(String id, String title) {
         return ConfluenceChange.newBuilder()
                 .setChangeId(id + title)

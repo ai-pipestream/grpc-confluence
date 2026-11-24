@@ -14,18 +14,28 @@ import com.google.protobuf.Message;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Writes crawl artifacts through the output SPI: protobuf, JSON, OKF, and
  * any other loaded {@link OutputFormat}, into the selected
  * {@link OutputStore} (filesystem by default, S3 when that jar is loaded
  * and {@code OUTPUT_STORE=s3}).
+ *
+ * <p>Per-record formats write on {@link #emit}. End-of-run formats (OKF) are
+ * written when a pass completes, from a mirror: the latest record per object
+ * key. A full sweep of a connection replaces that connection's records in
+ * the mirror with exactly what it emitted. A pass that was not a full sweep
+ * merges its records into the mirror, so the bundle keeps what the pass did
+ * not visit. When this sink has completed no full sweep of the connection
+ * yet there is nothing to merge into, and the pass writes its records under
+ * {@code {prefix}/increments/{run-id}} (with the connection id in between
+ * when the sink serves several) instead of replacing the full bundle with a
+ * partial one. A pass that was not a full sweep and emitted nothing writes
+ * nothing.</p>
  */
 public final class OutputChangeSink implements ChangeSink, AutoCloseable {
 
@@ -34,7 +44,8 @@ public final class OutputChangeSink implements ChangeSink, AutoCloseable {
     private final OutputStore store;
     private final List<OutputFormat> formats;
     private final String prefix;
-    private final List<Message> records = new CopyOnWriteArrayList<>();
+    private final RunMirror<Message> mirror = new RunMirror<>();
+    private final RunMirror<Message>.Pass own = mirror.pass("");
 
     /**
      * Creates a sink.
@@ -143,8 +154,54 @@ public final class OutputChangeSink implements ChangeSink, AutoCloseable {
 
     @Override
     public void emit(ConfluenceChange change) {
-        records.add(change);
-        String key = ObjectKeys.under(prefix, ConfluenceObjectKeys.of(change));
+        emit(own, change);
+    }
+
+    @Override
+    public void snapshot(ConfluenceSnapshot snapshot) {
+        // Snapshots are crawl markers; artifacts come from emit/complete.
+    }
+
+    @Override
+    public void completeRun(String runId) {
+        completeRun(runId, true);
+    }
+
+    @Override
+    public void completeRun(String runId, boolean fullSweep) {
+        complete(own, runId, fullSweep);
+    }
+
+    @Override
+    public ChangeSink forConnection(String connectionId) {
+        RunMirror<Message>.Pass pass = mirror.pass(connectionId);
+        return new ChangeSink() {
+            @Override
+            public void emit(ConfluenceChange change) {
+                OutputChangeSink.this.emit(pass, change);
+            }
+
+            @Override
+            public void snapshot(ConfluenceSnapshot snapshot) {
+                OutputChangeSink.this.snapshot(snapshot);
+            }
+
+            @Override
+            public void completeRun(String runId) {
+                complete(pass, runId, true);
+            }
+
+            @Override
+            public void completeRun(String runId, boolean fullSweep) {
+                complete(pass, runId, fullSweep);
+            }
+        };
+    }
+
+    private void emit(RunMirror<Message>.Pass pass, ConfluenceChange change) {
+        String relative = ConfluenceObjectKeys.of(change);
+        pass.put(relative, change);
+        String key = ObjectKeys.under(prefix, relative);
         try {
             for (OutputFormat format : formats) {
                 if (format.supports(change)) {
@@ -156,23 +213,31 @@ public final class OutputChangeSink implements ChangeSink, AutoCloseable {
         }
     }
 
-    @Override
-    public void snapshot(ConfluenceSnapshot snapshot) {
-        // Snapshots are crawl markers; artifacts come from emit/complete.
-    }
-
-    @Override
-    public void completeRun(String runId) {
-        try {
-            for (OutputFormat format : formats) {
-                format.complete(store, new ArrayList<>(records), prefix);
+    private void complete(RunMirror<Message>.Pass pass, String runId, boolean fullSweep) {
+        // One pass at a time writes the end-of-run artifacts.
+        synchronized (mirror) {
+            RunMirror.Completed<Message> completed = pass.complete(fullSweep);
+            if (!completed.changed()) {
+                return;
             }
-            LOG.log(System.Logger.Level.INFO,
-                    "confluence-proxy output wrote {0} records store={1} formats={2}",
-                    records.size(), store.id(),
-                    formats.stream().map(OutputFormat::id).toList());
-        } catch (IOException e) {
-            throw new UncheckedIOException("output complete failed for run " + runId, e);
+            String target = completed.increment()
+                    ? ObjectKeys.under(prefix, ObjectKeys.join("increments",
+                            pass.connectionId().isEmpty()
+                                    ? "" : ObjectKeys.segment(pass.connectionId()),
+                            ObjectKeys.segment(runId)))
+                    : prefix;
+            try {
+                for (OutputFormat format : formats) {
+                    format.complete(store, completed.values(), target);
+                }
+                LOG.log(System.Logger.Level.INFO,
+                        "confluence-proxy output wrote {0} records store={1} formats={2}"
+                                + " prefix={3} fullSweep={4}",
+                        completed.values().size(), store.id(),
+                        formats.stream().map(OutputFormat::id).toList(), target, fullSweep);
+            } catch (IOException e) {
+                throw new UncheckedIOException("output complete failed for run " + runId, e);
+            }
         }
     }
 

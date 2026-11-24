@@ -165,6 +165,25 @@ with `bundle.zip` and `bundle.warc.gz` beside them. Protobuf is the same
 binary Kafka Connect already publishes; JSON is a file export, not the
 gRPC wire.
 
+The bundle is written when a `Sync` pass completes, whatever kind of pass it
+was. A full crawl of everything the connection covers replaces that
+connection's part of the bundle with exactly what the crawl emitted. An
+incremental `Sync` (`since_cursor` set), or a `Sync` of requested
+`space_keys`, cannot show that anything it did not emit is gone, so it merges
+its changes into the bundle of the last full crawl and rewrites the tree, zip
+and WARC. The process keeps that bundle in memory only for the output set
+through `OUTPUT_DIR` / `OKF_DIR`. When there is no full crawl to merge into
+(the process restarted, or the output comes from the catalog, which is opened
+for one `Sync` at a time), the pass writes its own changes as an increment
+and leaves the full bundle alone: under `{prefix}/increments/{run-id}/` in an
+output store, or beside the `OKF_DIR` / `OKF_ZIP` / `OKF_WARC` paths with
+`-increments-{run-id}` added to each name. The run id of an incremental pass
+is the cursor it resumed from, with characters a file name cannot carry
+replaced by `_`; when the process-wide output serves several connections the
+connection id comes before it. A pass that emitted nothing writes nothing.
+Per-record formats (`protobuf`, `json`) are written as each change arrives,
+in every kind of pass.
+
 Output can also be set at runtime through MCP (`app_set_output` or
 `connection_set_output`) without restarting the process.
 
