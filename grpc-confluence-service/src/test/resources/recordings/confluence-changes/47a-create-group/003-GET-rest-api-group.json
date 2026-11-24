@@ -1,0 +1,229 @@
+{
+  "scenario" : "47a-create-group",
+  "sequence" : 3,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/group",
+    "query" : [ {
+      "name" : "limit",
+      "value" : "25"
+    }, {
+      "name" : "start",
+      "value" : "0"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "id" : "8ac2b011-1ce0-41d6-a0f5-df5e888fc51f",
+          "name" : "studio-admins-studio",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/8ac2b011-1ce0-41d6-a0f5-df5e888fc51f",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/studio-admins-studio"
+          }
+        }, {
+          "id" : "b4b87ffe-7539-4228-a108-538ed61a8af4",
+          "name" : "studio-user-access-admins-studio",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/b4b87ffe-7539-4228-a108-538ed61a8af4",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/studio-user-access-admins-studio"
+          }
+        }, {
+          "id" : "8a3a353b-9402-4eed-a9c0-7b689ce061a1",
+          "name" : "studio-users-studio",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/8a3a353b-9402-4eed-a9c0-7b689ce061a1",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/studio-users-studio"
+          }
+        }, {
+          "id" : "820aeb40-03aa-4bab-9840-d51b6ab2d080",
+          "name" : "goals-users-pipestreamai",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/820aeb40-03aa-4bab-9840-d51b6ab2d080",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/goals-users-pipestreamai"
+          }
+        }, {
+          "id" : "11034b28-e789-499c-b692-1225cd8d426b",
+          "name" : "goals-admins-pipestreamai",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/11034b28-e789-499c-b692-1225cd8d426b",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/goals-admins-pipestreamai"
+          }
+        }, {
+          "id" : "eeae995b-4a08-41ef-afe1-218ca5008d48",
+          "name" : "goals-user-access-admins-pipestreamai",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/eeae995b-4a08-41ef-afe1-218ca5008d48",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/goals-user-access-admins-pipestreamai"
+          }
+        }, {
+          "id" : "705acfbc-949a-4d27-9f63-115f7d36ba90",
+          "name" : "projects-users-pipestreamai",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/705acfbc-949a-4d27-9f63-115f7d36ba90",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/projects-users-pipestreamai"
+          }
+        }, {
+          "id" : "fa5c444c-c8cb-4cb5-8949-6ae6b5c7a1bd",
+          "name" : "projects-user-access-admins-pipestreamai",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/fa5c444c-c8cb-4cb5-8949-6ae6b5c7a1bd",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/projects-user-access-admins-pipestreamai"
+          }
+        }, {
+          "id" : "6543e955-dcfd-4e3b-afb2-c5a5ecbb81e4",
+          "name" : "projects-admins-pipestreamai",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/6543e955-dcfd-4e3b-afb2-c5a5ecbb81e4",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/projects-admins-pipestreamai"
+          }
+        }, {
+          "id" : "249e2c2e-9c37-4fbb-a1aa-7b44ae8f85b8",
+          "name" : "confluence-user-access-admins-pipestreamai",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/249e2c2e-9c37-4fbb-a1aa-7b44ae8f85b8",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/confluence-user-access-admins-pipestreamai"
+          }
+        }, {
+          "id" : "bffdde11-b4c9-472e-bf8e-fd47650a1942",
+          "name" : "org-admins",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/bffdde11-b4c9-472e-bf8e-fd47650a1942",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/org-admins"
+          }
+        }, {
+          "id" : "f3bd6600-bc73-48d0-a1b0-24ee41947087",
+          "name" : "confluence-users-pipestreamai",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/f3bd6600-bc73-48d0-a1b0-24ee41947087",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/confluence-users-pipestreamai"
+          }
+        }, {
+          "id" : "a18cf4e1-b347-4663-9fbc-614d873c1764",
+          "name" : "system-administrators",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/a18cf4e1-b347-4663-9fbc-614d873c1764",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/system-administrators"
+          }
+        }, {
+          "id" : "b7dfaa1d-0dc9-4949-b90f-10a6175027a6",
+          "name" : "confluence-guests-pipestreamai",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/b7dfaa1d-0dc9-4949-b90f-10a6175027a6",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/confluence-guests-pipestreamai"
+          }
+        }, {
+          "id" : "7c989546-0d14-4a91-99ec-a0afdaaedc22",
+          "name" : "confluence-admins-pipestreamai",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/7c989546-0d14-4a91-99ec-a0afdaaedc22",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/confluence-admins-pipestreamai"
+          }
+        }, {
+          "id" : "f5d7e5f7-a829-4db3-bd23-bb00a95c1ca4",
+          "name" : "analytics-users-pipestreamai",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/f5d7e5f7-a829-4db3-bd23-bb00a95c1ca4",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/analytics-users-pipestreamai"
+          }
+        }, {
+          "id" : "e1e19fa0-09a5-4117-874e-c18aab8ee121",
+          "name" : "analytics-user-access-admins-pipestreamai",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/e1e19fa0-09a5-4117-874e-c18aab8ee121",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/analytics-user-access-admins-pipestreamai"
+          }
+        }, {
+          "id" : "37ad69a4-b46a-4580-a840-b612db954b1d",
+          "name" : "analytics-admins-pipestreamai",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/37ad69a4-b46a-4580-a840-b612db954b1d",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/analytics-admins-pipestreamai"
+          }
+        }, {
+          "id" : "4b3fd9c9-dc07-483f-9ef2-48056906d443",
+          "name" : "pipestream-live-change-20261124T172634Z-d3d0dc52-group",
+          "managedBy" : "ADMINS",
+          "usageType" : "USERBASE_GROUP",
+          "resourceAri" : "ari:cloud:identity::group/4b3fd9c9-dc07-483f-9ef2-48056906d443",
+          "type" : "group",
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/pipestream-live-change-20261124T172634Z-d3d0dc52-group"
+          }
+        } ],
+        "start" : 0,
+        "limit" : 25,
+        "size" : 19,
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki",
+          "context" : "/wiki",
+          "self" : "https://site-1.example.invalid/wiki/rest/api/group"
+        }
+      }
+    }
+  }
+}

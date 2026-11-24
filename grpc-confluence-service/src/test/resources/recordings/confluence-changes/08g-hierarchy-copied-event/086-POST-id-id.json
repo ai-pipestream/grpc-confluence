@@ -1,0 +1,31 @@
+{
+  "scenario" : "08g-hierarchy-copied-event",
+  "sequence" : 86,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-2.example.invalid",
+    "path" : "/x1/token-1",
+    "query" : [ ],
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "authorized" : false,
+    "body" : {
+      "json" : {
+        "action" : "ack",
+        "keys" : [ "evt:001795541282662:57c3eac8-e6ec-4f16-b2c2-ece84ceb810e", "evt:001795541282696:adf11cdd-af18-433b-95f7-9a54db138521", "evt:001795541284362:c72ef35c-9b68-4e1e-af1e-b12bc6333863", "evt:001795541284379:c999b120-220b-4835-a453-4115e67f2962", "evt:001795541284423:41532931-07df-4358-8a66-9a67f5668ade", "evt:001795541284512:f6eddd5b-e4a9-490a-9368-840d641f47c9" ]
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "acked" : 6
+      }
+    }
+  }
+}

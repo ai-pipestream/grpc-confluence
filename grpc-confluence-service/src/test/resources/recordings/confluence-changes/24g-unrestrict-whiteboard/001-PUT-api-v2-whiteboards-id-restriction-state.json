@@ -1,0 +1,31 @@
+{
+  "scenario" : "24g-unrestrict-whiteboard",
+  "sequence" : 1,
+  "request" : {
+    "method" : "PUT",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/whiteboards/35487777/restriction-state",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "state" : "OPEN"
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "state" : "OPEN"
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "scenario" : "08g-hierarchy-copied-event",
+  "sequence" : 37,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/7798963/restriction-state",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "state" : "OPEN"
+      }
+    }
+  }
+}

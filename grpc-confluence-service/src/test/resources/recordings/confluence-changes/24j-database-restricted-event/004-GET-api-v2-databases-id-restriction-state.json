@@ -1,0 +1,28 @@
+{
+  "scenario" : "24j-database-restricted-event",
+  "sequence" : 4,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/databases/35618839/restriction-state",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "state" : "EDIT_RESTRICTED",
+        "createdAt" : "2026-11-24T17:32:05.307Z",
+        "createdByAaid" : "account-1",
+        "createdBy" : "account-1"
+      }
+    }
+  }
+}

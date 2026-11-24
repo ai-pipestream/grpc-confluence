@@ -1,0 +1,21 @@
+{
+  "scenario" : "47d-delete-group",
+  "sequence" : 1,
+  "request" : {
+    "method" : "DELETE",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/group/by-id",
+    "query" : [ {
+      "name" : "id",
+      "value" : "4b3fd9c9-dc07-483f-9ef2-48056906d443"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 204,
+    "headers" : { }
+  }
+}

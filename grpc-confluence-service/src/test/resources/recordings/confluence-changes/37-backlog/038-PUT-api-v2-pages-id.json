@@ -4,7 +4,7 @@
   "request" : {
     "method" : "PUT",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/34045966",
+    "path" : "/wiki/api/v2/pages/35520562",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -13,9 +13,9 @@
     "authorized" : true,
     "body" : {
       "json" : {
-        "id" : "34045966",
+        "id" : "35520562",
         "status" : "current",
-        "title" : "pipestream-live-change-20261124T025406Z-82ee7136 backlog",
+        "title" : "pipestream-live-change-20261124T172634Z-d3d0dc52 backlog",
         "body" : {
           "representation" : "storage",
           "value" : "<p>backlog 35</p>"
@@ -33,22 +33,22 @@
     },
     "body" : {
       "json" : {
-        "authorId" : "account-1",
         "parentType" : "page",
+        "authorId" : "account-1",
         "spaceId" : "7798786",
         "parentId" : "7798963",
         "ownerId" : "account-1",
+        "createdAt" : "2026-11-24T17:34:23.611Z",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-24T03:00:20.903Z",
-        "position" : 1781,
         "version" : {
           "number" : 36,
           "message" : null,
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-24T03:00:34.386Z",
-          "ncsStepVersion" : "12"
+          "createdAt" : "2026-11-24T17:34:36.126Z",
+          "ncsStepVersion" : "7"
         },
+        "position" : 1063,
         "body" : {
           "storage" : {
             "representation" : "storage",
@@ -56,13 +56,13 @@
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-change-20261124T025406Z-82ee7136 backlog",
-        "id" : "34045966",
+        "title" : "pipestream-live-change-20261124T172634Z-d3d0dc52 backlog",
+        "id" : "35520562",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=34045966",
-          "webui" : "/spaces/CLAUDEGRPC/pages/34045966/pipestream-live-change-20261124T025406Z-82ee7136+backlog",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/34045966",
-          "tinyui" : "/x/DoAHAg",
+          "editui" : "/pages/resumedraft.action?draftId=35520562",
+          "webui" : "/spaces/CLAUDEGRPC/pages/35520562/pipestream-live-change-20261124T172634Z-d3d0dc52+backlog",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/35520562",
+          "tinyui" : "/x/MgAeAg",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

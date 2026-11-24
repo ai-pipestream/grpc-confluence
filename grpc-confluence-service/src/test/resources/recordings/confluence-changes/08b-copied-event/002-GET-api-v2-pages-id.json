@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/34013185",
+    "path" : "/wiki/api/v2/pages/35586084",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -23,34 +23,34 @@
       "json" : {
         "authorId" : "account-1",
         "parentType" : "page",
-        "spaceId" : "7798786",
-        "parentId" : "33882113",
+        "parentId" : "34799658",
         "ownerId" : "account-1",
+        "createdAt" : "2026-11-24T17:27:34.747Z",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-24T02:55:10.965Z",
+        "position" : 676617023,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-24T02:55:11.011Z",
+          "createdAt" : "2026-11-24T17:27:34.804Z",
           "ncsStepVersion" : null
         },
-        "position" : 586748382,
+        "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>Change feed run pipestream-live-change-20261124T025406Z-82ee7136, edited.</p><ac:task-list><ac:task><ac:task-id>1</ac:task-id><ac:task-status>incomplete</ac:task-status><ac:task-body>check the change feed</ac:task-body></ac:task></ac:task-list>"
+            "value" : "<p>Change feed run pipestream-live-change-20261124T172634Z-d3d0dc52, edited.</p><ac:task-list><ac:task><ac:task-id>1</ac:task-id><ac:task-status>incomplete</ac:task-status><ac:task-body>check the change feed</ac:task-body></ac:task></ac:task-list>"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-change-20261124T025406Z-82ee7136 copy",
-        "id" : "34013185",
+        "title" : "pipestream-live-change-20261124T172634Z-d3d0dc52 copy",
+        "id" : "35586084",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=34013185",
-          "webui" : "/spaces/CLAUDEGRPC/pages/34013185/pipestream-live-change-20261124T025406Z-82ee7136+copy",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/34013185",
-          "tinyui" : "/x/AQAHAg",
+          "editui" : "/pages/resumedraft.action?draftId=35586084",
+          "webui" : "/spaces/CLAUDEGRPC/pages/35586084/pipestream-live-change-20261124T172634Z-d3d0dc52+copy",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/35586084",
+          "tinyui" : "/x/JAAfAg",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

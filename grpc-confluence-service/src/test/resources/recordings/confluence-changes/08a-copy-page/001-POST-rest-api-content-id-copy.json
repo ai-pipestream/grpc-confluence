@@ -4,7 +4,7 @@
   "request" : {
     "method" : "POST",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/rest/api/content/33914881/copy",
+    "path" : "/wiki/rest/api/content/34668567/copy",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -15,9 +15,9 @@
       "json" : {
         "destination" : {
           "type" : "parent_page",
-          "value" : "33882113"
+          "value" : "34799658"
         },
-        "pageTitle" : "pipestream-live-change-20261124T025406Z-82ee7136 copy",
+        "pageTitle" : "pipestream-live-change-20261124T172634Z-d3d0dc52 copy",
         "copyAttachments" : false,
         "copyPermissions" : false,
         "copyProperties" : false,
@@ -33,12 +33,12 @@
     },
     "body" : {
       "json" : {
-        "id" : "34013185",
+        "id" : "35586084",
         "type" : "page",
-        "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:page/34013185",
+        "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:page/35586084",
         "base64EncodedAri" : "opaque-2",
         "status" : "current",
-        "title" : "pipestream-live-change-20261124T025406Z-82ee7136 copy",
+        "title" : "pipestream-live-change-20261124T172634Z-d3d0dc52 copy",
         "space" : {
           "id" : 7798786,
           "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:space/7798786",
@@ -74,14 +74,14 @@
             "accountId" : "account-1",
             "accountType" : "atlassian",
             "email" : "user-1@example.invalid",
-            "publicName" : "User 2",
+            "publicName" : "User 1",
             "profilePicture" : {
               "path" : "/avatars/avatar-1.png",
               "width" : 48,
               "height" : 48,
               "isDefault" : false
             },
-            "displayName" : "User 2",
+            "displayName" : "User 1",
             "isExternalCollaborator" : false,
             "isGuest" : false,
             "locale" : "en_US",
@@ -94,7 +94,7 @@
               "self" : "https://site-1.example.invalid/wiki/rest/api/user?accountId=account-1"
             }
           },
-          "createdDate" : "2026-11-24T02:55:10.965Z",
+          "createdDate" : "2026-11-24T17:27:34.747Z",
           "_expandable" : {
             "lastUpdated" : "",
             "previousVersion" : "",
@@ -104,7 +104,7 @@
             "ownedBy" : ""
           },
           "_links" : {
-            "self" : "https://site-1.example.invalid/wiki/rest/api/content/34013185/history"
+            "self" : "https://site-1.example.invalid/wiki/rest/api/content/35586084/history"
           }
         },
         "version" : {
@@ -113,14 +113,14 @@
             "accountId" : "account-1",
             "accountType" : "atlassian",
             "email" : "user-1@example.invalid",
-            "publicName" : "User 2",
+            "publicName" : "User 1",
             "profilePicture" : {
               "path" : "/avatars/avatar-1.png",
               "width" : 48,
               "height" : 48,
               "isDefault" : false
             },
-            "displayName" : "User 2",
+            "displayName" : "User 1",
             "isExternalCollaborator" : false,
             "isGuest" : false,
             "locale" : "en_US",
@@ -133,24 +133,24 @@
               "self" : "https://site-1.example.invalid/wiki/rest/api/user?accountId=account-1"
             }
           },
-          "when" : "2026-11-24T02:55:11.011Z",
+          "when" : "2026-11-24T17:27:34.804Z",
           "friendlyWhen" : "just a moment ago",
           "message" : "",
           "number" : 1,
           "minorEdit" : false,
-          "confRev" : "confluence$content$34013185.2",
+          "confRev" : "confluence$content$35586084.2",
           "contentTypeModified" : false,
           "_expandable" : {
             "collaborators" : "",
-            "content" : "/rest/api/content/34013185"
+            "content" : "/rest/api/content/35586084"
           },
           "_links" : {
-            "self" : "https://site-1.example.invalid/wiki/rest/api/content/34013185/version/1"
+            "self" : "https://site-1.example.invalid/wiki/rest/api/content/35586084/version/1"
           }
         },
         "macroRenderedOutput" : { },
         "extensions" : {
-          "position" : 586748382
+          "position" : 676617023
         },
         "_expandable" : {
           "childTypes" : "",
@@ -159,20 +159,20 @@
           "metadata" : "",
           "operations" : "",
           "schedulePublishDate" : "",
-          "children" : "/rest/api/content/34013185/child",
-          "restrictions" : "/rest/api/content/34013185/restriction/byOperation",
+          "children" : "/rest/api/content/35586084/child",
+          "restrictions" : "/rest/api/content/35586084/restriction/byOperation",
           "ancestors" : "",
           "body" : "",
           "draftVersion" : "",
-          "descendants" : "/rest/api/content/34013185/descendant"
+          "descendants" : "/rest/api/content/35586084/descendant"
         },
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=34013185",
-          "webui" : "/spaces/CLAUDEGRPC/pages/34013185/pipestream-live-change-20261124T025406Z-82ee7136+copy",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/34013185",
+          "editui" : "/pages/resumedraft.action?draftId=35586084",
+          "webui" : "/spaces/CLAUDEGRPC/pages/35586084/pipestream-live-change-20261124T172634Z-d3d0dc52+copy",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/35586084",
           "context" : "/wiki",
-          "self" : "https://site-1.example.invalid/wiki/rest/api/content/34013185",
-          "tinyui" : "/x/AQAHAg",
+          "self" : "https://site-1.example.invalid/wiki/rest/api/content/35586084",
+          "tinyui" : "/x/JAAfAg",
           "collection" : "/rest/api/content",
           "base" : "https://site-1.example.invalid/wiki"
         }

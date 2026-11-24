@@ -1,0 +1,39 @@
+{
+  "scenario" : "47b-group-created-event",
+  "sequence" : 3,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/group/4b3fd9c9-dc07-483f-9ef2-48056906d443/membersByGroupId",
+    "query" : [ {
+      "name" : "limit",
+      "value" : "25"
+    }, {
+      "name" : "start",
+      "value" : "0"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ ],
+        "start" : 0,
+        "limit" : 25,
+        "size" : 0,
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki",
+          "context" : "/wiki",
+          "self" : "https://site-1.example.invalid/wiki/rest/api/group/4b3fd9c9-dc07-483f-9ef2-48056906d443/membersByGroupId"
+        }
+      }
+    }
+  }
+}

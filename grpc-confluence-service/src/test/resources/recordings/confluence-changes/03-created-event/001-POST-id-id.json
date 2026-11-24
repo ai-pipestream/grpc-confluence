@@ -25,121 +25,18 @@
     "body" : {
       "json" : {
         "events" : [ {
-          "key" : "evt:001795488853338:243e1311-aa2c-4b4a-a226-a080deb27230",
+          "key" : "evt:001795541205458:cac00d1d-c643-41fe-a55d-1a7af0f598bc",
           "event" : {
             "atlassianId" : "account-1",
             "content" : {
-              "history" : {
-                "createdBy" : {
-                  "accountId" : "account-1",
-                  "accountType" : "atlassian",
-                  "displayName" : "account-1",
-                  "email" : "account-1",
-                  "isExternalCollaborator" : false,
-                  "profilePicture" : {
-                    "height" : 48,
-                    "isDefault" : false,
-                    "path" : "/avatars/avatar-1.png",
-                    "width" : 48
-                  },
-                  "publicName" : "account-1",
-                  "type" : "known",
-                  "username" : "account-1"
-                },
-                "createdDate" : "2026-11-24T02:54:11.056Z",
-                "latest" : true,
-                "ownedBy" : {
-                  "accountId" : "account-1",
-                  "accountType" : "atlassian",
-                  "displayName" : "account-1",
-                  "email" : "account-1",
-                  "isExternalCollaborator" : false,
-                  "profilePicture" : {
-                    "height" : 48,
-                    "isDefault" : false,
-                    "path" : "/avatars/avatar-1.png",
-                    "width" : 48
-                  },
-                  "publicName" : "account-1",
-                  "type" : "known",
-                  "username" : "account-1"
-                }
-              },
-              "id" : "33882113",
-              "metadata" : {
-                "notificationsPlatformEmail" : false
-              },
-              "space" : {
-                "alias" : "CLAUDEGRPC",
-                "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:space/7798786",
-                "icon" : {
-                  "height" : 48,
-                  "isDefault" : false,
-                  "path" : "/download/attachments/7798785/CLAUDEGRPC-default?version=1&modificationDate=1787619461468&cacheVersion=1&api=v2",
-                  "width" : 48
-                },
-                "id" : 7798786,
-                "key" : "CLAUDEGRPC",
-                "name" : "Claude gRPC Live Test",
-                "status" : "current",
-                "type" : "global"
-              },
-              "status" : "current",
-              "title" : "pipestream-live-change-20261124T025406Z-82ee7136 parent",
-              "type" : "page",
-              "version" : {
-                "by" : {
-                  "accountId" : "account-1",
-                  "accountType" : "atlassian",
-                  "displayName" : "account-1",
-                  "email" : "account-1",
-                  "isExternalCollaborator" : false,
-                  "profilePicture" : {
-                    "height" : 48,
-                    "isDefault" : false,
-                    "path" : "/avatars/avatar-1.png",
-                    "width" : 48
-                  },
-                  "publicName" : "account-1",
-                  "type" : "known",
-                  "username" : "account-1"
-                },
-                "collaborators" : {
-                  "userAccountIds" : [ ]
-                },
-                "number" : 1,
-                "when" : "2026-11-24T02:54:11.056Z"
-              }
-            },
-            "context" : {
-              "cloudId" : "00000000-0000-0000-0000-000000000001",
-              "moduleKey" : "confluence-events",
-              "userAccess" : {
-                "enabled" : false
-              }
-            },
-            "eventCreatedDate" : "2026-11-24T02:54:11.296Z",
-            "eventType" : "avi:confluence:created:page",
-            "permissions" : {
-              "scopes" : [ "delete:custom-content:confluence", "read:app-data:confluence", "read:confluence-content.all", "read:confluence-content.summary", "read:confluence-groups", "read:confluence-space.summary", "read:confluence-user", "read:custom-content:confluence", "storage:app", "write:app-data:confluence", "write:confluence-content", "write:confluence-space", "write:custom-content:confluence" ]
-            },
-            "selfGenerated" : false,
-            "suppressNotifications" : false
-          },
-          "expireTime" : "2026-12-01T02:54:13.000Z"
-        }, {
-          "key" : "evt:001795488853637:1cf338e7-014b-45de-8eab-daa7a9c9cf92",
-          "event" : {
-            "atlassianId" : "account-1",
-            "content" : {
-              "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:page/33914881",
+              "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:page/34668567",
               "base64EncodedAri" : "opaque-1",
               "history" : {
                 "createdBy" : {
                   "accountId" : "account-1",
                   "accountStatus" : "active",
                   "accountType" : "atlassian",
-                  "displayName" : "User 2",
+                  "displayName" : "User 1",
                   "email" : "user-1@example.invalid",
                   "isExternalCollaborator" : false,
                   "isGuest" : false,
@@ -150,16 +47,16 @@
                     "path" : "/avatars/avatar-1.png",
                     "width" : 48
                   },
-                  "publicName" : "User 2",
+                  "publicName" : "User 1",
                   "type" : "known"
                 },
-                "createdDate" : "2026-11-24T02:54:12.107Z",
+                "createdDate" : "2026-11-24T17:26:38.962Z",
                 "latest" : true,
                 "ownedBy" : {
                   "accountId" : "account-1",
                   "accountStatus" : "active",
                   "accountType" : "atlassian",
-                  "displayName" : "User 2",
+                  "displayName" : "User 1",
                   "email" : "user-1@example.invalid",
                   "isExternalCollaborator" : false,
                   "isGuest" : false,
@@ -170,11 +67,11 @@
                     "path" : "/avatars/avatar-1.png",
                     "width" : 48
                   },
-                  "publicName" : "User 2",
+                  "publicName" : "User 1",
                   "type" : "known"
                 }
               },
-              "id" : "33914881",
+              "id" : "34668567",
               "space" : {
                 "alias" : "CLAUDEGRPC",
                 "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:space/7798786",
@@ -191,14 +88,14 @@
                 "type" : "global"
               },
               "status" : "current",
-              "title" : "pipestream-live-change-20261124T025406Z-82ee7136",
+              "title" : "pipestream-live-change-20261124T172634Z-d3d0dc52",
               "type" : "page",
               "version" : {
                 "by" : {
                   "accountId" : "account-1",
                   "accountStatus" : "active",
                   "accountType" : "atlassian",
-                  "displayName" : "User 2",
+                  "displayName" : "User 1",
                   "email" : "user-1@example.invalid",
                   "isExternalCollaborator" : false,
                   "isGuest" : false,
@@ -209,14 +106,14 @@
                     "path" : "/avatars/avatar-1.png",
                     "width" : 48
                   },
-                  "publicName" : "User 2",
+                  "publicName" : "User 1",
                   "type" : "known"
                 },
                 "collaborators" : {
                   "userAccountIds" : [ ]
                 },
                 "number" : 1,
-                "when" : "2026-11-24T02:54:12.107Z"
+                "when" : "2026-11-24T17:26:38.962Z"
               }
             },
             "context" : {
@@ -226,14 +123,14 @@
                 "enabled" : false
               }
             },
-            "eventCreatedDate" : "2026-11-24T02:54:12.178Z",
+            "eventCreatedDate" : "2026-11-24T17:26:38.986Z",
             "eventType" : "avi:confluence:created:task",
             "permissions" : {
               "scopes" : [ "delete:custom-content:confluence", "read:app-data:confluence", "read:confluence-content.all", "read:confluence-content.summary", "read:confluence-groups", "read:confluence-space.summary", "read:confluence-user", "read:custom-content:confluence", "storage:app", "write:app-data:confluence", "write:confluence-content", "write:confluence-space", "write:custom-content:confluence" ]
             },
             "selfGenerated" : false,
             "task" : {
-              "createDate" : "2026-11-24T02:54:12Z",
+              "createDate" : "2026-11-24T17:26:38Z",
               "creator" : "account-1",
               "globalId" : 1,
               "id" : 1,
@@ -242,9 +139,9 @@
             },
             "taskGlobalId" : 0
           },
-          "expireTime" : "2026-12-01T02:54:13.000Z"
+          "expireTime" : "2026-12-01T17:26:45.000Z"
         }, {
-          "key" : "evt:001795488854112:15d84916-db3b-4608-9071-b7f0d71a223f",
+          "key" : "evt:001795541205540:dc97b027-0df9-4d3f-b854-12e16df3bde8",
           "event" : {
             "atlassianId" : "account-1",
             "content" : {
@@ -265,7 +162,7 @@
                   "type" : "known",
                   "username" : "account-1"
                 },
-                "createdDate" : "2026-11-24T02:54:12.107Z",
+                "createdDate" : "2026-11-24T17:26:38.962Z",
                 "latest" : true,
                 "ownedBy" : {
                   "accountId" : "account-1",
@@ -284,7 +181,7 @@
                   "username" : "account-1"
                 }
               },
-              "id" : "33914881",
+              "id" : "34668567",
               "metadata" : {
                 "notificationsPlatformEmail" : false
               },
@@ -304,7 +201,7 @@
                 "type" : "global"
               },
               "status" : "current",
-              "title" : "pipestream-live-change-20261124T025406Z-82ee7136",
+              "title" : "pipestream-live-change-20261124T172634Z-d3d0dc52",
               "type" : "page",
               "version" : {
                 "by" : {
@@ -327,7 +224,7 @@
                   "userAccountIds" : [ ]
                 },
                 "number" : 1,
-                "when" : "2026-11-24T02:54:12.107Z"
+                "when" : "2026-11-24T17:26:38.962Z"
               }
             },
             "context" : {
@@ -337,7 +234,7 @@
                 "enabled" : false
               }
             },
-            "eventCreatedDate" : "2026-11-24T02:54:12.169Z",
+            "eventCreatedDate" : "2026-11-24T17:26:38.981Z",
             "eventType" : "avi:confluence:created:page",
             "permissions" : {
               "scopes" : [ "delete:custom-content:confluence", "read:app-data:confluence", "read:confluence-content.all", "read:confluence-content.summary", "read:confluence-groups", "read:confluence-space.summary", "read:confluence-user", "read:custom-content:confluence", "storage:app", "write:app-data:confluence", "write:confluence-content", "write:confluence-space", "write:custom-content:confluence" ]
@@ -345,7 +242,110 @@
             "selfGenerated" : false,
             "suppressNotifications" : false
           },
-          "expireTime" : "2026-12-01T02:54:14.000Z"
+          "expireTime" : "2026-12-01T17:26:45.000Z"
+        }, {
+          "key" : "evt:001795541205605:8d686d15-1bf8-4131-a4ec-bbe614099326",
+          "event" : {
+            "atlassianId" : "account-1",
+            "content" : {
+              "history" : {
+                "createdBy" : {
+                  "accountId" : "account-1",
+                  "accountType" : "atlassian",
+                  "displayName" : "account-1",
+                  "email" : "account-1",
+                  "isExternalCollaborator" : false,
+                  "profilePicture" : {
+                    "height" : 48,
+                    "isDefault" : false,
+                    "path" : "/avatars/avatar-1.png",
+                    "width" : 48
+                  },
+                  "publicName" : "account-1",
+                  "type" : "known",
+                  "username" : "account-1"
+                },
+                "createdDate" : "2026-11-24T17:26:38.434Z",
+                "latest" : true,
+                "ownedBy" : {
+                  "accountId" : "account-1",
+                  "accountType" : "atlassian",
+                  "displayName" : "account-1",
+                  "email" : "account-1",
+                  "isExternalCollaborator" : false,
+                  "profilePicture" : {
+                    "height" : 48,
+                    "isDefault" : false,
+                    "path" : "/avatars/avatar-1.png",
+                    "width" : 48
+                  },
+                  "publicName" : "account-1",
+                  "type" : "known",
+                  "username" : "account-1"
+                }
+              },
+              "id" : "34799658",
+              "metadata" : {
+                "notificationsPlatformEmail" : false
+              },
+              "space" : {
+                "alias" : "CLAUDEGRPC",
+                "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:space/7798786",
+                "icon" : {
+                  "height" : 48,
+                  "isDefault" : false,
+                  "path" : "/download/attachments/7798785/CLAUDEGRPC-default?version=1&modificationDate=1787619461468&cacheVersion=1&api=v2",
+                  "width" : 48
+                },
+                "id" : 7798786,
+                "key" : "CLAUDEGRPC",
+                "name" : "Claude gRPC Live Test",
+                "status" : "current",
+                "type" : "global"
+              },
+              "status" : "current",
+              "title" : "pipestream-live-change-20261124T172634Z-d3d0dc52 parent",
+              "type" : "page",
+              "version" : {
+                "by" : {
+                  "accountId" : "account-1",
+                  "accountType" : "atlassian",
+                  "displayName" : "account-1",
+                  "email" : "account-1",
+                  "isExternalCollaborator" : false,
+                  "profilePicture" : {
+                    "height" : 48,
+                    "isDefault" : false,
+                    "path" : "/avatars/avatar-1.png",
+                    "width" : 48
+                  },
+                  "publicName" : "account-1",
+                  "type" : "known",
+                  "username" : "account-1"
+                },
+                "collaborators" : {
+                  "userAccountIds" : [ ]
+                },
+                "number" : 1,
+                "when" : "2026-11-24T17:26:38.434Z"
+              }
+            },
+            "context" : {
+              "cloudId" : "00000000-0000-0000-0000-000000000001",
+              "moduleKey" : "confluence-events",
+              "userAccess" : {
+                "enabled" : false
+              }
+            },
+            "eventCreatedDate" : "2026-11-24T17:26:38.496Z",
+            "eventType" : "avi:confluence:created:page",
+            "permissions" : {
+              "scopes" : [ "delete:custom-content:confluence", "read:app-data:confluence", "read:confluence-content.all", "read:confluence-content.summary", "read:confluence-groups", "read:confluence-space.summary", "read:confluence-user", "read:custom-content:confluence", "storage:app", "write:app-data:confluence", "write:confluence-content", "write:confluence-space", "write:custom-content:confluence" ]
+            },
+            "selfGenerated" : false,
+            "suppressNotifications" : false
+          },
+          "expireTime" : "2026-12-01T17:26:45.000Z"
         } ]
       }
     }

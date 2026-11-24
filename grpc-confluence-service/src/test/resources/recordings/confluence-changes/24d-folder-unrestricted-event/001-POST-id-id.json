@@ -25,7 +25,7 @@
     "body" : {
       "json" : {
         "events" : [ {
-          "key" : "evt:001795489098560:7c6ddcf1-4839-4c56-8ac2-662fee532629",
+          "key" : "evt:001795541476260:89ba6916-8a29-4679-8dd4-a91019d9da4a",
           "event" : {
             "atlassianId" : "account-1",
             "content" : {
@@ -46,7 +46,7 @@
                   "type" : "known",
                   "username" : "account-1"
                 },
-                "createdDate" : "2026-11-24T02:58:00.598Z",
+                "createdDate" : "2026-11-24T17:30:53.940Z",
                 "latest" : true,
                 "ownedBy" : {
                   "accountId" : "account-1",
@@ -65,7 +65,7 @@
                   "username" : "account-1"
                 }
               },
-              "id" : "33882133",
+              "id" : "34635813",
               "metadata" : {
                 "notificationsPlatformEmail" : false
               },
@@ -85,7 +85,7 @@
                 "type" : "global"
               },
               "status" : "current",
-              "title" : "pipestream-live-change-20261124T025406Z-82ee7136 folder",
+              "title" : "pipestream-live-change-20261124T172634Z-d3d0dc52 folder",
               "type" : "folder",
               "version" : {
                 "by" : {
@@ -105,7 +105,7 @@
                   "username" : "account-1"
                 },
                 "number" : 1,
-                "when" : "2026-11-24T02:58:00.598Z"
+                "when" : "2026-11-24T17:30:53.940Z"
               }
             },
             "context" : {
@@ -115,7 +115,7 @@
                 "enabled" : false
               }
             },
-            "eventCreatedDate" : "2026-11-24T02:58:17.892Z",
+            "eventCreatedDate" : "2026-11-24T17:31:12.061Z",
             "eventType" : "avi:confluence:permissions_updated:folder",
             "permissions" : {
               "scopes" : [ "delete:custom-content:confluence", "read:app-data:confluence", "read:confluence-content.all", "read:confluence-content.summary", "read:confluence-groups", "read:confluence-space.summary", "read:confluence-user", "read:custom-content:confluence", "storage:app", "write:app-data:confluence", "write:confluence-content", "write:confluence-space", "write:custom-content:confluence" ]
@@ -123,7 +123,7 @@
             "selfGenerated" : false,
             "suppressNotifications" : false
           },
-          "expireTime" : "2026-12-01T02:58:18.000Z"
+          "expireTime" : "2026-12-01T17:31:16.000Z"
         } ]
       }
     }

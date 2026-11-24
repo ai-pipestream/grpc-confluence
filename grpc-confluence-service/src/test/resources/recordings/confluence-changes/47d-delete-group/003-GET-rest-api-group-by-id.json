@@ -1,0 +1,35 @@
+{
+  "scenario" : "47d-delete-group",
+  "sequence" : 3,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/group/by-id",
+    "query" : [ {
+      "name" : "id",
+      "value" : "4b3fd9c9-dc07-483f-9ef2-48056906d443"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 404,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "statusCode" : 404,
+        "data" : {
+          "authorized" : true,
+          "valid" : true,
+          "errors" : [ ],
+          "successful" : true
+        },
+        "message" : "com.atlassian.confluence.api.service.exceptions.api.NotFoundException: No group with id : 4b3fd9c9-dc07-483f-9ef2-48056906d443"
+      }
+    }
+  }
+}

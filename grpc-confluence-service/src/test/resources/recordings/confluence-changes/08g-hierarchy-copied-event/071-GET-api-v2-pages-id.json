@@ -1,0 +1,59 @@
+{
+  "scenario" : "08g-hierarchy-copied-event",
+  "sequence" : 71,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/35061796",
+    "query" : [ {
+      "name" : "body-format",
+      "value" : "storage"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "authorId" : "account-1",
+        "parentType" : "page",
+        "parentId" : "35061780",
+        "ownerId" : "account-1",
+        "createdAt" : "2026-11-24T17:28:02.236Z",
+        "lastOwnerId" : null,
+        "position" : 727,
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-24T17:28:02.236Z",
+          "ncsStepVersion" : null
+        },
+        "spaceId" : "7798786",
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<p>Leaf of pipestream-live-change-20261124T172634Z-d3d0dc52.</p>"
+          }
+        },
+        "status" : "current",
+        "title" : "Copy of pipestream-live-change-20261124T172634Z-d3d0dc52 tree leaf",
+        "id" : "35061796",
+        "_links" : {
+          "editui" : "/pages/resumedraft.action?draftId=35061796",
+          "webui" : "/spaces/CLAUDEGRPC/pages/35061796/Copy+of+pipestream-live-change-20261124T172634Z-d3d0dc52+tree+leaf",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/35061796",
+          "tinyui" : "/x/JAAXAg",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

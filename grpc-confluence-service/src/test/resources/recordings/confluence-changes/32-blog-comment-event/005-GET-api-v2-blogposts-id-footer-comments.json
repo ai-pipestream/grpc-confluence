@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/blogposts/34013204/footer-comments",
+    "path" : "/wiki/api/v2/blogposts/34766884/footer-comments",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -25,27 +25,27 @@
     "body" : {
       "json" : {
         "results" : [ {
-          "id" : "33914908",
+          "id" : "35356696",
           "status" : "current",
-          "title" : "Re: pipestream-live-change-20261124T025406Z-82ee7136",
-          "blogPostId" : "34013204",
+          "title" : "Re: pipestream-live-change-20261124T172634Z-d3d0dc52",
+          "blogPostId" : "34766884",
           "version" : {
             "number" : 1,
             "message" : "",
             "minorEdit" : false,
             "authorId" : "account-1",
-            "createdAt" : "2026-11-24T02:59:30.536Z",
+            "createdAt" : "2026-11-24T17:33:33.779Z",
             "contributorIds" : [ ]
           },
           "resolutionStatus" : "open",
           "body" : {
             "storage" : {
               "representation" : "storage",
-              "value" : "<p>blog comment pipestream-live-change-20261124T025406Z-82ee7136</p>"
+              "value" : "<p>blog comment pipestream-live-change-20261124T172634Z-d3d0dc52</p>"
             }
           },
           "_links" : {
-            "webui" : "/spaces/CLAUDEGRPC/blog/2026/11/23/34013204/pipestream-live-change-20261124T025406Z-82ee7136?focusedCommentId=33914908"
+            "webui" : "/spaces/CLAUDEGRPC/blog/2026/11/24/34766884/pipestream-live-change-20261124T172634Z-d3d0dc52?focusedCommentId=35356696"
           }
         } ],
         "_links" : {

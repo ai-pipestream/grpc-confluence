@@ -1,0 +1,21 @@
+{
+  "scenario" : "24g-unrestrict-whiteboard",
+  "sequence" : 2,
+  "request" : {
+    "method" : "DELETE",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/whiteboards/35487777/permissions",
+    "query" : [ {
+      "name" : "allow-self-lockout",
+      "value" : "true"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 204,
+    "headers" : { }
+  }
+}

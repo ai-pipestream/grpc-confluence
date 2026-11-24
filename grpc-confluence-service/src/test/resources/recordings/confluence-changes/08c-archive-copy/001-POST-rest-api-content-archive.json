@@ -14,7 +14,7 @@
     "body" : {
       "json" : {
         "pages" : [ {
-          "id" : 34013185
+          "id" : 35586084
         } ]
       }
     }
@@ -26,9 +26,9 @@
     },
     "body" : {
       "json" : {
-        "id" : "34045953",
+        "id" : "34799678",
         "links" : {
-          "status" : "/rest/api/longtask/34045953"
+          "status" : "/rest/api/longtask/34799678"
         }
       }
     }

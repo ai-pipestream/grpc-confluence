@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/blogposts/34013204/attachments",
+    "path" : "/wiki/api/v2/blogposts/34766884/attachments",
     "query" : [ {
       "name" : "limit",
       "value" : "25"

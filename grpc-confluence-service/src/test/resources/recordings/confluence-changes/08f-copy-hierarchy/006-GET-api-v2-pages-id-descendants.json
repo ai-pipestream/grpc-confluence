@@ -1,0 +1,76 @@
+{
+  "scenario" : "08f-copy-hierarchy",
+  "sequence" : 6,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/34799658/descendants",
+    "query" : [ {
+      "name" : "limit",
+      "value" : "25"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "id" : "34668567",
+          "status" : "current",
+          "title" : "pipestream-live-change-20261124T172634Z-d3d0dc52",
+          "parentId" : "34799658",
+          "depth" : 1,
+          "childPosition" : 318703082,
+          "type" : "page",
+          "lastModified" : "2026-11-24T17:27:17.065Z"
+        }, {
+          "id" : "34930767",
+          "status" : "current",
+          "title" : "pipestream-live-change-20261124T172634Z-d3d0dc52 tree",
+          "parentId" : "34799658",
+          "depth" : 1,
+          "childPosition" : 318703789,
+          "type" : "page",
+          "lastModified" : "2026-11-24T17:28:00.765Z"
+        }, {
+          "id" : "35061780",
+          "status" : "current",
+          "title" : "Copy of pipestream-live-change-20261124T172634Z-d3d0dc52 tree",
+          "parentId" : "34799658",
+          "depth" : 1,
+          "childPosition" : 318703789,
+          "type" : "page",
+          "lastModified" : "2026-11-24T17:28:02.049Z"
+        }, {
+          "id" : "35061796",
+          "status" : "current",
+          "title" : "Copy of pipestream-live-change-20261124T172634Z-d3d0dc52 tree leaf",
+          "parentId" : "35061780",
+          "depth" : 2,
+          "childPosition" : 727,
+          "type" : "page",
+          "lastModified" : "2026-11-24T17:28:02.236Z"
+        }, {
+          "id" : "35192865",
+          "status" : "current",
+          "title" : "pipestream-live-change-20261124T172634Z-d3d0dc52 tree leaf",
+          "parentId" : "34930767",
+          "depth" : 2,
+          "childPosition" : 727,
+          "type" : "page",
+          "lastModified" : "2026-11-24T17:28:01.342Z"
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}
