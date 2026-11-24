@@ -52,10 +52,32 @@ public final class ConfluenceClient {
         }
 
         ConfluenceApiException(int status, String body, long retryAfterSeconds) {
-            super("Confluence " + status + ": " + abbreviate(body));
+            this("Confluence " + status + ": " + abbreviate(body), status, body, retryAfterSeconds);
+        }
+
+        private ConfluenceApiException(String message, int status, String body,
+                long retryAfterSeconds) {
+            super(message);
             this.status = status;
             this.body = body == null ? "" : body;
             this.retryAfterSeconds = retryAfterSeconds;
+        }
+
+        /**
+         * This failure with the read it broke named in the message, for a
+         * caller that fails a whole crawl on it.
+         *
+         * @param what what was being read, for example {@code direct children}
+         * @param path the request path
+         * @return a copy with the same status, body and retry delay
+         */
+        ConfluenceApiException reading(String what, String path) {
+            ConfluenceApiException named = new ConfluenceApiException(
+                    "Confluence " + status + " reading " + what + " at " + path + ": "
+                            + abbreviate(body),
+                    status, body, retryAfterSeconds);
+            named.initCause(this);
+            return named;
         }
 
         /**

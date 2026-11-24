@@ -452,6 +452,13 @@ service ConfluenceService {
   // unless it is COMPLETE. The stream is flow-controlled: the server pages
   // the REST API only as fast as the client reads, and stops paging when
   // the client cancels.
+  //
+  // The tree below a page (whiteboards, databases with their fields and
+  // entries, folders, Smart Links) has no such marker, so it fails the
+  // pass instead: only a 404 on the first read of a tree or database route
+  // counts as nothing to read. A 401, 403 or 400 there, or a failure
+  // partway through a list, ends the stream with that status
+  // (PERMISSION_DENIED, INVALID_ARGUMENT, ...) and no resume cursor.
   rpc Sync(SyncRequest) returns (stream SyncResponse);
 
   // Hit ListSpaces with a catalog connection (or inline credentials) and

@@ -20,9 +20,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Locale;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
@@ -104,13 +102,11 @@ final class ChangeScenarios {
     private final String ownSpaceKey;
     private final String run;
     private final Events events;
-    private final BlockingQueue<List<ForgeEventQueue.Queued>> drains = new LinkedBlockingQueue<>();
-    private final BlockingQueue<WatchChangesResponse> watched = new LinkedBlockingQueue<>();
+    private final WatchedChanges watched;
     private final List<Row> rows = new ArrayList<>();
     private final List<Runnable> cleanups = new ArrayList<>();
 
     private Context.CancellableContext watch;
-    private volatile Throwable watchError;
     private Space space;
     private Page page;
     private Page parent;
@@ -140,7 +136,7 @@ final class ChangeScenarios {
         this.ownSpaceKey = "LC" + run.substring(run.length() - 8).toUpperCase(Locale.ROOT);
         this.run = run;
         this.events = events;
-        service.onDrain(drains::add);
+        this.watched = new WatchedChanges(service);
     }
 
     /** Every step, in run order. */
@@ -282,22 +278,7 @@ final class ChangeScenarios {
                 .setEventInterval(com.google.protobuf.Duration.newBuilder().setSeconds(86_400))
                 .build();
         watch = Context.current().withCancellation();
-        watch.run(() -> changes.watchChanges(request, new StreamObserver<>() {
-            @Override
-            public void onNext(WatchChangesResponse value) {
-                watched.add(value);
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                watchError = t;
-            }
-
-            @Override
-            public void onCompleted() {
-                // Ends on cancel.
-            }
-        }));
+        watch.run(() -> changes.watchChanges(request, watched));
         return "first drain took " + awaitDrain().size() + " event(s)";
     }
 
@@ -691,11 +672,11 @@ final class ChangeScenarios {
     private String watchStop() throws Exception {
         watch.cancel(null);
         Instant until = Instant.now().plus(Duration.ofSeconds(10));
-        while (watchError == null && Instant.now().isBefore(until)) {
+        while (watched.error() == null && Instant.now().isBefore(until)) {
             TimeUnit.MILLISECONDS.sleep(50);
         }
-        check(watchError != null, "the stream did not end on cancel");
-        return "stream ended: " + Status.fromThrowable(watchError).getCode();
+        check(watched.error() != null, "the stream did not end on cancel");
+        return "stream ended: " + Status.fromThrowable(watched.error()).getCode();
     }
 
     // --- REST v1 steps: no rpc covers these ------------------------------------------------
@@ -1009,12 +990,7 @@ final class ChangeScenarios {
     }
 
     private List<ForgeEventQueue.Queued> awaitDrain() throws Exception {
-        List<ForgeEventQueue.Queued> taken = drains.poll(STREAM_WAIT.toSeconds(), TimeUnit.SECONDS);
-        if (watchError != null) {
-            throw new AssertionError("the stream failed: " + watchError);
-        }
-        check(taken != null, "no drain completed");
-        return taken;
+        return watched.awaitDrain(STREAM_WAIT);
     }
 
     // --- helpers ---------------------------------------------------------------------------
