@@ -493,10 +493,10 @@ class ConfluenceCrawlerTest {
 
     @Test
     void fullCrawlThatSweepsNoSpaceReturnsNoCursor() throws Exception {
-        stubWorkspace();
+        // The credentials see no space at all.
+        fake.stub("/wiki/api/v2/spaces", ConfluenceFixtures.emptyListJson());
 
-        // The allowlist names a space the credentials cannot see.
-        String cursor = crawler(config("OPS")).crawl();
+        String cursor = crawler(config()).crawl();
 
         // Nothing was crawled, so the next pass has to be a full crawl again.
         assertThat(cursor).isEmpty();

@@ -70,6 +70,14 @@ class ConnectionSetupMcpTest {
     void mcpCreatesTwoConnectionsProbesSyncsAndListsLedger() throws Exception {
         acme = stubSite("100", "ENG", "Engineering", "200", "Acme Design");
         globex = stubSite("500", "FIN", "Finance", "600", "Globex Budget");
+        // Acme's allowlist grows to ENG,DOCS below, and a Sync fails on a key
+        // Confluence does not return. The fake serves one page list for
+        // every space.
+        acme.stub("/wiki/api/v2/spaces",
+                ConfluenceFixtures.spaceListJson(null,
+                        ConfluenceFixtures.spaceJson("100", "ENG", "Engineering"),
+                        ConfluenceFixtures.spaceJson("101", "DOCS", "Documentation")));
+        acme.stub("/wiki/api/v2/spaces/101/properties", ConfluenceFixtures.emptyListJson());
 
         AssetStore ledger = new AssetStore();
         String name = InProcessServerBuilder.generateName();

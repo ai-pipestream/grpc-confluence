@@ -2167,7 +2167,12 @@ message ResolveContentTypesResponse {
 // Request to run one bounded sync pass.
 message SyncRequest {
   // Space keys to sync; empty = the server's configured allowlist, or every
-  // space the credentials can see when none is configured.
+  // space the credentials can see when none is configured. Every key of
+  // the allowlist in force (this field, or the configured one) must come
+  // back from Confluence: when one does not (it is misspelled, keys match
+  // exactly including case, the space is gone, or the credentials cannot
+  // see it) the pass fails with NOT_FOUND naming the keys, before anything
+  // is crawled.
   repeated string space_keys = 1;
   // The resume cursor a previous Sync ended with (an RFC3339 timestamp).
   // Empty = full crawl; set = incremental pass emitting only content modified
