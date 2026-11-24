@@ -1,0 +1,64 @@
+{
+  "scenario" : "content-properties",
+  "sequence" : 10,
+  "request" : {
+    "method" : "PUT",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/32669736/properties/32866326",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "key" : "pipestream-live-write-20261123T223930Z-2b7ba40f-plain",
+        "value" : {
+          "string" : "two",
+          "integer" : 42,
+          "double" : 2.5,
+          "bool" : true,
+          "null" : null,
+          "list" : [ "a", 1 ],
+          "object" : {
+            "nested" : false
+          }
+        },
+        "version" : {
+          "number" : 2
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "version" : {
+          "number" : 2,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-23T22:40:01.484Z"
+        },
+        "value" : {
+          "string" : "two",
+          "integer" : 42,
+          "double" : 2.5,
+          "bool" : true,
+          "null" : null,
+          "list" : [ "a", 1 ],
+          "object" : {
+            "nested" : false
+          }
+        },
+        "key" : "pipestream-live-write-20261123T223930Z-2b7ba40f-plain",
+        "id" : "32866326"
+      }
+    }
+  }
+}

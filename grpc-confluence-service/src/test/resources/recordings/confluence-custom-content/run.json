@@ -1,0 +1,286 @@
+{
+  "baseUrl" : "https://site-1.example.invalid/wiki",
+  "spaceKey" : "CLAUDEGRPC",
+  "run" : "pipestream-live-write-20261123T223930Z-2b7ba40f",
+  "admin" : false,
+  "customContentType" : "forge:d16971ce-921a-40d5-a97b-84b84a4cbfe1:b5506979-43d3-4c0e-9bd5-60f77934bdf3:pipestream-record",
+  "inviteEmail" : null,
+  "outcomes" : [ {
+    "rpc" : "CreatePage",
+    "step" : "CreatePage (parent page, storage body)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CreatePage",
+    "step" : "CreatePage (ADF body)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CreatePage",
+    "step" : "CreatePage (storage body)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "UpdatePage",
+    "step" : "UpdatePage (expected_version)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "UpdatePage",
+    "step" : "UpdatePage (stale expected_version is ABORTED)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "UpdatePageTitle",
+    "step" : "UpdatePageTitle",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "AddLabels",
+    "step" : "AddLabels",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "RemoveLabel",
+    "step" : "RemoveLabel",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CreateContentProperty",
+    "step" : "CreateContentProperty (every plain value arm)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CreateContentProperty",
+    "step" : "CreateContentProperty (big integer)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CreateContentProperty",
+    "step" : "CreateContentProperty (exact decimal is INVALID_ARGUMENT)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CreateContentProperty",
+    "step" : "CreateContentProperty (value over the size limit is INVALID_ARGUMENT)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CreateContentProperty",
+    "step" : "CreateContentProperty (leaves the page version alone)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "UpdateContentProperty",
+    "step" : "UpdateContentProperty",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "DeleteContentProperty",
+    "step" : "DeleteContentProperty",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CreateFooterComment",
+    "step" : "CreateFooterComment",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "UpdateFooterComment",
+    "step" : "UpdateFooterComment",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "DeleteFooterComment",
+    "step" : "DeleteFooterComment",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CreateInlineComment",
+    "step" : "CreateInlineComment",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "UpdateInlineComment",
+    "step" : "UpdateInlineComment (resolve)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "DeleteInlineComment",
+    "step" : "DeleteInlineComment",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "UploadAttachment",
+    "step" : "UploadAttachment (small)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "UploadAttachment",
+    "step" : "UploadAttachment (multi-MB, streamed)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "UploadAttachment",
+    "step" : "UploadAttachment (replace_existing adds a version)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "DeleteAttachment",
+    "step" : "DeleteAttachment (trash, then purge)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "AddContentPermissions",
+    "step" : "AddContentPermissions",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "SetRestrictionState",
+    "step" : "SetRestrictionState",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "SetContentPermissions",
+    "step" : "SetContentPermissions",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "SetRestrictionState",
+    "step" : "SetRestrictionState (back to OPEN)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "DeleteContentPermissions",
+    "step" : "DeleteContentPermissions",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "SetContentClassificationLevel",
+    "step" : "SetContentClassificationLevel",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "ResetContentClassificationLevel",
+    "step" : "ResetContentClassificationLevel",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "UpdateSpaceDefaultClassificationLevel",
+    "step" : "UpdateSpaceDefaultClassificationLevel",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "DeleteSpaceDefaultClassificationLevel",
+    "step" : "DeleteSpaceDefaultClassificationLevel",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "UpdateTask",
+    "step" : "UpdateTask",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "RedactPage",
+    "step" : "RedactPage",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "CreateSpaceProperty",
+    "step" : "CreateSpaceProperty",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "UpdateSpaceProperty",
+    "step" : "UpdateSpaceProperty",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "DeleteSpaceProperty",
+    "step" : "DeleteSpaceProperty",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CreateBlogPost",
+    "step" : "CreateBlogPost",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "UpdateBlogPost",
+    "step" : "UpdateBlogPost",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "RedactBlogPost",
+    "step" : "RedactBlogPost",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "DeleteBlogPost",
+    "step" : "DeleteBlogPost (trash, then purge)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CreateCustomContent",
+    "step" : "CreateCustomContent",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "UpdateCustomContent",
+    "step" : "UpdateCustomContent",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "DeleteCustomContent",
+    "step" : "DeleteCustomContent (trash, then purge)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CreateFolder",
+    "step" : "CreateFolder",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "DeleteFolder",
+    "step" : "DeleteFolder",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CreateWhiteboard",
+    "step" : "CreateWhiteboard",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "DeleteWhiteboard",
+    "step" : "DeleteWhiteboard",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CreateDatabase",
+    "step" : "CreateDatabase",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "DeleteDatabase",
+    "step" : "DeleteDatabase",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CreateSmartLink",
+    "step" : "CreateSmartLink",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "DeleteSmartLink",
+    "step" : "DeleteSmartLink",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "Mutate",
+    "step" : "Mutate (several operations)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "DeletePage",
+    "step" : "DeletePage (trash, then purge)",
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "CreateSpace",
+    "step" : "CreateSpace",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "DeleteSpace",
+    "step" : "DeleteSpace",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "CreateSpaceRole",
+    "step" : "CreateSpaceRole",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "UpdateSpaceRole",
+    "step" : "UpdateSpaceRole",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "DeleteSpaceRole",
+    "step" : "DeleteSpaceRole",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "SetSpaceRoleAssignments",
+    "step" : "SetSpaceRoleAssignments",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "InviteByEmail",
+    "step" : "InviteByEmail",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "EnableAdminKey",
+    "step" : "EnableAdminKey",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "DisableAdminKey",
+    "step" : "DisableAdminKey",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "BulkAssignSpaceRoles",
+    "step" : "BulkAssignSpaceRoles",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "BulkRemoveSpaceAccess",
+    "step" : "BulkRemoveSpaceAccess",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "SetAppProperty",
+    "step" : "SetAppProperty",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "DeleteAppProperty",
+    "step" : "DeleteAppProperty",
+    "outcome" : "SKIPPED"
+  } ],
+  "scenarios" : [ "setup", "pages-adf", "page-lifecycle", "labels", "content-properties", "comments", "attachments", "permissions", "classification", "tasks-redaction", "space-properties", "blog-posts", "custom-content", "tree-nodes", "mutate", "delete-purge", "tenant", "cleanup" ]
+}

@@ -1,0 +1,48 @@
+{
+  "scenario" : "tasks-redaction",
+  "sequence" : 1,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/tasks",
+    "query" : [ {
+      "name" : "limit",
+      "value" : "25"
+    }, {
+      "name" : "page-id",
+      "value" : "32768008"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "pageId" : "32768008",
+          "completedAt" : null,
+          "completedBy" : null,
+          "assignedTo" : null,
+          "dueAt" : null,
+          "updatedAt" : null,
+          "localId" : "85652054-8f8b-394f-aecb-8f89fc75996d",
+          "createdAt" : "2026-11-23T22:39:33.684Z",
+          "id" : "353",
+          "spaceId" : "7798786",
+          "body" : null,
+          "status" : "incomplete",
+          "createdBy" : "account-1"
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

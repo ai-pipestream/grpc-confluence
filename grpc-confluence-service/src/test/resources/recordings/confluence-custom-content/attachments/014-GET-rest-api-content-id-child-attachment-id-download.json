@@ -1,0 +1,20 @@
+{
+  "scenario" : "attachments",
+  "sequence" : 14,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/content/32669736/child/attachment/att32899125/download",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "*/*"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 302,
+    "headers" : {
+      "location" : "https://api.media.atlassian.com/file/c7da0e8f-c61e-48a9-9a3c-b7959c1a5552/binary?token=token-4&client=6dccb467-4095-4617-b5f0-a97bb96d422a&name=pipestream-live-write-20261123T223930Z-2b7ba40f.txt"
+    }
+  }
+}

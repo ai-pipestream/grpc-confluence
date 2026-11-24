@@ -1,0 +1,66 @@
+{
+  "scenario" : "custom-content",
+  "sequence" : 3,
+  "request" : {
+    "method" : "PUT",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/custom-content/33652737",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "id" : "33652737",
+        "type" : "forge:d16971ce-921a-40d5-a97b-84b84a4cbfe1:b5506979-43d3-4c0e-9bd5-60f77934bdf3:pipestream-record",
+        "status" : "current",
+        "pageId" : "32899104",
+        "title" : "pipestream-live-write-20261123T223930Z-2b7ba40f custom edited",
+        "body" : {
+          "representation" : "storage",
+          "value" : "<p>custom edited pipestream-live-write-20261123T223930Z-2b7ba40f</p>"
+        },
+        "version" : {
+          "number" : 2
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "id" : "33652737",
+        "type" : "forge:d16971ce-921a-40d5-a97b-84b84a4cbfe1:b5506979-43d3-4c0e-9bd5-60f77934bdf3:pipestream-record",
+        "status" : "current",
+        "title" : "pipestream-live-write-20261123T223930Z-2b7ba40f custom edited",
+        "createdAt" : "2026-11-23T22:40:16.167Z",
+        "authorId" : "account-1",
+        "spaceId" : "7798786",
+        "pageId" : "32899104",
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<p>custom edited pipestream-live-write-20261123T223930Z-2b7ba40f</p>"
+          }
+        },
+        "version" : {
+          "number" : 2,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-23T22:40:16.486Z"
+        },
+        "_links" : {
+          "webui" : "/display/CLAUDEGRPC/customcontent/33652737",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

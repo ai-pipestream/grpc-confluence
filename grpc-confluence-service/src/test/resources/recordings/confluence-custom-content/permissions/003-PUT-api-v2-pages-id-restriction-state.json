@@ -1,0 +1,34 @@
+{
+  "scenario" : "permissions",
+  "sequence" : 3,
+  "request" : {
+    "method" : "PUT",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/32669736/restriction-state",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "state" : "EDIT_RESTRICTED"
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "state" : "EDIT_RESTRICTED",
+        "createdAt" : "2026-11-23T22:40:10.792Z",
+        "createdByAaid" : "account-1",
+        "createdBy" : "account-1"
+      }
+    }
+  }
+}
