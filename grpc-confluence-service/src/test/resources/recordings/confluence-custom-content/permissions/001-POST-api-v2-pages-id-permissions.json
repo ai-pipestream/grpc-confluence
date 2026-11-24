@@ -1,0 +1,49 @@
+{
+  "scenario" : "permissions",
+  "sequence" : 1,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/32669736/permissions",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "permissions" : [ {
+          "operation" : "update",
+          "principals" : [ {
+            "principalType" : "user",
+            "principalId" : "account-1"
+          } ]
+        } ]
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "operation" : "update",
+          "principal" : {
+            "principalType" : "user",
+            "principalId" : "account-1"
+          },
+          "createdAt" : "2026-11-23T22:39:34.530Z",
+          "createdByAaid" : "account-1",
+          "createdBy" : "account-1"
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

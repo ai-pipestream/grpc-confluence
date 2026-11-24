@@ -1,0 +1,45 @@
+{
+  "scenario" : "private-space",
+  "sequence" : 17,
+  "unordered" : 4,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/content/31654016/permission/check",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "subject" : {
+          "type" : "user",
+          "identifier" : "account-5"
+        },
+        "operation" : "read"
+      }
+    }
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "hasPermission" : false,
+        "errors" : [ {
+          "key" : "content.permission.check.user.no.space.permission",
+          "translation" : "User does not have permission to the space",
+          "args" : [ ]
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki",
+          "context" : "/wiki"
+        }
+      }
+    }
+  }
+}

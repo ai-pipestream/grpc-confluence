@@ -1,0 +1,45 @@
+{
+  "scenario" : "page-lifecycle",
+  "sequence" : 5,
+  "request" : {
+    "method" : "PUT",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/30179844",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "id" : "30179844",
+        "status" : "current",
+        "title" : "pipestream-live-write-20261122T154612Z-76a48fba storage",
+        "body" : {
+          "representation" : "storage",
+          "value" : "<p>stale</p>"
+        },
+        "version" : {
+          "number" : 2
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 409,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "errors" : [ {
+          "status" : 409,
+          "code" : "CONFLICT",
+          "title" : "Version must be incremented when updating a page. Current Version: [2]. Provided version: [2]",
+          "detail" : null
+        } ]
+      }
+    }
+  }
+}

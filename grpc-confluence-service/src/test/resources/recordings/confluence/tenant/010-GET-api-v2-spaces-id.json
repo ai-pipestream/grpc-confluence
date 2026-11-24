@@ -1,0 +1,30 @@
+{
+  "scenario" : "tenant",
+  "sequence" : 10,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/spaces/30048484",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 404,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "errors" : [ {
+          "status" : 404,
+          "code" : "NOT_FOUND",
+          "title" : "Cannot find a space with id [30048484]",
+          "detail" : null
+        } ]
+      }
+    }
+  }
+}

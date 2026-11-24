@@ -114,6 +114,28 @@ class ConfluenceClientTest {
     }
 
     @Test
+    void retriesAServerFaultOnADelete() throws Exception {
+        fake.stubOnce("/wiki/api/v2/pages/7", new FakeConfluenceServer.Stub(500, "{}", Map.of()));
+        fake.stub("/wiki/api/v2/pages/7", new FakeConfluenceServer.Stub(204, "", Map.of()));
+
+        client.delete("/api/v2/pages/7", Map.of());
+
+        assertThat(fake.requestsTo("/wiki/api/v2/pages/7")).hasSize(2);
+    }
+
+    @Test
+    void doesNotRetryAServerFaultOnAPost() {
+        fake.stubOnce("/wiki/api/v2/pages", new FakeConfluenceServer.Stub(500, "{}", Map.of()));
+        fake.stub("/wiki/api/v2/pages", "{}");
+
+        assertThatThrownBy(() -> client.post("/api/v2/pages", Map.of(),
+                com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode()))
+                .isInstanceOf(ConfluenceClient.ConfluenceApiException.class)
+                .hasMessageContaining("500");
+        assertThat(fake.requestsTo("/wiki/api/v2/pages")).hasSize(1);
+    }
+
+    @Test
     void surfacesApiErrorsWithStatus() {
         fake.stub("/wiki/api/v2/pages/999",
                 new FakeConfluenceServer.Stub(404, "{\"message\":\"no page\"}", Map.of()));
@@ -206,5 +228,111 @@ class ConfluenceClientTest {
         assertThat(fake.requests()).isEmpty();
         // A route that percent-encodes a free-form key still works.
         ConfluenceClient.requireSafePath("/api/v2/app/properties/my%20key%3Av1");
+    }
+
+    @Test
+    void writesSendTheMethodBodyAndQuery() throws Exception {
+        fake.stub("PUT", "/wiki/api/v2/pages/5", 200, "{\"id\":\"5\"}");
+        fake.stub("DELETE", "/wiki/api/v2/pages/5", 204, "");
+        fake.stub("POST", "/wiki/api/v2/pages", 201, "{\"id\":\"6\"}");
+        com.fasterxml.jackson.databind.node.ObjectNode body =
+                ConfluenceClient.responseJson().createObjectNode().put("title", "t");
+
+        assertThat(client.put("/api/v2/pages/5", Map.of(), body).path("id").asText()).isEqualTo("5");
+        FakeConfluenceServer.RecordedRequest put = fake.lastTo("PUT", "/wiki/api/v2/pages/5");
+        assertThat(put.body()).isEqualTo("{\"title\":\"t\"}");
+        assertThat(put.header("content-type")).isEqualTo("application/json");
+
+        assertThat(client.delete("/api/v2/pages/5", Map.of("purge", "true")).isEmpty()).isTrue();
+        assertThat(fake.lastTo("DELETE", "/wiki/api/v2/pages/5").query()).isEqualTo("purge=true");
+
+        ConfluenceClient.JsonResponse created = client.exchange("POST", "/api/v2/pages", Map.of(), body);
+        assertThat(created.status()).isEqualTo(201);
+        assertThat(created.body().path("id").asText()).isEqualTo("6");
+    }
+
+    @Test
+    void apiErrorsCarryRetryAfter() {
+        for (int i = 0; i < 6; i++) {
+            fake.stubOnce("/wiki/api/v2/pages/5", new FakeConfluenceServer.Stub(429,
+                    "{}", Map.of("Retry-After", "0")));
+        }
+        fake.stub("DELETE", "/wiki/api/v2/pages/6",
+                new FakeConfluenceServer.Stub(409, "{}", Map.of("Retry-After", "soon")));
+
+        assertThatThrownBy(() -> client.delete("/api/v2/pages/5", Map.of()))
+                .isInstanceOfSatisfying(ConfluenceClient.ConfluenceApiException.class,
+                        e -> assertThat(e.retryAfterSeconds()).isZero());
+        assertThatThrownBy(() -> client.delete("/api/v2/pages/6", Map.of()))
+                .isInstanceOfSatisfying(ConfluenceClient.ConfluenceApiException.class, e -> {
+                    assertThat(e.status()).isEqualTo(409);
+                    assertThat(e.retryAfterSeconds()).isEqualTo(-1);
+                });
+    }
+
+    @Test
+    void multipartUploadsStreamTheFileOnce() throws Exception {
+        fake.stub("POST", "/wiki/rest/api/content/5/child/attachment", 200, "{\"results\":[]}");
+        java.util.Map<String, String> fields = new java.util.LinkedHashMap<>();
+        fields.put("minorEdit", "true");
+
+        client.uploadMultipart("POST", "/rest/api/content/5/child/attachment", fields, "a.txt",
+                "text/plain", new java.io.ByteArrayInputStream("hello".getBytes()));
+
+        FakeConfluenceServer.RecordedRequest request =
+                fake.lastTo("POST", "/wiki/rest/api/content/5/child/attachment");
+        assertThat(request.header("x-atlassian-token")).isEqualTo("no-check");
+        assertThat(request.header("transfer-encoding")).isEqualTo("chunked");
+        assertThat(request.body()).contains("name=\"minorEdit\"\r\n\r\ntrue\r\n")
+                .contains("filename=\"a.txt\"\r\nContent-Type: text/plain\r\n\r\nhello\r\n");
+        assertThatThrownBy(() -> client.uploadMultipart("POST",
+                "/rest/api/content/5/child/attachment", fields, "a\nb", "text/plain",
+                new java.io.ByteArrayInputStream(new byte[0])))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void appPropertyCallsGoThroughTheForgeAppWhenOneIsSet() throws Exception {
+        fake.stub("POST", "/trigger", 200,
+                "{\"status\":201,\"body\":{\"key\":\"k 1\",\"value\":{\"a\":1}}}");
+        fake.stub("/wiki/api/v2/spaces", ConfluenceFixtures.emptyListJson());
+        client.forgeApp(new ConfluenceClient.ForgeApp(fake.baseUrl().replace("/wiki", "") + "/trigger",
+                "trigger-secret"));
+
+        ConfluenceClient.JsonResponse answer = client.exchange("PUT", "/api/v2/app/properties/k%201",
+                Map.of("x", "y z"), ConfluenceClient.responseJson().readTree("{\"a\":1}"));
+        client.get("/api/v2/spaces");
+
+        assertThat(answer.status()).isEqualTo(201);
+        assertThat(answer.body().path("key").asText()).isEqualTo("k 1");
+        FakeConfluenceServer.RecordedRequest sent = fake.lastTo("POST", "/trigger");
+        assertThat(sent.authorization()).isNull();
+        assertThat(sent.headers().get("x-pipestream-queue-secret")).isEqualTo("trigger-secret");
+        assertThat(ConfluenceClient.responseJson().readTree(sent.body()))
+                .isEqualTo(ConfluenceClient.responseJson().readTree(
+                        "{\"method\":\"PUT\",\"path\":\"/wiki/api/v2/app/properties/k%201?x=y+z\","
+                                + "\"body\":{\"a\":1}}"));
+        assertThat(fake.requestsTo("/wiki/api/v2/app/properties/k 1")).isEmpty();
+        assertThat(fake.requestsTo("/wiki/api/v2/spaces")).hasSize(1)
+                .allMatch(request -> request.headers().get("x-pipestream-queue-secret") == null);
+    }
+
+    @Test
+    void anErrorFromConfluenceThroughTheForgeAppKeepsItsStatus() {
+        fake.stub("POST", "/trigger", 200, "{\"status\":404,\"body\":{\"errors\":[]}}");
+        client.forgeApp(new ConfluenceClient.ForgeApp(fake.baseUrl().replace("/wiki", "") + "/trigger",
+                "trigger-secret"));
+
+        assertThatThrownBy(() -> client.get("/api/v2/app/properties/missing"))
+                .isInstanceOfSatisfying(ConfluenceClient.ConfluenceApiException.class,
+                        e -> assertThat(e.status()).isEqualTo(404));
+    }
+
+    @Test
+    void aForgeAppNeedsBothItsUrlAndItsSecret() {
+        assertThat(ConfluenceClient.ForgeApp.fromEnvironment(Map.of())).isNull();
+        assertThatThrownBy(() -> ConfluenceClient.ForgeApp.fromEnvironment(
+                Map.of(ConfluenceClient.ForgeApp.ENV_URL, "https://example.com/t")))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

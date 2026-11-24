@@ -1,0 +1,201 @@
+{
+  "scenario" : "sync",
+  "sequence" : 10,
+  "unordered" : 2,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages",
+    "query" : [ {
+      "name" : "body-format",
+      "value" : "storage"
+    }, {
+      "name" : "limit",
+      "value" : "25"
+    }, {
+      "name" : "sort",
+      "value" : "-modified-date"
+    }, {
+      "name" : "space-id",
+      "value" : "7798786"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "authorId" : "account-1",
+          "parentType" : "page",
+          "parentId" : "31588353",
+          "ownerId" : "account-1",
+          "lastOwnerId" : null,
+          "createdAt" : "2026-11-23T13:38:45.691Z",
+          "version" : {
+            "number" : 1,
+            "message" : "",
+            "minorEdit" : false,
+            "authorId" : "account-1",
+            "createdAt" : "2026-11-23T13:38:45.691Z",
+            "ncsStepVersion" : "1"
+          },
+          "position" : 752,
+          "id" : "30966202",
+          "spaceId" : "7798786",
+          "body" : {
+            "storage" : {
+              "representation" : "storage",
+              "value" : "<p>Child of the ACL run.</p>"
+            }
+          },
+          "status" : "current",
+          "title" : "pipestream-live-acl-20261123T133843Z-a02b9f60 child",
+          "_links" : {
+            "editui" : "/pages/resumedraft.action?draftId=30966202",
+            "webui" : "/spaces/CLAUDEGRPC/pages/30966202/pipestream-live-acl-20261123T133843Z-a02b9f60+child",
+            "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/30966202",
+            "tinyui" : "/x/uoHYAQ"
+          }
+        }, {
+          "authorId" : "account-1",
+          "parentType" : "page",
+          "parentId" : "7798963",
+          "ownerId" : "account-1",
+          "lastOwnerId" : null,
+          "createdAt" : "2026-11-23T13:38:44.912Z",
+          "version" : {
+            "number" : 1,
+            "message" : "",
+            "minorEdit" : false,
+            "authorId" : "account-1",
+            "createdAt" : "2026-11-23T13:38:44.912Z",
+            "ncsStepVersion" : "1"
+          },
+          "position" : 585,
+          "id" : "31588353",
+          "spaceId" : "7798786",
+          "body" : {
+            "storage" : {
+              "representation" : "storage",
+              "value" : "<p>Parent of the ACL run.</p>"
+            }
+          },
+          "status" : "current",
+          "title" : "pipestream-live-acl-20261123T133843Z-a02b9f60",
+          "_links" : {
+            "editui" : "/pages/resumedraft.action?draftId=31588353",
+            "webui" : "/spaces/CLAUDEGRPC/pages/31588353/pipestream-live-acl-20261123T133843Z-a02b9f60",
+            "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/31588353",
+            "tinyui" : "/x/AQDiAQ"
+          }
+        }, {
+          "authorId" : "account-1",
+          "parentType" : "page",
+          "parentId" : "7798963",
+          "ownerId" : "account-1",
+          "lastOwnerId" : null,
+          "createdAt" : "2026-11-15T21:13:47.434Z",
+          "version" : {
+            "number" : 1,
+            "message" : "",
+            "minorEdit" : false,
+            "authorId" : "account-1",
+            "createdAt" : "2026-11-15T21:13:47.434Z",
+            "ncsStepVersion" : "1"
+          },
+          "position" : 336,
+          "id" : "28409901",
+          "spaceId" : "7798786",
+          "body" : {
+            "storage" : {
+              "representation" : "storage",
+              "value" : "<p>Document Analytics probe</p>"
+            }
+          },
+          "status" : "current",
+          "title" : "Document Analytics probe 2026-11-15T21:13:47Z",
+          "_links" : {
+            "editui" : "/pages/resumedraft.action?draftId=28409901",
+            "webui" : "/spaces/CLAUDEGRPC/pages/28409901/Document+Analytics+probe+2026-11-15T21+13+47Z",
+            "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/28409901",
+            "tinyui" : "/x/LYCxAQ"
+          }
+        }, {
+          "authorId" : "account-1",
+          "parentType" : "page",
+          "parentId" : "7798963",
+          "ownerId" : "account-1",
+          "lastOwnerId" : null,
+          "createdAt" : "2026-08-25T00:57:54.801Z",
+          "version" : {
+            "number" : 2,
+            "message" : "live test edit",
+            "minorEdit" : false,
+            "authorId" : "account-1",
+            "createdAt" : "2026-08-25T00:58:54.059Z",
+            "ncsStepVersion" : "8"
+          },
+          "position" : 9,
+          "id" : "7864321",
+          "spaceId" : "7798786",
+          "body" : {
+            "storage" : {
+              "representation" : "storage",
+              "value" : "<p>Version TWO of the sync probe page - edited for update detection.</p>"
+            }
+          },
+          "status" : "current",
+          "title" : "Sync Probe Page",
+          "_links" : {
+            "editui" : "/pages/resumedraft.action?draftId=7864321",
+            "webui" : "/spaces/CLAUDEGRPC/pages/7864321/Sync+Probe+Page",
+            "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/7864321",
+            "tinyui" : "/x/AQB4"
+          }
+        }, {
+          "authorId" : "account-1",
+          "parentType" : null,
+          "parentId" : null,
+          "ownerId" : "account-1",
+          "lastOwnerId" : null,
+          "createdAt" : "2026-08-25T00:57:42.171Z",
+          "version" : {
+            "number" : 1,
+            "message" : "",
+            "minorEdit" : false,
+            "authorId" : "account-1",
+            "createdAt" : "2026-08-25T00:57:42.171Z",
+            "ncsStepVersion" : null
+          },
+          "position" : 946,
+          "id" : "7798963",
+          "spaceId" : "7798786",
+          "body" : {
+            "storage" : {
+              "representation" : "storage",
+              "value" : "<ac:structured-macro ac:name=\"panel\" ac:schema-version=\"1\" ac:macro-id=\"bc82cb0f-6564-4928-a24c-f325fc29da0f\"><ac:parameter ac:name=\"bgColor\">#E3FCEF</ac:parameter><ac:rich-text-body>\n        <h2><strong>Welcome to your new space!</strong></h2>\n        <p>Spaces help your team structure, organize, and share work, so every team member has visibility into institutional knowledge and access to the information they need to do their best work.</p>\n    </ac:rich-text-body></ac:structured-macro>\n<p />\n<h2><strong>Get started with the basics</strong></h2>\n<fieldset>\n    <p><strong>Start editing this content:</strong></p>\n    <ac:task-list>\n<ac:task>\n<ac:task-id>11</ac:task-id>\n<ac:task-status>incomplete</ac:task-status>\n<ac:task-body><span class=\"placeholder-inline-tasks\">Click the pencil icon ✏️ or <code>e</code> on your keyboard to edit and start typing. You can edit anywhere.</span></ac:task-body>\n</ac:task>\n<ac:task>\n<ac:task-id>13</ac:task-id>\n<ac:task-status>incomplete</ac:task-status>\n<ac:task-body><span class=\"placeholder-inline-tasks\">Hit <code>/</code> to see all the types of content you can add to your page. Try <code>/image</code> or <code>/table</code></span></ac:task-body>\n</ac:task>\n<ac:task>\n<ac:task-id>14</ac:task-id>\n<ac:task-status>incomplete</ac:task-status>\n<ac:task-body><span class=\"placeholder-inline-tasks\">Use the toolbar at the top to play around with <em><u>font</u></em>, <strong><span style=\"color: rgb(54,179,126);\">c</span><span style=\"color: rgb(255,196,0);\">o</span><span style=\"color: rgb(101,84,192);\">l</span><span style=\"color: rgb(191,38,0);\">o</span><span style=\"color: rgb(76,154,255);\">r</span><span style=\"color: rgb(101,84,192);\">s</span></strong>, <sup>formatt</sup><sub>ing</sub>, and more</span></ac:task-body>\n</ac:task>\n<ac:task>\n<ac:task-id>15</ac:task-id>\n<ac:task-status>incomplete</ac:task-status>\n<ac:task-body><span class=\"placeholder-inline-tasks\">Click <code>close</code> to save your draft or <code>publish</code> when your page is ready to be shared</span></ac:task-body>\n</ac:task>\n</ac:task-list>\n</fieldset>\n<h3>\n    🪄 Need some inspiration?\n</h3>\n<ul>\n    <li>\n        <p>Check out our <a href=\"https://www.atlassian.com/software/confluence/guides/get-started/best-practices\">Confluence best practices guide</a>.</p>\n    </li>\n    <li>\n        <p>Get a quick intro into what spaces are and how to best use them at <a href=\"https://www.atlassian.com/software/confluence/guides/get-started/set-up\">Set up your site and spaces</a>.</p>\n    </li>\n    <li>\n        <p>Check out our guide for ideas on how to <a href=\"https://confluence.atlassian.com/confcloud/set-up-your-space-homepage-827106219.html\">set up your space overview</a>.</p>\n    </li>\n    <li>\n        <p>If starting from a blank space is daunting, try using one of the <a href=\"https://confluence.atlassian.com/display/ConfCloud/Create+a+Space+From+a+Template\">space templates</a> instead.</p>\n    </li>\n</ul>"
+            }
+          },
+          "status" : "current",
+          "title" : "Claude gRPC Live Test Home",
+          "_links" : {
+            "editui" : "/pages/resumedraft.action?draftId=7798963",
+            "webui" : "/spaces/CLAUDEGRPC/overview",
+            "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/7798963",
+            "tinyui" : "/x/swB3"
+          }
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "scenario" : "space-properties",
+  "sequence" : 4,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/spaces/7798786/properties/29917419",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "id" : "29917419",
+        "key" : "pipestream-live-write-20261122T154612Z-76a48fba",
+        "value" : {
+          "string" : "two",
+          "integer" : 42,
+          "double" : 2.5,
+          "bool" : true,
+          "null" : null,
+          "list" : [ "a", 1 ],
+          "object" : {
+            "nested" : false
+          }
+        },
+        "createdAt" : "2026-11-22T15:47:08.013Z",
+        "authorId" : "account-1",
+        "version" : {
+          "createdAt" : "2026-11-22T15:47:08.230Z",
+          "authorId" : "account-1",
+          "number" : 2,
+          "message" : ""
+        }
+      }
+    }
+  }
+}

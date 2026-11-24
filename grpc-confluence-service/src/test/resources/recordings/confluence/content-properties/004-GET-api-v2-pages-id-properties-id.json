@@ -1,0 +1,36 @@
+{
+  "scenario" : "content-properties",
+  "sequence" : 4,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/30179844/properties/30572865",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-22T15:46:18.295Z"
+        },
+        "value" : {
+          "big" : 123456789012345678901234567890
+        },
+        "key" : "pipestream-live-write-20261122T154612Z-76a48fba-exact",
+        "id" : "30572865"
+      }
+    }
+  }
+}

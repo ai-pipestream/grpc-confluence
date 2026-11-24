@@ -1,0 +1,38 @@
+{
+  "scenario" : "private-space",
+  "sequence" : 45,
+  "unordered" : 5,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/31654016/direct-children",
+    "query" : [ {
+      "name" : "limit",
+      "value" : "25"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "id" : "30180610",
+          "status" : "current",
+          "title" : "pipestream-live-acl-20261123T133843Z-a02b9f60 private page",
+          "childPosition" : 830,
+          "type" : "page"
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}
