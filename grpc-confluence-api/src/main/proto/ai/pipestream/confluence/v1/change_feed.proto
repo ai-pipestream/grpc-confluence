@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package ai.pipestream.confluence.v1;
+
+import "ai/pipestream/confluence/v1/confluence_service.proto";
+import "ai/pipestream/confluence/v1/events.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "ai.pipestream.confluence.v1";
+
+// ============================================================================
+// CONFLUENCE CHANGE SERVICE - a continuous change feed.
+//
+// WatchChanges runs Sync passes on a timer (the baseline) and, when the
+// server is configured with the companion Forge app's event queue, drains
+// that queue between passes and re-reads each changed object at once. The
+// server only calls out to the queue; nothing needs to reach the server.
+// ============================================================================
+
+// Streams Confluence changes continuously.
+service ConfluenceChangeService {
+  // Runs Sync passes and resolves queued Confluence events until the client
+  // cancels. Each message carries the resume cursor of the last completed
+  // pass; hand it back as WatchChangesRequest.resume_cursor after a restart.
+  rpc WatchChanges(WatchChangesRequest) returns (stream WatchChangesResponse);
+}
+
+// Request to watch changes continuously.
+message WatchChangesRequest {
+  // The scope and options of every Sync pass. Its since_cursor is the
+  // starting point when resume_cursor is empty.
+  SyncRequest sync = 1;
+  // Resume cursor from an earlier WatchChangesResponse; empty = start from
+  // sync.since_cursor.
+  string resume_cursor = 2;
+  // Wait between Sync passes; unset = the server default (15 minutes).
+  google.protobuf.Duration poll_interval = 3;
+  // Wait between event queue drains; unset = the server default (15
+  // seconds). Ignored when no event queue is configured.
+  google.protobuf.Duration event_interval = 4;
+  // When true, no Sync pass runs at start; the stream begins with events.
+  bool skip_initial_pass = 5;
+}
+
+// What started a Sync pass.
+enum PassTrigger {
+  // Zero value; not set.
+  PASS_TRIGGER_UNSPECIFIED = 0;
+  // The first pass of the stream.
+  PASS_TRIGGER_START = 1;
+  // The poll interval elapsed.
+  PASS_TRIGGER_TIMER = 2;
+}
+
+// Marker sent after each completed Sync pass.
+message PassCompleted {
+  // Pass number within this stream, from 1.
+  int64 pass = 1;
+  // What started the pass.
+  PassTrigger trigger = 2;
+  // Changes the pass emitted.
+  int64 change_count = 3;
+  // When the pass started.
+  google.protobuf.Timestamp started_at = 4;
+  // When the pass completed.
+  google.protobuf.Timestamp completed_at = 5;
+}
+
+// One message of the change feed.
+message WatchChangesResponse {
+  // Position within this stream, from 1, increasing by one per message.
+  int64 sequence = 1;
+  // Resume cursor of the last completed pass. Resuming from it replays the
+  // changes of any pass that had not completed, so delivery is at least once.
+  string resume_cursor = 2;
+  // The streamed event.
+  oneof event {
+    // One entity upsert or delete, from a pass (CRAWL or CQL_INCREMENTAL) or
+    // from a queued event (WEBHOOK, with ConfluenceChange.event set).
+    ConfluenceChange change = 3;
+    // A completed space sweep.
+    ConfluenceSnapshot snapshot = 4;
+    // The end of a Sync pass.
+    PassCompleted pass_completed = 5;
+    // A queued event that names no object this server re-reads (users,
+    // groups, tasks, unknown types). Sent as is.
+    ConfluenceEvent unresolved_event = 6;
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "scenario" : "45-space-created-event",
+  "sequence" : 18,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/spaces/34111520/role-assignments",
+    "query" : [ {
+      "name" : "limit",
+      "value" : "25"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "roleId" : "6820786b-b8db-4102-b789-dcb45cba7c83",
+          "principal" : {
+            "principalType" : "USER",
+            "principalId" : "account-4"
+          }
+        }, {
+          "roleId" : "6820786b-b8db-4102-b789-dcb45cba7c83",
+          "principal" : {
+            "principalType" : "USER",
+            "principalId" : "account-3"
+          }
+        }, {
+          "roleId" : "6820786b-b8db-4102-b789-dcb45cba7c83",
+          "principal" : {
+            "principalType" : "USER",
+            "principalId" : "account-2"
+          }
+        }, {
+          "roleId" : "6820786b-b8db-4102-b789-dcb45cba7c83",
+          "principal" : {
+            "principalType" : "USER",
+            "principalId" : "account-1"
+          }
+        }, {
+          "roleId" : "0c103ff5-44d0-4b2a-b80d-8690442c95f0",
+          "principal" : {
+            "principalType" : "ACCESS_CLASS",
+            "principalId" : "all-licensed-users"
+          }
+        }, {
+          "roleId" : "6820786b-b8db-4102-b789-dcb45cba7c83",
+          "principal" : {
+            "principalType" : "ACCESS_CLASS",
+            "principalId" : "all-product-admins"
+          }
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

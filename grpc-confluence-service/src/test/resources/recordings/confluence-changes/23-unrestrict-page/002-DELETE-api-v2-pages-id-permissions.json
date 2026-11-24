@@ -1,0 +1,21 @@
+{
+  "scenario" : "23-unrestrict-page",
+  "sequence" : 2,
+  "request" : {
+    "method" : "DELETE",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/33914881/permissions",
+    "query" : [ {
+      "name" : "allow-self-lockout",
+      "value" : "true"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 204,
+    "headers" : { }
+  }
+}

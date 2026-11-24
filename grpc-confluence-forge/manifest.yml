@@ -1,0 +1,102 @@
+modules:
+  trigger:
+    - key: confluence-events
+      function: on-event
+      events:
+        - avi:confluence:created:page
+        - avi:confluence:updated:page
+        - avi:confluence:moved:page
+        - avi:confluence:copied:page
+        - avi:confluence:children_reordered:page
+        - avi:confluence:permissions_updated:page
+        - avi:confluence:trashed:page
+        - avi:confluence:restored:page
+        - avi:confluence:deleted:page
+        - avi:confluence:archived:page
+        - avi:confluence:unarchived:page
+        - avi:confluence:created:blogpost
+        - avi:confluence:updated:blogpost
+        - avi:confluence:permissions_updated:blogpost
+        - avi:confluence:trashed:blogpost
+        - avi:confluence:restored:blogpost
+        - avi:confluence:deleted:blogpost
+        - avi:confluence:created:attachment
+        - avi:confluence:updated:attachment
+        - avi:confluence:permissions_updated:attachment
+        - avi:confluence:trashed:attachment
+        - avi:confluence:restored:attachment
+        - avi:confluence:deleted:attachment
+        - avi:confluence:archived:attachment
+        - avi:confluence:unarchived:attachment
+        - avi:confluence:created:comment
+        - avi:confluence:updated:comment
+        - avi:confluence:permissions_updated:comment
+        - avi:confluence:deleted:comment
+        - avi:confluence:created:custom_content
+        - avi:confluence:updated:custom_content
+        - avi:confluence:permissions_updated:custom_content
+        - avi:confluence:trashed:custom_content
+        - avi:confluence:restored:custom_content
+        - avi:confluence:deleted:custom_content
+        - avi:confluence:permissions_updated:whiteboard
+        - avi:confluence:permissions_updated:database
+        - avi:confluence:permissions_updated:embed
+        - avi:confluence:permissions_updated:folder
+        - avi:confluence:created:task
+        - avi:confluence:updated:task
+        - avi:confluence:removed:task
+        - avi:confluence:created:space:V2
+        - avi:confluence:updated:space:V2
+        - avi:confluence:deleted:space:V2
+        - avi:confluence:created:user
+        - avi:confluence:deleted:user
+        - avi:confluence:created:group
+        - avi:confluence:deleted:group
+  webtrigger:
+    - key: event-queue
+      function: queue
+      response:
+        type: dynamic
+    - key: app-api
+      function: app-forward
+      response:
+        type: dynamic
+  confluence:customContent:
+    - key: pipestream-record
+      title: Pipestream record
+      description: A record written by the Pipestream Confluence connector.
+      bodyType: storage
+      supportedContainerTypes:
+        - space
+        - page
+      resource: record-view
+      render: default
+  function:
+    - key: on-event
+      handler: index.onEvent
+    - key: queue
+      handler: index.queue
+    - key: app-forward
+      handler: app.appApi
+resources:
+  - key: record-view
+    path: static/record-view
+app:
+  id: ari:cloud:ecosystem::app/d16971ce-921a-40d5-a97b-84b84a4cbfe1
+  runtime:
+    name: nodejs22.x
+permissions:
+  scopes:
+    - storage:app
+    - read:confluence-content.summary
+    - read:confluence-content.all
+    - read:confluence-space.summary
+    - read:confluence-user
+    - read:confluence-groups
+    - write:confluence-content
+    - write:confluence-space
+    - read:app-data:confluence
+    - write:app-data:confluence
+    - read:custom-content:confluence
+    - write:custom-content:confluence
+    - delete:custom-content:confluence

@@ -1,0 +1,1141 @@
+package ai.pipestream.confluence;
+
+import ai.pipestream.confluence.v1.*;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.protobuf.ByteString;
+import io.grpc.Context;
+import io.grpc.ManagedChannel;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
+import io.grpc.stub.StreamObserver;
+
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Locale;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
+
+/**
+ * Every step of a {@code ConfluenceChangeService.WatchChanges} run fed by the
+ * Forge event queue, shared by the live recording and the replay. Each step's
+ * REST and queue exchanges are saved under its id.
+ */
+final class ChangeScenarios {
+
+    /** How long a live step waits for Forge to queue an event. */
+    static final Duration EVENT_WAIT = Duration.ofMinutes(6);
+    /** How long a step waits for a drain or a streamed change. */
+    static final Duration STREAM_WAIT = Duration.ofMinutes(2);
+    /** Page updates queued at once by the backlog step; more than one take answers. */
+    static final int BACKLOG = 105;
+    /** How long the Forge app keeps an uncollected event. */
+    static final Duration EVENT_TTL = Duration.ofDays(7);
+    private static final long CALL_DEADLINE_SECONDS = 120;
+    private static final int MAX_BACKLOG_DRAINS = 40;
+
+    /** Where queued events come from: live waits for Forge, replay does nothing. */
+    interface Events {
+        /** Live: waits until an event matching {@code match} is queued. */
+        void await(Predicate<ConfluenceEvent> match) throws Exception;
+
+        /** Live: waits until at least {@code count} events are queued. */
+        void awaitQueued(int count) throws Exception;
+
+        /** Live: sleeps; replay: returns at once. */
+        void pause(Duration time) throws InterruptedException;
+    }
+
+    /** One step body; answers the detail of a PASS. */
+    @FunctionalInterface
+    interface Body {
+        String run() throws Exception;
+    }
+
+    /** One step. */
+    record Scenario(String id, String label, Body body) {
+    }
+
+    /** Ends a step as LOST: Forge never delivered the event the step waits for. */
+    static final class Lost extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        Lost(String reason) {
+            super(reason);
+        }
+    }
+
+    /** One report row. */
+    record Row(String id, String label, String outcome, String detail) {
+    }
+
+    /** Ends a step as SKIPPED with a reason. */
+    static final class Skip extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        Skip(String reason) {
+            super(reason);
+        }
+    }
+
+    /** What drains took and streamed. */
+    private record Drained(List<ForgeEventQueue.Queued> taken, List<WatchChangesResponse> streamed) {
+    }
+
+    private static final ObjectMapper JSON = new ObjectMapper();
+
+    private final ManagedChannel channel;
+    private final ConfluenceClient rest;
+    private final ConfluenceServiceGrpc.ConfluenceServiceBlockingStub confluence;
+    private final ConfluenceChangeServiceGrpc.ConfluenceChangeServiceStub changes;
+    private final ConfluenceChangeGrpcService service;
+    private final String spaceKey;
+    private final String ownSpaceKey;
+    private final String run;
+    private final Events events;
+    private final BlockingQueue<List<ForgeEventQueue.Queued>> drains = new LinkedBlockingQueue<>();
+    private final BlockingQueue<WatchChangesResponse> watched = new LinkedBlockingQueue<>();
+    private final List<Row> rows = new ArrayList<>();
+    private final List<Runnable> cleanups = new ArrayList<>();
+
+    private Context.CancellableContext watch;
+    private volatile Throwable watchError;
+    private Space space;
+    private Page page;
+    private Page parent;
+    private Page backlogPage;
+    private Comment comment;
+    private Attachment attachment;
+    private BlogPost blog;
+    private Space ownSpace;
+    private Drained createdDrain;
+    private boolean restored;
+    private String copyId;
+    private boolean archived;
+    private Folder folder;
+    private String groupId;
+    private boolean groupDeleted;
+    private final String groupName;
+
+    ChangeScenarios(ManagedChannel channel, ConfluenceClient rest, ConfluenceChangeGrpcService service,
+            String spaceKey, String run, Events events) {
+        this.channel = channel;
+        this.rest = rest;
+        this.groupName = run + "-group";
+        this.confluence = ConfluenceServiceGrpc.newBlockingStub(channel);
+        this.changes = ConfluenceChangeServiceGrpc.newStub(channel);
+        this.service = service;
+        this.spaceKey = spaceKey;
+        this.ownSpaceKey = "LC" + run.substring(run.length() - 8).toUpperCase(Locale.ROOT);
+        this.run = run;
+        this.events = events;
+        service.onDrain(drains::add);
+    }
+
+    /** Every step, in run order. */
+    List<Scenario> all() {
+        ConfluenceEventObject pageObject = ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_PAGE;
+        ConfluenceEventObject blogObject = ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_BLOG_POST;
+        return List.of(
+                new Scenario("01-watch-start", "WatchChanges (open, first drain)", this::watchStart),
+                new Scenario("02-create-pages", "CreatePage (with a task, and a parent)",
+                        this::createPages),
+                new Scenario("03-created-event", "page created event resolved", () -> contentEvent(
+                        pageObject, ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED, 1)),
+                new Scenario("04-event-expiry", "queued event expires 7 days after it happened",
+                        this::eventExpiry),
+                new Scenario("05-update-page", "UpdatePage", this::updatePage),
+                new Scenario("06-updated-event", "page updated event resolved", () -> contentEvent(
+                        pageObject, ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_UPDATED, 2)),
+                new Scenario("07-move-page", "UpdatePage (new parent)", this::movePage),
+                new Scenario("08-moved-event", "page moved event resolved", this::movedEvent),
+                new Scenario("08a-copy-page", "copy the page (REST v1, no rpc)", this::copyPage),
+                new Scenario("08b-copied-event", "page copied event resolved", this::copiedEvent),
+                new Scenario("08c-archive-copy", "archive the copy (REST v1, no rpc)", this::archiveCopy),
+                new Scenario("08d-archived-event", "page archived event resolved", this::archivedEvent),
+                new Scenario("09-create-comment", "CreateFooterComment", this::createComment),
+                new Scenario("10-comment-created-event", "comment created event resolved",
+                        () -> commentEvent(ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED, 1)),
+                new Scenario("11-update-comment", "UpdateFooterComment", this::updateComment),
+                new Scenario("12-comment-updated-event", "comment updated event resolved",
+                        () -> commentEvent(ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_UPDATED, 2)),
+                new Scenario("13-delete-comment", "DeleteFooterComment", this::deleteComment),
+                new Scenario("14-comment-deleted-event", "comment deleted event resolved",
+                        this::commentDeletedEvent),
+                new Scenario("15-upload-attachment", "UploadAttachment", this::uploadAttachment),
+                new Scenario("16-attachment-created-event", "attachment created event resolved",
+                        this::attachmentCreatedEvent),
+                new Scenario("17-trash-attachment", "DeleteAttachment (trash)",
+                        () -> deleteAttachment(false)),
+                new Scenario("18-attachment-trashed-event", "attachment trashed event resolved",
+                        () -> attachmentGoneEvent(ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_TRASHED)),
+                new Scenario("19-purge-attachment", "DeleteAttachment (purge)",
+                        () -> deleteAttachment(true)),
+                new Scenario("20-attachment-deleted-event", "attachment deleted event resolved",
+                        () -> attachmentGoneEvent(ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_DELETED)),
+                new Scenario("21-restrict-page", "AddContentPermissions (page)", this::restrictPage),
+                new Scenario("22-restricted-event", "page permissions event carries the permission",
+                        this::restrictedEvent),
+                new Scenario("23-unrestrict-page", "DeleteContentPermissions (page)",
+                        this::unrestrictPage),
+                new Scenario("24-unrestricted-event", "page permissions event drops the permission",
+                        this::unrestrictedEvent),
+                new Scenario("24a-restrict-folder", "CreateFolder, then restrict it (REST v1)",
+                        this::restrictFolder),
+                new Scenario("24b-folder-restricted-event", "folder permissions event carries the permission",
+                        this::folderRestrictedEvent),
+                new Scenario("24c-unrestrict-folder", "remove the folder restrictions (REST v1)",
+                        this::unrestrictFolder),
+                new Scenario("24d-folder-unrestricted-event",
+                        "folder permissions event drops the permission", this::folderUnrestrictedEvent),
+                new Scenario("25-complete-task", "UpdateTask (complete)", this::completeTask),
+                new Scenario("26-task-event", "task updated event resolved", this::taskEvent),
+                new Scenario("27-create-blog", "CreateBlogPost", this::createBlog),
+                new Scenario("28-blog-created-event", "blog post created event resolved",
+                        () -> contentEvent(blogObject, ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED, 1)),
+                new Scenario("29-update-blog", "UpdateBlogPost", this::updateBlog),
+                new Scenario("30-blog-updated-event", "blog post updated event resolved",
+                        () -> contentEvent(blogObject, ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_UPDATED, 2)),
+                new Scenario("31-blog-comment", "CreateFooterComment (blog post)", this::blogComment),
+                new Scenario("32-blog-comment-event", "blog comment event re-reads the blog post",
+                        this::blogCommentEvent),
+                new Scenario("33-trash-blog", "DeleteBlogPost (trash)", () -> deleteBlog(false)),
+                new Scenario("34-blog-trashed-event", "blog post trashed event resolved",
+                        () -> goneEvent(blogObject, ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_TRASHED)),
+                new Scenario("35-purge-blog", "DeleteBlogPost (purge)", () -> deleteBlog(true)),
+                new Scenario("36-blog-deleted-event", "blog post deleted event resolved",
+                        () -> goneEvent(blogObject, ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_DELETED)),
+                new Scenario("37-backlog", "backlog of " + BACKLOG + " page updates", this::backlog),
+                new Scenario("38-trash-page", "DeletePage (trash)", this::trashPage),
+                new Scenario("39-trashed-event", "page trashed event resolved",
+                        () -> goneEvent(pageObject, ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_TRASHED)),
+                new Scenario("40-restore-page", "UpdatePage (restore from trash)", this::restorePage),
+                new Scenario("41-restored-event", "page restored event resolved", this::restoredEvent),
+                new Scenario("42-purge-page", "DeletePage (purge)", this::purgePage),
+                new Scenario("43-deleted-event", "page deleted event resolved",
+                        () -> goneEvent(pageObject, ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_DELETED)),
+                new Scenario("44-create-space", "CreateSpace (own throwaway space)", this::createSpace),
+                new Scenario("45-space-created-event", "space created event resolved",
+                        this::spaceCreatedEvent),
+                new Scenario("46-delete-space", "DeleteSpace (own throwaway space)", this::deleteSpace),
+                new Scenario("47-space-deleted-event", "space deleted event resolved",
+                        this::spaceDeletedEvent),
+                new Scenario("47a-create-group", "create a throwaway group (REST v1)", this::createGroup),
+                new Scenario("47b-group-created-event", "group created event streamed unresolved",
+                        () -> groupEvent(ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED)),
+                new Scenario("47c-delete-group", "delete the throwaway group (REST v1)", this::deleteGroup),
+                new Scenario("47d-group-deleted-event", "group deleted event streamed unresolved",
+                        () -> groupEvent(ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_DELETED)),
+                new Scenario("48-watch-stop", "WatchChanges (cancel)", this::watchStop));
+    }
+
+    /** Runs one step and records its row; a failure is a FAIL row, not an exception. */
+    void run(Scenario scenario) {
+        try {
+            rows.add(new Row(scenario.id(), scenario.label(), "PASS", scenario.body().run()));
+        } catch (Skip s) {
+            rows.add(new Row(scenario.id(), scenario.label(), "SKIPPED", s.getMessage()));
+        } catch (Lost l) {
+            rows.add(new Row(scenario.id(), scenario.label(), "LOST", l.getMessage()));
+        } catch (Throwable t) {
+            rows.add(new Row(scenario.id(), scenario.label(), "FAIL", String.valueOf(t)));
+        }
+    }
+
+    List<Row> rows() {
+        return rows;
+    }
+
+    /** Removes whatever the steps left behind, newest first, and stops the watch. */
+    void cleanUp() {
+        if (watch != null) {
+            watch.cancel(null);
+        }
+        for (Runnable cleanup : cleanups.reversed()) {
+            try {
+                cleanup.run();
+            } catch (RuntimeException e) {
+                rows.add(new Row("cleanup", "clean up", "FAIL", String.valueOf(e)));
+            }
+        }
+    }
+
+    // --- steps -----------------------------------------------------------------------------
+
+    private String watchStart() throws Exception {
+        space = stub().getSpace(GetSpaceRequest.newBuilder().setKey(spaceKey).build()).getSpace();
+        WatchChangesRequest request = WatchChangesRequest.newBuilder()
+                .setSync(SyncRequest.newBuilder().addSpaceKeys(spaceKey).addSpaceKeys(ownSpaceKey))
+                .setSkipInitialPass(true)
+                .setPollInterval(com.google.protobuf.Duration.newBuilder().setSeconds(86_400))
+                .setEventInterval(com.google.protobuf.Duration.newBuilder().setSeconds(86_400))
+                .build();
+        watch = Context.current().withCancellation();
+        watch.run(() -> changes.watchChanges(request, new StreamObserver<>() {
+            @Override
+            public void onNext(WatchChangesResponse value) {
+                watched.add(value);
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                watchError = t;
+            }
+
+            @Override
+            public void onCompleted() {
+                // Ends on cancel.
+            }
+        }));
+        return "first drain took " + awaitDrain().size() + " event(s)";
+    }
+
+    private String createPages() {
+        parent = stub().createPage(CreatePageRequest.newBuilder().setSpaceId(space.getId())
+                .setTitle(run + " parent").setBody(storage("<p>Parent for " + run + ".</p>")).build())
+                .getPage();
+        String parentId = parent.getId();
+        cleanups.add(() -> purgePage(parentId));
+        page = stub().createPage(CreatePageRequest.newBuilder().setSpaceId(space.getId())
+                .setTitle(run).setBody(storage(pageBody(""))).build()).getPage();
+        String pageId = page.getId();
+        cleanups.add(() -> purgePage(pageId));
+        return "page " + page.getId() + ", parent " + parent.getId();
+    }
+
+    private String eventExpiry() {
+        check(createdDrain != null, "the created event was not drained");
+        for (ForgeEventQueue.Queued queued : createdDrain.taken()) {
+            ConfluenceEvent event = queued.event();
+            if (!event.getContentId().equals(page.getId())
+                    || event.getAction() != ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED) {
+                continue;
+            }
+            check(queued.expiresAt() != null, "the queue answered no expiry time");
+            check(event.hasOccurredAt(), "the event has no time");
+            Instant occurred = Instant.ofEpochSecond(event.getOccurredAt().getSeconds());
+            Duration kept = Duration.between(occurred, queued.expiresAt());
+            check(kept.minus(EVENT_TTL).abs().compareTo(Duration.ofMinutes(15)) <= 0,
+                    "kept for " + kept);
+            return "expires " + kept.toHours() + " h after the event";
+        }
+        throw new AssertionError("the created event was not in its drain");
+    }
+
+    private String updatePage() throws InterruptedException {
+        page = update(page, UpdatePageRequest.newBuilder().setTitle(run).setBody(storage(pageBody(
+                ", edited"))));
+        check(page.getVersion().getNumber() == 2, "version is " + page.getVersion().getNumber());
+        return "version " + page.getVersion().getNumber();
+    }
+
+    private String movePage() throws InterruptedException {
+        page = update(page, UpdatePageRequest.newBuilder().setTitle(run).setParentId(parent.getId())
+                .setBody(storage(pageBody(", edited"))));
+        return "parent " + parent.getId();
+    }
+
+    /** A move through the API arrives as a moved or an updated page event. */
+    private String movedEvent() throws Exception {
+        ConfluenceChange change = expect(event -> (isAbout(event,
+                ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_PAGE,
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_MOVED, page.getId())
+                || isAbout(event, ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_PAGE,
+                        ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_UPDATED, page.getId())),
+                c -> c.getEntity().hasPage() && c.getEntity().getEntityId().equals(page.getId())
+                        && c.getEntity().getPage().getParentId().equals(parent.getId()));
+        return event(change) + " -> page upsert under the new parent";
+    }
+
+    private String createComment() {
+        comment = stub().createFooterComment(CreateFooterCommentRequest.newBuilder()
+                .setPageId(page.getId()).setBody(storage("<p>comment " + run + "</p>")).build())
+                .getComment();
+        return "comment " + comment.getId();
+    }
+
+    private String updateComment() {
+        stub().updateFooterComment(UpdateFooterCommentRequest.newBuilder().setId(comment.getId())
+                .setBody(storage("<p>comment " + run + " edited</p>"))
+                .setExpectedVersion(comment.getVersion().getNumber()).build());
+        return "comment " + comment.getId() + " edited";
+    }
+
+    private String deleteComment() {
+        stub().deleteFooterComment(DeleteFooterCommentRequest.newBuilder().setId(comment.getId())
+                .build());
+        return "comment " + comment.getId() + " deleted";
+    }
+
+    /** A comment event re-reads the page it is on; the comment comes back at {@code version}. */
+    private String commentEvent(ConfluenceEventAction action, int version) throws Exception {
+        ConfluenceChange change = expect(event -> isAbout(event,
+                ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_COMMENT, action, null)
+                && onContainer(event, page.getId(), comment.getId()),
+                c -> c.getEntity().hasComment() && c.getEntity().getEntityId().equals(comment.getId()));
+        int read = change.getEntity().getComment().getVersion().getNumber();
+        check(read >= version, "re-read comment version " + read);
+        return event(change) + " -> comment upsert from the page re-read, version " + read;
+    }
+
+    private String commentDeletedEvent() throws Exception {
+        ConfluenceChange change = expect(event -> isAbout(event,
+                ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_COMMENT,
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_DELETED, null)
+                && onContainer(event, page.getId(), comment.getId()),
+                c -> c.getEntity().getEntityId().equals(comment.getId())
+                        && c.getOperation() == ChangeOperation.CHANGE_OPERATION_DELETE);
+        return event(change) + " -> comment delete";
+    }
+
+    private String uploadAttachment() throws Exception {
+        byte[] bytes = ("change feed attachment " + run + "\n").getBytes(StandardCharsets.UTF_8);
+        attachment = upload(page.getId(), run + ".txt", bytes);
+        return "attachment " + attachment.getId();
+    }
+
+    private String attachmentCreatedEvent() throws Exception {
+        ConfluenceChange change = expect(event -> isAbout(event,
+                ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_ATTACHMENT,
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED, null)
+                && onContainer(event, page.getId(), attachment.getId()),
+                c -> c.getEntity().hasAttachment()
+                        && c.getEntity().getEntityId().equals(attachment.getId()));
+        return event(change) + " -> attachment upsert from the page re-read";
+    }
+
+    private String deleteAttachment(boolean purge) {
+        stub().deleteAttachment(DeleteAttachmentRequest.newBuilder().setId(attachment.getId())
+                .setPurge(purge).build());
+        return purge ? "purged" : "trashed";
+    }
+
+    private String attachmentGoneEvent(ConfluenceEventAction action) throws Exception {
+        ConfluenceChange change = expect(event -> isAbout(event,
+                ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_ATTACHMENT, action, attachment.getId()),
+                c -> c.getEntity().getEntityId().equals(attachment.getId())
+                        && c.getOperation() == ChangeOperation.CHANGE_OPERATION_DELETE);
+        return event(change) + " -> attachment delete";
+    }
+
+    private ContentRef pageRef() {
+        return ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_PAGE).setId(page.getId())
+                .build();
+    }
+
+    private String restrictPage() {
+        stub().addContentPermissions(AddContentPermissionsRequest.newBuilder().setContent(pageRef())
+                .addPermissions(ContentPermissionGrant.newBuilder()
+                        .setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_UPDATE)
+                        .addPrincipals(self()))
+                .build());
+        stub().setRestrictionState(SetRestrictionStateRequest.newBuilder().setContent(pageRef())
+                .setState(ContentRestrictionState.CONTENT_RESTRICTION_STATE_EDIT_RESTRICTED).build());
+        return "update permission for the page author; edit restricted";
+    }
+
+    private Predicate<ConfluenceEvent> permissionsEvent() {
+        return event -> isAbout(event, ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_PAGE,
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_PERMISSIONS_UPDATED, page.getId());
+    }
+
+    private String restrictedEvent() throws Exception {
+        String owner = "page:" + page.getId() + "/permission/";
+        ConfluenceChange change = expect(permissionsEvent(), c -> c.getEntity().hasContentPermission()
+                && c.getEntity().getEntityId().startsWith(owner)
+                && c.getEntity().getContentPermission().getPrincipal().getPrincipalId()
+                        .equals(page.getAuthorId()));
+        return event(change) + " -> " + change.getEntity().getContentPermission().getOperation()
+                + " permission for the author";
+    }
+
+    private String unrestrictPage() {
+        stub().setRestrictionState(SetRestrictionStateRequest.newBuilder().setContent(pageRef())
+                .setState(ContentRestrictionState.CONTENT_RESTRICTION_STATE_OPEN).build());
+        stub().deleteContentPermissions(DeleteContentPermissionsRequest.newBuilder()
+                .setContent(pageRef()).setAllowSelfLockout(true).build());
+        return "open; direct permissions removed";
+    }
+
+    private String unrestrictedEvent() throws Exception {
+        String state = "page:" + page.getId() + "/restriction-state";
+        String owner = "page:" + page.getId() + "/permission/";
+        Predicate<ConfluenceChange> isState = c -> c.getEntity().getEntityId().equals(state);
+        Drained drained = drainUntil(permissionsEvent(), isState);
+        ConfluenceChange restriction = find(drained, permissionsEvent(), isState);
+        String eventId = restriction.getEvent().getEventId();
+        for (WatchChangesResponse message : drained.streamed()) {
+            if (message.hasChange() && message.getChange().getEvent().getEventId().equals(eventId)) {
+                check(!message.getChange().getEntity().getEntityId().startsWith(owner),
+                        "a direct permission is still streamed: "
+                                + message.getChange().getEntity().getEntityId());
+            }
+        }
+        return event(restriction) + " -> restriction state "
+                + restriction.getEntity().getRestrictionState().getState() + ", no direct permission";
+    }
+
+    private String completeTask() throws Exception {
+        Task task = null;
+        for (int attempt = 0; attempt < 15 && task == null; attempt++) {
+            Iterator<ListTasksResponse> tasks = stub().listTasks(ListTasksRequest.newBuilder()
+                    .addPageIds(page.getId()).build());
+            if (tasks.hasNext()) {
+                task = tasks.next().getTask();
+            } else {
+                events.pause(Duration.ofSeconds(2));
+            }
+        }
+        check(task != null, "the page has no task");
+        stub().updateTask(UpdateTaskRequest.newBuilder().setId(task.getId())
+                .setStatus(TaskStatus.TASK_STATUS_COMPLETE).build());
+        return "task " + task.getId() + " complete";
+    }
+
+    private String taskEvent() throws Exception {
+        Predicate<ConfluenceEvent> match = event ->
+                event.getObject() == ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_TASK
+                        && event.getAction() == ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_UPDATED;
+        ConfluenceChange change = expect(match, c -> c.getEntity().hasPage()
+                && c.getEntity().getEntityId().equals(page.getId()));
+        return event(change) + " -> page upsert";
+    }
+
+    private String createBlog() {
+        blog = stub().createBlogPost(CreateBlogPostRequest.newBuilder().setSpaceId(space.getId())
+                .setTitle(run).setBody(storage("<p>Change feed blog " + run + ".</p>")).build())
+                .getBlogPost();
+        String blogId = blog.getId();
+        cleanups.add(() -> purgeBlog(blogId));
+        return "blog post " + blog.getId();
+    }
+
+    private String updateBlog() {
+        blog = stub().updateBlogPost(UpdateBlogPostRequest.newBuilder().setId(blog.getId())
+                .setTitle(run).setBody(storage("<p>Change feed blog " + run + ", edited.</p>"))
+                .setExpectedVersion(blog.getVersion().getNumber()).build()).getBlogPost();
+        return "version " + blog.getVersion().getNumber();
+    }
+
+    private String blogComment() {
+        comment = stub().createFooterComment(CreateFooterCommentRequest.newBuilder()
+                .setBlogPostId(blog.getId()).setBody(storage("<p>blog comment " + run + "</p>"))
+                .build()).getComment();
+        return "comment " + comment.getId();
+    }
+
+    private String blogCommentEvent() throws Exception {
+        ConfluenceChange change = expect(event -> isAbout(event,
+                ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_COMMENT,
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED, null)
+                && onContainer(event, blog.getId(), comment.getId()),
+                c -> c.getEntity().hasComment() && c.getEntity().getEntityId().equals(comment.getId()));
+        return event(change) + " -> comment upsert from the blog post re-read";
+    }
+
+    private String deleteBlog(boolean purge) {
+        stub().deleteBlogPost(DeleteBlogPostRequest.newBuilder().setId(blog.getId()).setPurge(purge)
+                .build());
+        return purge ? "purged" : "trashed";
+    }
+
+    /**
+     * Queues {@link #BACKLOG} updates of one page, then drains until the
+     * last is streamed: the first take answers the 100-event cap, later takes
+     * the rest, and each drain re-reads the page once. Forge may send fewer
+     * events than edits.
+     */
+    private String backlog() throws Exception {
+        backlogPage = stub().createPage(CreatePageRequest.newBuilder().setSpaceId(space.getId())
+                .setTitle(run + " backlog").setBody(storage("<p>backlog 0</p>")).build()).getPage();
+        String id = backlogPage.getId();
+        cleanups.add(() -> purgePage(id));
+        for (int i = 1; i <= BACKLOG; i++) {
+            backlogPage = update(backlogPage, UpdatePageRequest.newBuilder().setTitle(run + " backlog")
+                    .setBody(storage("<p>backlog " + i + "</p>")));
+        }
+        int last = backlogPage.getVersion().getNumber();
+        events.awaitQueued(ForgeEventQueue.DEFAULT_TAKE);
+        List<Integer> sizes = new ArrayList<>();
+        int updates = 0;
+        int upserts = 0;
+        boolean done = false;
+        boolean drained = false;
+        for (int round = 0; round < MAX_BACKLOG_DRAINS && !drained; round++) {
+            service.drainNow();
+            List<ForgeEventQueue.Queued> taken = awaitDrain();
+            sizes.add(taken.size());
+            int here = 0;
+            for (ForgeEventQueue.Queued queued : taken) {
+                ConfluenceEvent event = queued.event();
+                if (event.getContentId().equals(id)
+                        && event.getAction() == ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_UPDATED) {
+                    here++;
+                    done |= event.getVersionNumber() == last;
+                }
+            }
+            updates += here;
+            List<WatchChangesResponse> streamed = new ArrayList<>();
+            watched.drainTo(streamed);
+            long pageUpserts = streamed.stream().filter(m -> m.hasChange()
+                    && m.getChange().getEntity().hasPage()
+                    && m.getChange().getEntity().getEntityId().equals(id)
+                    && m.getChange().getEvent().getAction()
+                            == ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_UPDATED).count();
+            check(pageUpserts == (here > 0 ? 1 : 0), "drain " + (round + 1) + " took " + here
+                    + " update event(s) of the page but streamed " + pageUpserts + " page upsert(s)");
+            upserts += (int) pageUpserts;
+            drained = done && here == 0;
+            if (!drained && taken.isEmpty()) {
+                events.pause(Duration.ofSeconds(5));
+            }
+        }
+        check(done, "the last update (version " + last + ") was not drained; takes " + sizes);
+        check(sizes.getFirst() == ForgeEventQueue.DEFAULT_TAKE, "the first take answered "
+                + sizes.getFirst() + " events");
+        check(updates > ForgeEventQueue.DEFAULT_TAKE, "only " + updates
+                + " update events were queued for " + BACKLOG + " edits; takes " + sizes);
+        check(upserts >= 2, "the backlog was read in " + upserts + " drain(s); takes " + sizes);
+        return updates + " update events for " + BACKLOG + " edits over takes " + sizes + ", "
+                + upserts + " page re-read(s)";
+    }
+
+    private String trashPage() {
+        stub().deletePage(DeletePageRequest.newBuilder().setId(page.getId()).build());
+        return "trashed";
+    }
+
+    private String restorePage() throws Skip, InterruptedException {
+        try {
+            page = stub().getPage(GetPageRequest.newBuilder().setId(page.getId()).build()).getPage();
+            page = update(page, UpdatePageRequest.newBuilder().setTitle(run)
+                    .setStatus(ContentStatus.CONTENT_STATUS_CURRENT)
+                    .setBody(storage(pageBody(", restored"))));
+        } catch (StatusRuntimeException e) {
+            throw new Skip("the site refused the restore: " + e.getStatus().getCode() + " "
+                    + e.getStatus().getDescription());
+        }
+        restored = true;
+        return "restored at version " + page.getVersion().getNumber();
+    }
+
+    private String restoredEvent() throws Exception {
+        if (!restored) {
+            throw new Skip("the page was not restored");
+        }
+        return contentEvent(ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_PAGE,
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_RESTORED, 1);
+    }
+
+    private String purgePage() {
+        if (restored) {
+            stub().deletePage(DeletePageRequest.newBuilder().setId(page.getId()).build());
+        }
+        stub().deletePage(DeletePageRequest.newBuilder().setId(page.getId()).setPurge(true).build());
+        return restored ? "trashed and purged" : "purged";
+    }
+
+    private String createSpace() {
+        ownSpace = stub().createSpace(CreateSpaceRequest.newBuilder().setName(run).setKey(ownSpaceKey)
+                .setDescription("Created by the live change run " + run).build()).getSpace();
+        cleanups.add(() -> {
+            if (ownSpace != null) {
+                try {
+                    stub().deleteSpace(DeleteSpaceRequest.newBuilder().setKey(ownSpaceKey).build());
+                } catch (StatusRuntimeException e) {
+                    if (e.getStatus().getCode() != Status.Code.NOT_FOUND) {
+                        throw e;
+                    }
+                }
+            }
+        });
+        return "space " + ownSpace.getKey();
+    }
+
+    private String spaceCreatedEvent() throws Exception {
+        ConfluenceChange change = expect(event -> isSpace(event,
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED),
+                c -> c.getEntity().hasSpace() && c.getEntity().getEntityId().equals(ownSpace.getId())
+                        && c.getOperation() == ChangeOperation.CHANGE_OPERATION_UPSERT);
+        check(change.getEntity().getSpace().getKey().equals(ownSpaceKey),
+                "re-read key " + change.getEntity().getSpace().getKey());
+        return event(change) + " -> space upsert";
+    }
+
+    private String deleteSpace() {
+        String task = stub().deleteSpace(DeleteSpaceRequest.newBuilder().setKey(ownSpaceKey).build())
+                .getTaskId();
+        return task.isEmpty() ? "deleted" : "delete task answered";
+    }
+
+    private String spaceDeletedEvent() throws Exception {
+        ConfluenceChange change = expect(event -> isSpace(event,
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_DELETED),
+                c -> c.getEntity().getEntityId().equals(ownSpace.getId())
+                        && c.getOperation() == ChangeOperation.CHANGE_OPERATION_DELETE);
+        ownSpace = null;
+        return event(change) + " -> space delete";
+    }
+
+    private String watchStop() throws Exception {
+        watch.cancel(null);
+        Instant until = Instant.now().plus(Duration.ofSeconds(10));
+        while (watchError == null && Instant.now().isBefore(until)) {
+            TimeUnit.MILLISECONDS.sleep(50);
+        }
+        check(watchError != null, "the stream did not end on cancel");
+        return "stream ended: " + Status.fromThrowable(watchError).getCode();
+    }
+
+    // --- REST v1 steps: no rpc covers these ------------------------------------------------
+
+    private String copyPage() throws Exception {
+        ObjectNode body = JSON.createObjectNode();
+        body.putObject("destination").put("type", "parent_page").put("value", parent.getId());
+        body.put("pageTitle", run + " copy").put("copyAttachments", false)
+                .put("copyPermissions", false).put("copyProperties", false).put("copyLabels", false)
+                .put("copyCustomContents", false);
+        JsonNode copy = rest.post("/rest/api/content/" + page.getId() + "/copy", Map.of(), body);
+        copyId = copy.path("id").asText("");
+        check(!copyId.isEmpty(), "the copy answered no id");
+        String id = copyId;
+        cleanups.add(() -> purgePage(id));
+        return "copy " + copyId;
+    }
+
+    private String copiedEvent() throws Exception {
+        if (copyId == null) {
+            throw new Skip("the page was not copied");
+        }
+        ConfluenceChange change = expect(event -> event.getObject()
+                == ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_PAGE
+                && event.getAction() == ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_COPIED
+                && (event.getContentId().equals(copyId) || event.getOriginContentId().equals(page.getId())),
+                c -> c.getEntity().hasPage() && c.getEntity().getEntityId().equals(copyId)
+                        && c.getOperation() == ChangeOperation.CHANGE_OPERATION_UPSERT);
+        return event(change) + " -> page upsert of the copy, origin "
+                + (change.getEvent().getOriginContentId().equals(page.getId()) ? "the page" : "not named");
+    }
+
+    private String archiveCopy() throws Exception {
+        if (copyId == null) {
+            throw new Skip("the page was not copied");
+        }
+        ObjectNode body = JSON.createObjectNode();
+        body.putArray("pages").addObject().put("id", Long.parseLong(copyId));
+        JsonNode task;
+        try {
+            task = rest.post("/rest/api/content/archive", Map.of(), body);
+        } catch (ConfluenceClient.ConfluenceApiException e) {
+            throw new Skip("the site refused the archive: HTTP " + e.status());
+        }
+        archived = true;
+        return "archive task " + (task.path("id").asText("").isEmpty() ? "(none)" : "answered");
+    }
+
+    private String archivedEvent() throws Exception {
+        if (!archived) {
+            throw new Skip("the copy was not archived");
+        }
+        ConfluenceChange change = expect(event -> isAbout(event,
+                ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_PAGE,
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_ARCHIVED, copyId),
+                c -> c.getEntity().getEntityId().equals(copyId)
+                        && (c.getEntity().hasPage() || c.getOperation() == ChangeOperation.CHANGE_OPERATION_DELETE));
+        String state = change.getOperation() == ChangeOperation.CHANGE_OPERATION_DELETE ? "delete"
+                : "page upsert, status " + change.getEntity().getPage().getStatus();
+        return event(change) + " -> " + state;
+    }
+
+    private String folderPermissionPath() {
+        return "/rest/api/content/" + folder.getId() + "/restriction";
+    }
+
+    private String restrictFolder() throws Exception {
+        folder = stub().createFolder(CreateFolderRequest.newBuilder().setSpaceId(space.getId())
+                .setParentId(parent.getId()).setTitle(run + " folder").build()).getFolder();
+        String id = folder.getId();
+        cleanups.add(() -> {
+            try {
+                stub().deleteFolder(DeleteFolderRequest.newBuilder().setId(id).build());
+            } catch (StatusRuntimeException e) {
+                if (e.getStatus().getCode() != Status.Code.NOT_FOUND) {
+                    throw e;
+                }
+            }
+        });
+        ArrayNode body = JSON.createArrayNode();
+        ObjectNode update = body.addObject().put("operation", "update");
+        update.putObject("restrictions").putArray("user").addObject().put("type", "known")
+                .put("accountId", page.getAuthorId());
+        try {
+            rest.put(folderPermissionPath(), Map.of(), body);
+        } catch (ConfluenceClient.ConfluenceApiException e) {
+            throw new Skip("the site refused a folder restriction: HTTP " + e.status());
+        }
+        return "folder " + id + ", update permission for the author";
+    }
+
+    private Predicate<ConfluenceEvent> folderEvent() {
+        return event -> isAbout(event, ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_FOLDER,
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_PERMISSIONS_UPDATED, folder.getId());
+    }
+
+    private String folderRestrictedEvent() throws Exception {
+        if (rows.getLast().outcome().equals("SKIPPED")) {
+            throw new Skip("the folder was not restricted");
+        }
+        String owner = "folder:" + folder.getId() + "/permission/";
+        ConfluenceChange change = expect(folderEvent(), c -> c.getEntity().hasContentPermission()
+                && c.getEntity().getEntityId().startsWith(owner)
+                && c.getEntity().getContentPermission().getPrincipal().getPrincipalId()
+                        .equals(page.getAuthorId()));
+        return event(change) + " -> " + change.getEntity().getContentPermission().getOperation()
+                + " permission for the author";
+    }
+
+    private String unrestrictFolder() throws Exception {
+        if (folder == null) {
+            throw new Skip("no folder was created");
+        }
+        try {
+            rest.delete(folderPermissionPath(), Map.of());
+        } catch (ConfluenceClient.ConfluenceApiException e) {
+            throw new Skip("the site refused removing folder restrictions: HTTP " + e.status());
+        }
+        return "restrictions removed";
+    }
+
+    private String folderUnrestrictedEvent() throws Exception {
+        if (rows.getLast().outcome().equals("SKIPPED")) {
+            throw new Skip("the folder restrictions were not removed");
+        }
+        String state = "folder:" + folder.getId() + "/restriction-state";
+        String owner = "folder:" + folder.getId() + "/permission/";
+        Predicate<ConfluenceChange> isState = c -> c.getEntity().getEntityId().equals(state);
+        Drained drained = drainUntil(folderEvent(), isState);
+        ConfluenceChange restriction = find(drained, folderEvent(), isState);
+        String eventId = restriction.getEvent().getEventId();
+        for (WatchChangesResponse message : drained.streamed()) {
+            if (message.hasChange() && message.getChange().getEvent().getEventId().equals(eventId)) {
+                check(!message.getChange().getEntity().getEntityId().startsWith(owner),
+                        "a direct permission is still streamed: "
+                                + message.getChange().getEntity().getEntityId());
+            }
+        }
+        return event(restriction) + " -> restriction state "
+                + restriction.getEntity().getRestrictionState().getState() + ", no direct permission";
+    }
+
+    private String createGroup() throws Exception {
+        JsonNode group = rest.post("/rest/api/group", Map.of(),
+                JSON.createObjectNode().put("name", groupName));
+        groupId = group.path("id").asText("");
+        check(!groupId.isEmpty(), "the group answered no id");
+        String id = groupId;
+        cleanups.add(() -> {
+            if (!groupDeleted) {
+                try {
+                    rest.delete("/rest/api/group/by-id", Map.of("id", id));
+                } catch (ConfluenceClient.ConfluenceApiException e) {
+                    if (e.status() != 404) {
+                        throw new IllegalStateException(e);
+                    }
+                } catch (java.io.IOException | InterruptedException e) {
+                    throw new IllegalStateException(e);
+                }
+            }
+        });
+        return "group created";
+    }
+
+    private String deleteGroup() throws Exception {
+        rest.delete("/rest/api/group/by-id", Map.of("id", groupId));
+        groupDeleted = true;
+        return "group deleted";
+    }
+
+    /** Group events have no entity in the contract, so they arrive as typed unresolved events. */
+    private String groupEvent(ConfluenceEventAction action) throws Exception {
+        Predicate<ConfluenceEvent> match = event ->
+                event.getObject() == ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_GROUP
+                        && event.getAction() == action
+                        && (event.getContentId().equals(groupId) || event.getTitle().equals(groupName));
+        try {
+            events.await(match);
+        } catch (AssertionError e) {
+            if (action == ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED) {
+                throw new Lost("Forge delivered no group created event: " + e.getMessage());
+            }
+            throw e;
+        }
+        List<WatchChangesResponse> streamed = new ArrayList<>();
+        for (int round = 0; round < 3; round++) {
+            service.drainNow();
+            awaitDrain();
+            watched.drainTo(streamed);
+            for (WatchChangesResponse message : streamed) {
+                if (message.hasUnresolvedEvent() && match.test(message.getUnresolvedEvent())) {
+                    ConfluenceEvent event = message.getUnresolvedEvent();
+                    return event.getEventType() + " -> unresolved event, group "
+                            + (event.getContentId().equals(groupId) ? "id" : "name") + " matches";
+                }
+            }
+        }
+        throw new AssertionError("no unresolved group event was streamed");
+    }
+
+    // --- event checks ----------------------------------------------------------------------
+
+    /** A page or blog post event streamed as a re-read upsert at {@code minVersion} or later. */
+    private String contentEvent(ConfluenceEventObject object, ConfluenceEventAction action,
+            int minVersion) throws Exception {
+        boolean isBlog = object == ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_BLOG_POST;
+        String id = isBlog ? blog.getId() : page.getId();
+        Predicate<ConfluenceEvent> match = event -> isAbout(event, object, action, id);
+        Predicate<ConfluenceChange> wanted = c -> (isBlog ? c.getEntity().hasBlogPost()
+                : c.getEntity().hasPage()) && c.getEntity().getEntityId().equals(id);
+        Drained drained = drainUntil(match, wanted);
+        if (!isBlog && action == ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED) {
+            createdDrain = drained;
+        }
+        ConfluenceChange change = find(drained, match, wanted);
+        check(change.getOperation() == ChangeOperation.CHANGE_OPERATION_UPSERT,
+                "operation " + change.getOperation());
+        int version = isBlog ? change.getEntity().getBlogPost().getVersion().getNumber()
+                : change.getEntity().getPage().getVersion().getNumber();
+        String title = isBlog ? change.getEntity().getBlogPost().getTitle()
+                : change.getEntity().getPage().getTitle();
+        check(version >= minVersion, "re-read version " + version);
+        check(title.equals(run), "re-read title differs");
+        return event(change) + " -> " + (isBlog ? "blog post" : "page") + " upsert, version " + version;
+    }
+
+    /** A trashed or deleted page or blog post is streamed as a delete. */
+    private String goneEvent(ConfluenceEventObject object, ConfluenceEventAction action)
+            throws Exception {
+        String id = object == ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_BLOG_POST
+                ? blog.getId() : page.getId();
+        ConfluenceChange change = expect(event -> isAbout(event, object, action, id),
+                c -> c.getEntity().getEntityId().equals(id)
+                        && c.getOperation() == ChangeOperation.CHANGE_OPERATION_DELETE);
+        return event(change) + " -> delete";
+    }
+
+    private static boolean isAbout(ConfluenceEvent event, ConfluenceEventObject object,
+            ConfluenceEventAction action, String id) {
+        return event.getObject() == object && event.getAction() == action
+                && (id == null || event.getContentId().equals(id));
+    }
+
+    private static boolean onContainer(ConfluenceEvent event, String container, String id) {
+        return event.getContainerId().equals(container) || event.getContentId().equals(id);
+    }
+
+    private boolean isSpace(ConfluenceEvent event, ConfluenceEventAction action) {
+        return event.getObject() == ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_SPACE
+                && event.getAction() == action && event.getSpaceKey().equals(ownSpaceKey);
+    }
+
+    /** Waits for the event, drains, and answers the first matching change streamed. */
+    private ConfluenceChange expect(Predicate<ConfluenceEvent> event,
+            Predicate<ConfluenceChange> wanted) throws Exception {
+        return find(drainUntil(event, wanted), event, wanted);
+    }
+
+    /**
+     * Waits for the event, then drains until a change matching {@code wanted}
+     * and stamped with a matching event is streamed, at most three drains.
+     */
+    private Drained drainUntil(Predicate<ConfluenceEvent> event, Predicate<ConfluenceChange> wanted)
+            throws Exception {
+        events.await(event);
+        List<ForgeEventQueue.Queued> taken = new ArrayList<>();
+        List<WatchChangesResponse> streamed = new ArrayList<>();
+        for (int round = 0; round < 3; round++) {
+            service.drainNow();
+            taken.addAll(awaitDrain());
+            watched.drainTo(streamed);
+            Drained drained = new Drained(taken, streamed);
+            if (findOrNull(drained, event, wanted) != null) {
+                return drained;
+            }
+        }
+        List<String> seen = new ArrayList<>();
+        for (WatchChangesResponse message : streamed) {
+            if (message.hasChange()) {
+                seen.add(message.getChange().getEntity().getEntityId() + " "
+                        + message.getChange().getEvent().getEventType());
+            } else if (message.hasUnresolvedEvent()) {
+                ConfluenceEvent unresolved = message.getUnresolvedEvent();
+                seen.add("unresolved " + unresolved.getEventType() + " content="
+                        + unresolved.getContentId() + " type=" + unresolved.getContentType()
+                        + " container=" + unresolved.getContainerId() + "/"
+                        + unresolved.getContainerType());
+            }
+        }
+        throw new AssertionError("the drains took " + taken.size() + " event(s) but streamed no"
+                + " matching change; streamed: " + seen);
+    }
+
+    private static ConfluenceChange find(Drained drained, Predicate<ConfluenceEvent> event,
+            Predicate<ConfluenceChange> wanted) {
+        ConfluenceChange change = findOrNull(drained, event, wanted);
+        check(change != null, "no matching change was streamed");
+        check(change.getSource() == ChangeSource.CHANGE_SOURCE_WEBHOOK, "source " + change.getSource());
+        return change;
+    }
+
+    private static ConfluenceChange findOrNull(Drained drained, Predicate<ConfluenceEvent> event,
+            Predicate<ConfluenceChange> wanted) {
+        for (WatchChangesResponse message : drained.streamed()) {
+            if (message.hasChange() && wanted.test(message.getChange())
+                    && event.test(message.getChange().getEvent())) {
+                return message.getChange();
+            }
+        }
+        return null;
+    }
+
+    private List<ForgeEventQueue.Queued> awaitDrain() throws Exception {
+        List<ForgeEventQueue.Queued> taken = drains.poll(STREAM_WAIT.toSeconds(), TimeUnit.SECONDS);
+        if (watchError != null) {
+            throw new AssertionError("the stream failed: " + watchError);
+        }
+        check(taken != null, "no drain completed");
+        return taken;
+    }
+
+    // --- helpers ---------------------------------------------------------------------------
+
+    /** Updates a page; a conflict re-reads the version and retries, at most five times. */
+    private Page update(Page current, UpdatePageRequest.Builder request) throws InterruptedException {
+        int version = current.getVersion().getNumber();
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return stub().updatePage(request.setId(current.getId()).setExpectedVersion(version)
+                        .build()).getPage();
+            } catch (StatusRuntimeException e) {
+                if (e.getStatus().getCode() != Status.Code.ABORTED || attempt == 5) {
+                    throw e;
+                }
+                events.pause(Duration.ofSeconds(attempt));
+                version = stub().getPage(GetPageRequest.newBuilder().setId(current.getId()).build())
+                        .getPage().getVersion().getNumber();
+            }
+        }
+    }
+
+    private ContentPermissionPrincipal self() {
+        return ContentPermissionPrincipal.newBuilder()
+                .setPrincipalType(ContentPermissionPrincipalType.CONTENT_PERMISSION_PRINCIPAL_TYPE_USER)
+                .setPrincipalId(page.getAuthorId()).build();
+    }
+
+    private String pageBody(String suffix) {
+        return "<p>Change feed run " + run + suffix + ".</p><ac:task-list><ac:task><ac:task-id>1"
+                + "</ac:task-id><ac:task-status>incomplete</ac:task-status><ac:task-body>check the"
+                + " change feed</ac:task-body></ac:task></ac:task-list>";
+    }
+
+    private void purgePage(String id) {
+        try {
+            stub().deletePage(DeletePageRequest.newBuilder().setId(id).build());
+        } catch (StatusRuntimeException e) {
+            // Already trashed or gone.
+        }
+        try {
+            stub().deletePage(DeletePageRequest.newBuilder().setId(id).setPurge(true).build());
+        } catch (StatusRuntimeException e) {
+            if (e.getStatus().getCode() != Status.Code.NOT_FOUND) {
+                throw e;
+            }
+        }
+    }
+
+    private void purgeBlog(String id) {
+        try {
+            stub().deleteBlogPost(DeleteBlogPostRequest.newBuilder().setId(id).build());
+        } catch (StatusRuntimeException e) {
+            // Already trashed or gone.
+        }
+        try {
+            stub().deleteBlogPost(DeleteBlogPostRequest.newBuilder().setId(id).setPurge(true).build());
+        } catch (StatusRuntimeException e) {
+            if (e.getStatus().getCode() != Status.Code.NOT_FOUND) {
+                throw e;
+            }
+        }
+    }
+
+    private Attachment upload(String contentId, String fileName, byte[] bytes) throws Exception {
+        List<UploadAttachmentResponse> answers = new ArrayList<>();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        CountDownLatch done = new CountDownLatch(1);
+        StreamObserver<UploadAttachmentRequest> frames = ConfluenceServiceGrpc.newStub(channel)
+                .uploadAttachment(new StreamObserver<>() {
+                    @Override
+                    public void onNext(UploadAttachmentResponse value) {
+                        synchronized (answers) {
+                            answers.add(value);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        failure.set(t);
+                        done.countDown();
+                    }
+
+                    @Override
+                    public void onCompleted() {
+                        done.countDown();
+                    }
+                });
+        frames.onNext(UploadAttachmentRequest.newBuilder().setHeader(UploadAttachmentHeader.newBuilder()
+                .setContentId(contentId).setFileName(fileName).setMediaType("text/plain")
+                .setComment("live change run").setMinorEdit(true)).build());
+        frames.onNext(UploadAttachmentRequest.newBuilder().setChunk(ByteString.copyFrom(bytes)).build());
+        frames.onNext(UploadAttachmentRequest.newBuilder()
+                .setEnd(UploadAttachmentEnd.getDefaultInstance()).build());
+        frames.onCompleted();
+        check(done.await(2, TimeUnit.MINUTES), "the upload did not finish in time");
+        if (failure.get() != null) {
+            throw Status.fromThrowable(failure.get()).asRuntimeException();
+        }
+        synchronized (answers) {
+            check(!answers.isEmpty() && answers.getLast().hasAttachment(),
+                    "the upload did not end with the attachment");
+            return answers.getLast().getAttachment();
+        }
+    }
+
+    private static String event(ConfluenceChange change) {
+        return change.getEvent().getEventType();
+    }
+
+    private ConfluenceServiceGrpc.ConfluenceServiceBlockingStub stub() {
+        return confluence.withDeadlineAfter(CALL_DEADLINE_SECONDS, TimeUnit.SECONDS);
+    }
+
+    private static ContentBody storage(String xhtml) {
+        return ContentBody.newBuilder().setStorage(StorageBody.newBuilder().setValue(xhtml)).build();
+    }
+
+    private static void check(boolean condition, String message) {
+        if (!condition) {
+            throw new AssertionError(message);
+        }
+    }
+}

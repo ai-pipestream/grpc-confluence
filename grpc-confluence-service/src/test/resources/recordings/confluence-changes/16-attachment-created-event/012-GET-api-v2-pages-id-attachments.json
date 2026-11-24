@@ -1,0 +1,55 @@
+{
+  "scenario" : "16-attachment-created-event",
+  "sequence" : 12,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/33914881/attachments",
+    "query" : [ {
+      "name" : "limit",
+      "value" : "25"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "mediaTypeDescription" : "Text File",
+          "webuiLink" : "/pages/viewpageattachments.action?pageId=33914881&preview=%2F33914881%2F33849349%2Fpipestream-live-change-20261124T025406Z-82ee7136.txt",
+          "downloadLink" : "/rest/api/content/33914881/child/attachment/att33849349/download",
+          "createdAt" : "2026-11-24T02:56:45.042Z",
+          "version" : {
+            "number" : 1,
+            "message" : "live change run",
+            "minorEdit" : true,
+            "authorId" : "account-1",
+            "createdAt" : "2026-11-24T02:56:45.042Z"
+          },
+          "id" : "att33849349",
+          "comment" : "live change run",
+          "fileId" : "da655cf3-8cb6-47e6-afce-0e71dcf390f5",
+          "pageId" : "33914881",
+          "mediaType" : "text/plain",
+          "status" : "current",
+          "title" : "pipestream-live-change-20261124T025406Z-82ee7136.txt",
+          "fileSize" : 72,
+          "_links" : {
+            "download" : "/rest/api/content/33914881/child/attachment/att33849349/download",
+            "webui" : "/pages/viewpageattachments.action?pageId=33914881&preview=%2F33914881%2F33849349%2Fpipestream-live-change-20261124T025406Z-82ee7136.txt"
+          }
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "scenario" : "32-blog-comment-event",
+  "sequence" : 5,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/blogposts/34013204/footer-comments",
+    "query" : [ {
+      "name" : "body-format",
+      "value" : "storage"
+    }, {
+      "name" : "limit",
+      "value" : "25"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "id" : "33914908",
+          "status" : "current",
+          "title" : "Re: pipestream-live-change-20261124T025406Z-82ee7136",
+          "blogPostId" : "34013204",
+          "version" : {
+            "number" : 1,
+            "message" : "",
+            "minorEdit" : false,
+            "authorId" : "account-1",
+            "createdAt" : "2026-11-24T02:59:30.536Z",
+            "contributorIds" : [ ]
+          },
+          "resolutionStatus" : "open",
+          "body" : {
+            "storage" : {
+              "representation" : "storage",
+              "value" : "<p>blog comment pipestream-live-change-20261124T025406Z-82ee7136</p>"
+            }
+          },
+          "_links" : {
+            "webui" : "/spaces/CLAUDEGRPC/blog/2026/11/23/34013204/pipestream-live-change-20261124T025406Z-82ee7136?focusedCommentId=33914908"
+          }
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

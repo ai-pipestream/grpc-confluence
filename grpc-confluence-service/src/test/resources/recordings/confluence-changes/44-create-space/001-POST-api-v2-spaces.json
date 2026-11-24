@@ -1,0 +1,56 @@
+{
+  "scenario" : "44-create-space",
+  "sequence" : 1,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/spaces",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "name" : "pipestream-live-change-20261124T025406Z-82ee7136",
+        "key" : "LC82EE7136",
+        "description" : {
+          "value" : "Created by the live change run pipestream-live-change-20261124T025406Z-82ee7136",
+          "representation" : "plain"
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 201,
+    "headers" : {
+      "content-type" : "application/json",
+      "location" : "/wiki/api/v2/spaces/34111520"
+    },
+    "body" : {
+      "json" : {
+        "authorId" : "account-1",
+        "homepageId" : "34111728",
+        "createdAt" : "2026-11-24T03:02:15.142Z",
+        "icon" : null,
+        "description" : {
+          "plain" : {
+            "representation" : "plain",
+            "value" : "Created by the live change run pipestream-live-change-20261124T025406Z-82ee7136"
+          }
+        },
+        "status" : "current",
+        "name" : "pipestream-live-change-20261124T025406Z-82ee7136",
+        "key" : "LC82EE7136",
+        "id" : "34111520",
+        "type" : "global",
+        "_links" : {
+          "webui" : "/spaces/LC82EE7136",
+          "base" : "https://site-1.example.invalid/wiki"
+        },
+        "currentActiveAlias" : "LC82EE7136"
+      }
+    }
+  }
+}

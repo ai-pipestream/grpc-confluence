@@ -1,0 +1,40 @@
+{
+  "scenario" : "01-watch-start",
+  "sequence" : 2,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/spaces/7798786",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "spaceOwnerId" : "account-1",
+        "homepageId" : "7798963",
+        "authorId" : "account-1",
+        "createdAt" : "2026-08-25T00:57:41.343Z",
+        "icon" : null,
+        "description" : { },
+        "status" : "current",
+        "name" : "Claude gRPC Live Test",
+        "key" : "CLAUDEGRPC",
+        "id" : "7798786",
+        "type" : "global",
+        "_links" : {
+          "webui" : "/spaces/CLAUDEGRPC",
+          "base" : "https://site-1.example.invalid/wiki"
+        },
+        "currentActiveAlias" : "CLAUDEGRPC"
+      }
+    }
+  }
+}

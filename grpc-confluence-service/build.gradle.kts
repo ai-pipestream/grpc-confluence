@@ -37,6 +37,7 @@ tasks.named<Test>("test") {
     exclude("**/ConfluenceLiveSmokeIT.class")
     exclude("**/ConfluenceLiveCoverageIT.class")
     exclude("**/ConfluenceLiveWriteIT.class")
+    exclude("**/ConfluenceLiveChangeIT.class")
     exclude("**/ConfluenceLiveAclIT.class")
     exclude("**/ConfluenceLiveAppPropertyIT.class")
 }
@@ -61,6 +62,22 @@ tasks.register<Test>("liveCoverageTest") {
     }
     systemProperty("liveCoverage.report", layout.buildDirectory.file("live-coverage.md").get().asFile.path)
     // A live run is never up to date, and the report goes to stdout too.
+    outputs.upToDateWhen { false }
+    testLogging {
+        showStandardStreams = true
+    }
+}
+
+tasks.register<Test>("liveChangesTest") {
+    description = "Runs the change feed against the real Confluence site and the Forge event queue, writes build/live-changes.md and records the exchanges under src/test/resources/recordings/confluence-changes; needs the live credentials, CONFLUENCE_LIVE_CHANGES=1, CONFLUENCE_FORGE_QUEUE_URL and CONFLUENCE_FORGE_QUEUE_SECRET, skips otherwise"
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    filter {
+        includeTestsMatching("ai.pipestream.confluence.ConfluenceLiveChangeIT")
+    }
+    systemProperty("liveChanges.report", layout.buildDirectory.file("live-changes.md").get().asFile.path)
+    systemProperty("liveChanges.recordings", layout.projectDirectory.dir("src/test/resources/recordings/confluence-changes").asFile.path)
     outputs.upToDateWhen { false }
     testLogging {
         showStandardStreams = true
