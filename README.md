@@ -92,6 +92,14 @@ CONFLUENCE_GRPC_PORT=9095
 CONFLUENCE_KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 ```
 
+Every key of the space allowlist (`CONFLUENCE_SPACES`, or `space_keys` on a
+`Sync`) has to come back from Confluence. Confluence lists the spaces it has
+and can show the credentials and says nothing about the other keys, so a
+`Sync` checks the answer first: when a key is missing (misspelled, keys
+match exactly including case; the space is gone; or the credentials cannot
+see it) the `Sync` fails with `NOT_FOUND` naming the keys and crawls
+nothing, instead of crawling the rest and reporting the allowlist covered.
+
 ```
 ./gradlew :grpc-confluence-service:run
 ```

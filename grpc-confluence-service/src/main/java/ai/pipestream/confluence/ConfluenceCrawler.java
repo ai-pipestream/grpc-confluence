@@ -197,12 +197,7 @@ public final class ConfluenceCrawler {
         groupIds.clear();
         accountIds.clear();
         ownerReads.clear();
-        CursorGuard spacesGuard = new CursorGuard("GET /spaces");
-        for (JsonNode spaceNode : listAll("/api/v2/spaces", spacesQuery(), spacesGuard)) {
-            Space space = mapper.toSpace(spaceNode);
-            if (config.hasSpaceAllowlist() && !config.spaces().contains(space.getKey())) {
-                continue;
-            }
+        for (Space space : spacesInScope()) {
             crawlSpace(space, runId, ChangeSource.CHANGE_SOURCE_CRAWL, null, runId, resume);
             swept = true;
         }
@@ -241,17 +236,75 @@ public final class ConfluenceCrawler {
         groupIds.clear();
         accountIds.clear();
         ownerReads.clear();
-        CursorGuard spacesGuard = new CursorGuard("GET /spaces");
-        for (JsonNode spaceNode : listAll("/api/v2/spaces", spacesQuery(), spacesGuard)) {
-            Space space = mapper.toSpace(spaceNode);
-            if (config.hasSpaceAllowlist() && !config.spaces().contains(space.getKey())) {
-                continue;
-            }
+        for (Space space : spacesInScope()) {
             crawlSpace(space, UUID.randomUUID().toString(),
                     ChangeSource.CHANGE_SOURCE_CQL_INCREMENTAL, since, sinceRfc3339, resume);
         }
         crawlPrincipals(ChangeSource.CHANGE_SOURCE_CQL_INCREMENTAL, sinceRfc3339);
         return rfc3339(resume);
+    }
+
+    /**
+     * The spaces a pass covers: every space the listing returns, or those of
+     * the allowlist. Confluence answers {@code GET /spaces?keys=} with the
+     * spaces it has and can show us and says nothing about the other keys,
+     * so the allowlist is checked against the answer before anything is
+     * crawled: a pass that left a named space out and ended OK would pass
+     * for the whole allowlist.
+     *
+     * @throws SpacesNotFoundException when an allow-listed key was not returned
+     */
+    private List<Space> spacesInScope() throws IOException, InterruptedException {
+        List<Space> spaces = new ArrayList<>();
+        for (JsonNode spaceNode : listAll("/api/v2/spaces", spacesQuery(),
+                new CursorGuard("GET /spaces"))) {
+            Space space = mapper.toSpace(spaceNode);
+            if (config.hasSpaceAllowlist() && !config.spaces().contains(space.getKey())) {
+                continue;
+            }
+            spaces.add(space);
+        }
+        if (config.hasSpaceAllowlist()) {
+            Set<String> returned = new HashSet<>();
+            spaces.forEach(space -> returned.add(space.getKey()));
+            List<String> missing = config.spaces().stream()
+                    .filter(key -> !returned.contains(key)).distinct().toList();
+            if (!missing.isEmpty()) {
+                throw new SpacesNotFoundException(missing);
+            }
+        }
+        return spaces;
+    }
+
+    /**
+     * Confluence did not return every space of the allowlist: a key is
+     * misspelled (keys match exactly, including case), the space is gone, or
+     * the credentials cannot see it.
+     */
+    public static final class SpacesNotFoundException extends IOException {
+        /** Serialization identifier. */
+        @java.io.Serial
+        private static final long serialVersionUID = 1L;
+
+        /** The allow-listed keys Confluence did not return. */
+        private final ArrayList<String> keys;
+
+        SpacesNotFoundException(List<String> keys) {
+            super("Confluence did not return " + (keys.size() == 1 ? "space " : "spaces ")
+                    + String.join(", ", keys) + " of the space allowlist: the key does not "
+                    + "exist as written, or the credentials cannot see the space. Nothing was "
+                    + "crawled.");
+            this.keys = new ArrayList<>(keys);
+        }
+
+        /**
+         * The allow-listed keys Confluence did not return.
+         *
+         * @return the keys, in allowlist order
+         */
+        public List<String> keys() {
+            return List.copyOf(keys);
+        }
     }
 
     /**

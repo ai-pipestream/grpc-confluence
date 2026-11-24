@@ -3279,6 +3279,8 @@ public final class ConfluenceGrpcService
                             Status.UNAVAILABLE;
                     default -> Status.INTERNAL;
                 }).withDescription(e.getMessage());
+            } else if (t instanceof ConfluenceCrawler.SpacesNotFoundException e) {
+                status = Status.NOT_FOUND.withDescription(e.getMessage());
             } else if (t instanceof ConfluenceClient.RepeatedCursorException e) {
                 status = Status.INTERNAL.withDescription(e.getMessage());
             } else if (t instanceof ConfluenceClient.UnsafePathException
