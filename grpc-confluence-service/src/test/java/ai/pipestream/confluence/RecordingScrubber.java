@@ -75,6 +75,18 @@ final class RecordingScrubber {
         literal(trigger.getRawPath(), path);
     }
 
+    /** The placeholder of the address another system's recordings share, so the two still join. */
+    static final String JOIN_EMAIL = "join-proof@" + PLACEHOLDER_DOMAIN;
+
+    /** Names the address shared with another system's recordings; it becomes {@link #JOIN_EMAIL}. */
+    void joinEmail(String email) {
+        for (String spelling : new String[] {email, email.toLowerCase(Locale.ROOT)}) {
+            tables.computeIfAbsent("email", k -> new LinkedHashMap<>()).putIfAbsent(spelling, JOIN_EMAIL);
+            literal(spelling, JOIN_EMAIL);
+        }
+        issued.add(JOIN_EMAIL);
+    }
+
     /** Names the account email of the run. */
     void email(String email) {
         literal(email, placeholder("email", email, n -> "user-" + n + "@" + PLACEHOLDER_DOMAIN));

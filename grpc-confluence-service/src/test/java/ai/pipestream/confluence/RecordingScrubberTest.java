@@ -114,4 +114,16 @@ class RecordingScrubberTest {
         assertThat(RecordingScrubber.leaks("id " + LEGACY_ACCOUNT)).containsExactly("account id");
         assertThat(RecordingScrubber.leaks("user-1@example.invalid at site-1.example.invalid")).isEmpty();
     }
+
+    @Test
+    void theSharedAddressGetsTheJoinPlaceholderInAnyCase() throws Exception {
+        RecordingScrubber scrubber = new RecordingScrubber();
+        scrubber.joinEmail("Ada.Lovelace@Acme.example");
+        scrubber.email("Ada.Lovelace@Acme.example");
+
+        assertThat(scrubber.scrub(json("{\"email\":\"ada.lovelace@acme.example\"}")).path("email").asText())
+                .isEqualTo(RecordingScrubber.JOIN_EMAIL);
+        assertThat(scrubber.scrub("login Ada.Lovelace@Acme.example, other bob@acme.example"))
+                .startsWith("login join-proof@example.invalid, other user-").doesNotContain("acme");
+    }
 }

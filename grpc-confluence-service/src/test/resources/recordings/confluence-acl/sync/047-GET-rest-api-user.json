@@ -1,0 +1,68 @@
+{
+  "scenario" : "sync",
+  "sequence" : 47,
+  "unordered" : 2,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/user",
+    "query" : [ {
+      "name" : "accountId",
+      "value" : "account-5"
+    }, {
+      "name" : "expand",
+      "value" : "operations"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "type" : "known",
+        "accountId" : "account-5",
+        "accountType" : "atlassian",
+        "email" : "",
+        "publicName" : "User 1",
+        "profilePicture" : {
+          "path" : "/avatars/avatar-1.png",
+          "width" : 48,
+          "height" : 48,
+          "isDefault" : false
+        },
+        "displayName" : "User 1",
+        "operations" : [ {
+          "operation" : "use",
+          "targetType" : "application"
+        }, {
+          "operation" : "administer",
+          "targetType" : "application"
+        }, {
+          "operation" : "create_space",
+          "targetType" : "application"
+        }, {
+          "operation" : "view_analytics",
+          "targetType" : "application"
+        } ],
+        "isExternalCollaborator" : false,
+        "isGuest" : false,
+        "locale" : "en_US",
+        "accountStatus" : "active",
+        "_expandable" : {
+          "personalSpace" : ""
+        },
+        "_links" : {
+          "self" : "https://site-1.example.invalid/wiki/rest/api/user?accountId=account-5",
+          "base" : "https://site-1.example.invalid/wiki",
+          "context" : "/wiki"
+        }
+      }
+    }
+  }
+}

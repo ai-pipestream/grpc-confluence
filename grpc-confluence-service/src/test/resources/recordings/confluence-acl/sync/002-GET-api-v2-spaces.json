@@ -1,0 +1,59 @@
+{
+  "scenario" : "sync",
+  "sequence" : 2,
+  "unordered" : 2,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/spaces",
+    "query" : [ {
+      "name" : "description-format",
+      "value" : "view"
+    }, {
+      "name" : "keys",
+      "value" : "CLAUDEGRPC"
+    }, {
+      "name" : "limit",
+      "value" : "25"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "spaceOwnerId" : "account-1",
+          "authorId" : "account-1",
+          "homepageId" : "7798963",
+          "createdAt" : "2026-08-25T00:57:41.343Z",
+          "icon" : null,
+          "description" : {
+            "view" : {
+              "representation" : "view",
+              "value" : "Scratch space for grpc-confluence live testing (created by Claude agent)"
+            }
+          },
+          "status" : "current",
+          "name" : "Claude gRPC Live Test",
+          "key" : "CLAUDEGRPC",
+          "id" : "7798786",
+          "type" : "global",
+          "_links" : {
+            "webui" : "/spaces/CLAUDEGRPC"
+          },
+          "currentActiveAlias" : "CLAUDEGRPC"
+        } ],
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

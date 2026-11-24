@@ -1,12 +1,13 @@
 package ai.pipestream.confluence;
 
+import ai.pipestream.confluence.v1.ContentType;
 import ai.pipestream.confluence.v1.ChangeSource;
 import ai.pipestream.confluence.v1.CommentKind;
 import ai.pipestream.confluence.v1.ContentRestrictionState;
 import ai.pipestream.confluence.v1.DatabaseFieldType;
 import ai.pipestream.confluence.v1.ConfluenceChange;
 import ai.pipestream.confluence.v1.ConfluenceEntity;
-import ai.pipestream.confluence.v1.SecurityCompleteness;
+import ai.pipestream.sync.v1.AclCompleteness;
 import ai.pipestream.confluence.v1.ConfluenceSnapshot;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -124,15 +125,19 @@ class ConfluenceCrawlerTest {
                         ConfluenceEntity.EntityCase.BLOG_POST,
                         // The per-owner security marker of the page and the blog post.
                         ConfluenceEntity.EntityCase.RESTRICTION_STATE,
-                        ConfluenceEntity.EntityCase.RESTRICTION_STATE);
+                        ConfluenceEntity.EntityCase.RESTRICTION_STATE,
+                        // The owner chain of the page and the blog post, and the space's grants.
+                        ConfluenceEntity.EntityCase.ACCESS_CHAIN,
+                        ConfluenceEntity.EntityCase.ACCESS_CHAIN,
+                        ConfluenceEntity.EntityCase.SPACE_ACCESS);
         // No security route is stubbed: 404 everywhere = not served = complete.
         assertThat(changes).filteredOn(c -> c.getEntity().hasSpace() || c.getEntity().hasPage()
                         || c.getEntity().hasBlogPost() || c.getEntity().hasRestrictionState())
                 .allSatisfy(c -> assertThat(c.getEntity().getSecurityCompleteness())
-                        .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE));
+                        .isEqualTo(AclCompleteness.ACL_COMPLETENESS_COMPLETE));
         assertThat(changes).filteredOn(c -> c.getEntity().hasComment())
                 .allSatisfy(c -> assertThat(c.getEntity().getSecurityCompleteness())
-                        .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_UNSPECIFIED));
+                        .isEqualTo(AclCompleteness.ACL_COMPLETENESS_UNSPECIFIED));
 
         ConfluenceEntity page = changes.stream()
                 .map(ConfluenceChange::getEntity)
@@ -202,6 +207,24 @@ class ConfluenceCrawlerTest {
         fake.stub("/wiki/api/v2/databases/d1/entries", ConfluenceFixtures.listJson(null, "",
                 "{\"id\":\"row1\",\"databaseId\":\"d1\",\"values\":{\"fld1\":{\"type\":\"checkbox\","
                         + "\"value\":true}}}"));
+        // Page 200 sits in folder f1; root first, as the API lists ancestors.
+        fake.stub("/wiki/api/v2/pages/200/ancestors", ConfluenceFixtures.listJson(null, "",
+                "{\"id\":\"500\",\"type\":\"page\"}", "{\"id\":\"e9\",\"type\":\"embed\"}",
+                "{\"id\":\"f1\",\"type\":\"folder\"}"));
+        // Group g1 resolves with members; g2 is refused; user abc comes from users-bulk.
+        fake.stub("/wiki/rest/api/group/by-id?id=g1", "{\"type\":\"group\",\"name\":\"staff\",\"id\":\"g1\"}");
+        fake.stub("/wiki/rest/api/group/g1/membersByGroupId", "{\"results\":[{\"accountId\":\"m1\","
+                + "\"accountType\":\"atlassian\",\"email\":\"m1@example.com\",\"displayName\":\"M\"},"
+                + "{\"accountId\":\"m2\",\"accountType\":\"atlassian\",\"displayName\":\"N\"}]}");
+        fake.stub("/wiki/rest/api/group/by-id?id=g2", new FakeConfluenceServer.Stub(403,
+                "{\"message\":\"not allowed\"}", Map.of()));
+        fake.stub("/wiki/rest/api/user?accountId=abc&expand=operations", "{\"accountId\":\"abc\","
+                + "\"accountType\":\"atlassian\",\"email\":\"abc@example.com\",\"operations\":["
+                + "{\"operation\":\"use\",\"targetType\":\"application\"}]}");
+        fake.stub("/wiki/rest/api/user?accountId=m1&expand=operations", "{\"accountId\":\"m1\","
+                + "\"accountType\":\"atlassian\",\"email\":\"m1@example.com\"}");
+        fake.stub("/wiki/rest/api/user?accountId=m2&expand=operations", "{\"accountId\":\"m2\","
+                + "\"accountType\":\"atlassian\"}");
 
         crawler(config()).crawl();
 
@@ -232,13 +255,13 @@ class ConfluenceCrawlerTest {
         assertThat(byId.get("c2").getComment().getKind()).isEqualTo(CommentKind.COMMENT_KIND_INLINE);
         // A 403 on a security route fails closed: the space is UNAVAILABLE, the crawl goes on.
         assertThat(byId.get("100").getSecurityCompleteness())
-                .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_UNAVAILABLE);
+                .isEqualTo(AclCompleteness.ACL_COMPLETENESS_UNAVAILABLE);
         assertThat(byId.get("200").getSecurityCompleteness())
-                .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE);
+                .isEqualTo(AclCompleteness.ACL_COMPLETENESS_COMPLETE);
         assertThat(byId.get("page:200/restriction-state").getSecurityCompleteness())
-                .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE);
+                .isEqualTo(AclCompleteness.ACL_COMPLETENESS_COMPLETE);
         assertThat(byId.get("e1").getSecurityCompleteness())
-                .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_UNSPECIFIED);
+                .isEqualTo(AclCompleteness.ACL_COMPLETENESS_UNSPECIFIED);
         // Smart Links have no permission routes; role assignments were refused yet the crawl finished.
         assertThat(fake.requestsTo("/wiki/api/v2/embeds/e1/permissions")).isEmpty();
         assertThat(fake.requestsTo("/wiki/api/v2/spaces/100/role-assignments")).hasSize(1);
@@ -255,6 +278,47 @@ class ConfluenceCrawlerTest {
                         .containsEntry("database_field", 1L)
                         .containsEntry("database_entry", 1L)
                         .doesNotContainKey("space_role_assignment"));
+        // The owner chain: the item, then restrictable ancestors nearest first (the embed is skipped).
+        assertThat(byId.get("space:100/access").getSpaceAccess().getPermissionsList()).singleElement()
+                .satisfies(p -> assertThat(p.getPrincipal().getId()).isEqualTo("g1"));
+        assertThat(byId.get("space:100/access").getSecurityCompleteness())
+                .isEqualTo(AclCompleteness.ACL_COMPLETENESS_UNAVAILABLE);
+        assertThat(byId.get("page:200/access").getAccessChain().getSpaceId()).isEqualTo("100");
+        assertThat(byId.get("page:200/access").getAccessChain().getOwnersList())
+                .extracting(o -> o.getContent().getType() + ":" + o.getContent().getId())
+                .containsExactly("CONTENT_TYPE_PAGE:200", "CONTENT_TYPE_FOLDER:f1", "CONTENT_TYPE_PAGE:500");
+        assertThat(byId.get("page:200/access").getAccessChain().getOwners(0).getRestrictionState().getState())
+                .isEqualTo(ContentRestrictionState.CONTENT_RESTRICTION_STATE_VIEW_RESTRICTED);
+        assertThat(byId.get("page:200/access").getAccessChain().getOwners(0).getPermissionsList())
+                .extracting(p -> p.getPrincipal().getPrincipalId()).containsExactly("abc", "g1");
+        // Each owner's security is read once per run, though f1 is in two chains and crawled itself.
+        assertThat(fake.requestsTo("/wiki/api/v2/folders/f1/restriction-state")).hasSize(1);
+        assertThat(byId.get("blogpost:300/access").getAccessChain().getOwnersList()).singleElement()
+                .satisfies(o -> assertThat(o.getContent().getType()).isEqualTo(ContentType.CONTENT_TYPE_BLOG_POST));
+        assertThat(fake.requestsTo("/wiki/api/v2/blogposts/300/ancestors")).isEmpty();
+        assertThat(byId).containsKeys("whiteboard:w1/access", "folder:f1/access", "database:d1/access");
+        // Every group a permission named, with its members; a refused group is UNAVAILABLE.
+        assertThat(byId.get("g1").getGroup().getName()).isEqualTo("staff");
+        assertThat(byId.get("g1").getSecurityCompleteness())
+                .isEqualTo(AclCompleteness.ACL_COMPLETENESS_COMPLETE);
+        assertThat(byId.get("group:g1/member/m1").getGroupMember().getUser().getEmail())
+                .isEqualTo("m1@example.com");
+        assertThat(byId.get("group:g1/member/m2").getGroupMember().getUser().getEmail()).isEmpty();
+        assertThat(byId.get("g2").getSecurityCompleteness())
+                .isEqualTo(AclCompleteness.ACL_COMPLETENESS_UNAVAILABLE);
+        assertThat(byId).doesNotContainKey("group:g2/member/m1");
+        // Users: the members and the user a permission named directly, each with its operations.
+        assertThat(byId.get("m1").getUser().getEmail()).isEqualTo("m1@example.com");
+        assertThat(byId.get("m1").getUser().getOperationsList()).isEmpty();
+        assertThat(byId.get("abc").getUser().getEmail()).isEqualTo("abc@example.com");
+        assertThat(byId.get("abc").getUser().getOperationsList()).singleElement().satisfies(o -> {
+            assertThat(o.getOperation()).isEqualTo("use");
+            assertThat(o.getTargetType()).isEqualTo("application");
+        });
+        assertThat(fake.requestsTo("/wiki/rest/api/user")).extracting(r -> r.params().get("accountId"))
+                .containsExactly("abc", "m1", "m2");
+        assertThat(fake.requestsTo("/wiki/rest/api/user"))
+                .allSatisfy(r -> assertThat(r.params()).containsEntry("expand", "operations"));
         sink.changes().forEach(change -> ConfluenceValidator.create().requireValid(change));
     }
 
@@ -353,7 +417,7 @@ class ConfluenceCrawlerTest {
         // The space is re-emitted with its re-read security marker.
         assertThat(changes).filteredOn(c -> c.getEntity().hasSpace()).singleElement()
                 .satisfies(c -> assertThat(c.getEntity().getSecurityCompleteness())
-                        .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_COMPLETE));
+                        .isEqualTo(AclCompleteness.ACL_COMPLETENESS_COMPLETE));
     }
 
     @Test
@@ -391,7 +455,7 @@ class ConfluenceCrawlerTest {
         // The partial permission list is kept but cannot pass for complete.
         assertThat(byId).containsKey("page:202/permission/read/user/abc");
         assertThat(byId.get("page:202/restriction-state").getSecurityCompleteness())
-                .isEqualTo(SecurityCompleteness.SECURITY_COMPLETENESS_UNAVAILABLE);
+                .isEqualTo(AclCompleteness.ACL_COMPLETENESS_UNAVAILABLE);
         assertThat(byId).doesNotContainKey("202");
         // The changed whiteboard is emitted; the unchanged folder only has its security re-read.
         assertThat(byId.get("w1").getWhiteboard().getTitle()).isEqualTo("Board");
@@ -425,7 +489,8 @@ class ConfluenceCrawlerTest {
 
         // No content is re-emitted; only the space and the page's security marker are.
         assertThat(sink.changes()).extracting(c -> c.getEntity().getEntityId())
-                .containsExactlyInAnyOrder("100", "page:202/restriction-state");
+                .containsExactlyInAnyOrder("100", "space:100/access", "page:202/restriction-state",
+                        "page:202/access");
         assertThat(Instant.parse(newCursor)).isEqualTo(T2);
     }
 }

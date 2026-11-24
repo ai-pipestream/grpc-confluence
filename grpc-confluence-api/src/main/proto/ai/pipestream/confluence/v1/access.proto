@@ -1,0 +1,148 @@
+syntax = "proto3";
+
+package ai.pipestream.confluence.v1;
+
+import "ai/pipestream/confluence/v1/common.proto";
+import "ai/pipestream/confluence/v1/permission.proto";
+import "ai/pipestream/confluence/v1/user.proto";
+import "ai/pipestream/sync/v1/acl.proto";
+
+option java_multiple_files = true;
+option java_package = "ai.pipestream.confluence.v1";
+
+// ============================================================================
+// GROUPS AND CONTENT ACCESS (read side): group membership from the v1 group
+// API, and the access-control records that decide who can read one item.
+// ============================================================================
+
+// A Confluence group.
+message Group {
+  // The group ID.
+  string id = 1;
+  // The group name.
+  string name = 2;
+  // The group type as the API reports it (for example `group`).
+  string type = 3;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request for one group.
+message GetGroupRequest {
+  // The group ID.
+  string group_id = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One group.
+message GetGroupResponse {
+  // The group.
+  Group group = 1;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// Request for the members of a group.
+message ListGroupMembersRequest {
+  // The group ID.
+  string group_id = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One member of the group.
+message ListGroupMembersResponse {
+  // The member.
+  User user = 1;
+}
+
+// Request for the groups a user belongs to.
+message ListUserGroupsRequest {
+  // Atlassian account ID of the user.
+  string account_id = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One group the user belongs to.
+message ListUserGroupsResponse {
+  // The group.
+  Group group = 1;
+}
+
+// Request for the access-control records of one content item.
+message GetContentAccessRequest {
+  // The content: a page, blog post, database, whiteboard or folder.
+  ContentRef content = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The direct restriction state and permission entries of one content item.
+message ContentAccessOwner {
+  // The content item.
+  ContentRef content = 1;
+  // Its direct restriction state.
+  RestrictionState restriction_state = 2;
+  // Its direct permission entries; read only when the state is not OPEN.
+  repeated ContentPermission permissions = 3;
+}
+
+// The access-control records that decide who can read one content item. A
+// caller can read it when the space grants it and every owner whose state
+// is VIEW_RESTRICTED lists the caller (an UPDATE entry also grants read).
+message GetContentAccessResponse {
+  // The space the content is in.
+  string space_id = 1;
+  // The space's permission assignments.
+  repeated SpacePermissionAssignment space_permissions = 2;
+  // The space's role assignments; empty when the tenant does not use roles.
+  repeated SpaceRoleAssignment space_role_assignments = 3;
+  // The item first, then each ancestor that can carry restrictions, nearest
+  // first.
+  repeated ContentAccessOwner owners = 4;
+  // Whether every record above was read in full.
+  ai.pipestream.sync.v1.AclCompleteness completeness = 5;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// The access-control owners of one content item, as Sync emits it under
+// the entity id `<kind>:<id>/access`. Read access needs a space permission
+// and a grant on every owner whose restriction state limits viewing.
+message ContentAccessChain {
+  // ID of the space the item is in.
+  string space_id = 1;
+  // The item first, then each ancestor that can carry restrictions,
+  // nearest first, each with its restriction state and direct permissions.
+  repeated ContentAccessOwner owners = 2;
+}
+
+// The space-level grants of one space, as Sync emits it under the entity id
+// `space:<id>/access`.
+message SpaceAccess {
+  // ID of the space.
+  string space_id = 1;
+  // The space permission assignments.
+  repeated SpacePermissionAssignment permissions = 2;
+  // The space role assignments (role-based-access tenants only).
+  repeated SpaceRoleAssignment role_assignments = 3;
+}
+
+// One member of a group, as Sync emits it under the entity id
+// `group:<group id>/member/<account id>`.
+message GroupMember {
+  // ID of the group.
+  string group_id = 1;
+  // The member. `email` is empty when the user's profile hides it.
+  User user = 2;
+}

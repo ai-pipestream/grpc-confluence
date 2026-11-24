@@ -1,5 +1,7 @@
 package ai.pipestream.confluence;
 
+import ai.pipestream.confluence.v1.SpacePermissionPrincipalType;
+import ai.pipestream.confluence.v1.SpacePermissionAssignment;
 import ai.pipestream.confluence.v1.Attachment;
 import ai.pipestream.confluence.v1.ContentPermission;
 import ai.pipestream.confluence.v1.ContentType;
@@ -60,6 +62,17 @@ class ConfluenceMapperTest {
 
     private static JsonNode tree(String json) throws Exception {
         return JSON.readTree(json);
+    }
+
+    @Test
+    void anAccessClassSpacePrincipalKeepsItsType() throws Exception {
+        SpacePermissionAssignment assignment = mapper.toSpacePermissionAssignment(tree(
+                "{\"id\":\"1\",\"principal\":{\"type\":\"access-class\",\"id\":\"ALL_LICENSED_USERS\"},"
+                        + "\"operation\":{\"key\":\"read\",\"targetType\":\"space\"}}"));
+
+        assertThat(assignment.getPrincipal().getType())
+                .isEqualTo(SpacePermissionPrincipalType.SPACE_PERMISSION_PRINCIPAL_TYPE_ACCESS_CLASS);
+        assertThat(assignment.getPrincipal().getId()).isEqualTo("ALL_LICENSED_USERS");
     }
 
     @Test

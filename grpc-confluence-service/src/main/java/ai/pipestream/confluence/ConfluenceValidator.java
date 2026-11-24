@@ -655,6 +655,10 @@ public final class ConfluenceValidator {
             case CONTENT_PERMISSION -> "content_permission";
             case RESTRICTION_STATE -> "restriction_state";
             case SPACE_ROLE_ASSIGNMENT -> "space_role_assignment";
+            case GROUP -> "group";
+            case GROUP_MEMBER -> "group_member";
+            case ACCESS_CHAIN -> "access_chain";
+            case SPACE_ACCESS -> "space_access";
             case ENTITY_NOT_SET -> "entity";
         };
     }
@@ -693,6 +697,10 @@ public final class ConfluenceValidator {
             case CONTENT_PERMISSION -> entity.getContentPermission();
             case RESTRICTION_STATE -> entity.getRestrictionState();
             case SPACE_ROLE_ASSIGNMENT -> entity.getSpaceRoleAssignment();
+            case GROUP -> entity.getGroup();
+            case GROUP_MEMBER -> entity.getGroupMember();
+            case ACCESS_CHAIN -> entity.getAccessChain();
+            case SPACE_ACCESS -> entity.getSpaceAccess();
             case ENTITY_NOT_SET -> entity;
         };
     }

@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package ai.pipestream.confluence.v1;
 
+import "ai/pipestream/confluence/v1/operation.proto";
+
 option java_multiple_files = true;
 option java_package = "ai.pipestream.confluence.v1";
 
@@ -71,6 +73,9 @@ message User {
   bool is_external_collaborator = 9;
   // Profile picture of the user (may be null per privacy settings).
   Icon profile_picture = 10;
+  // What the user may do in Confluence, such as `use` on target type
+  // `application` for a licensed user; empty when not read.
+  repeated Operation operations = 11;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
