@@ -14,7 +14,7 @@
     "body" : {
       "json" : {
         "method" : "PUT",
-        "path" : "/wiki/api/v2/app/properties/pipestream-live-app-20261123T135850Z-b9d1b479-app",
+        "path" : "/wiki/api/v2/app/properties/pipestream-live-app-20261124T030341Z-b546014d-app",
         "body" : {
           "string" : "two",
           "integer" : 42,
@@ -38,8 +38,8 @@
       "json" : {
         "status" : 200,
         "body" : {
-          "title" : "Property updated.",
-          "status" : 200
+          "status" : 200,
+          "title" : "Property updated."
         }
       }
     }

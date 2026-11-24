@@ -4,7 +4,7 @@
   "request" : {
     "method" : "POST",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/rest/api/content/30998818/copy",
+    "path" : "/wiki/rest/api/content/33914881/copy",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -15,9 +15,9 @@
       "json" : {
         "destination" : {
           "type" : "parent_page",
-          "value" : "31293449"
+          "value" : "33882113"
         },
-        "pageTitle" : "pipestream-live-change-20261123T134736Z-9fe556c3 copy",
+        "pageTitle" : "pipestream-live-change-20261124T025406Z-82ee7136 copy",
         "copyAttachments" : false,
         "copyPermissions" : false,
         "copyProperties" : false,
@@ -33,12 +33,12 @@
     },
     "body" : {
       "json" : {
-        "id" : "29918388",
+        "id" : "34013185",
         "type" : "page",
-        "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:page/29918388",
+        "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:page/34013185",
         "base64EncodedAri" : "opaque-2",
         "status" : "current",
-        "title" : "pipestream-live-change-20261123T134736Z-9fe556c3 copy",
+        "title" : "pipestream-live-change-20261124T025406Z-82ee7136 copy",
         "space" : {
           "id" : 7798786,
           "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:space/7798786",
@@ -94,7 +94,7 @@
               "self" : "https://site-1.example.invalid/wiki/rest/api/user?accountId=account-1"
             }
           },
-          "createdDate" : "2026-11-23T13:48:45.432Z",
+          "createdDate" : "2026-11-24T02:55:10.965Z",
           "_expandable" : {
             "lastUpdated" : "",
             "previousVersion" : "",
@@ -104,7 +104,7 @@
             "ownedBy" : ""
           },
           "_links" : {
-            "self" : "https://site-1.example.invalid/wiki/rest/api/content/29918388/history"
+            "self" : "https://site-1.example.invalid/wiki/rest/api/content/34013185/history"
           }
         },
         "version" : {
@@ -133,24 +133,24 @@
               "self" : "https://site-1.example.invalid/wiki/rest/api/user?accountId=account-1"
             }
           },
-          "when" : "2026-11-23T13:48:45.558Z",
+          "when" : "2026-11-24T02:55:11.011Z",
           "friendlyWhen" : "just a moment ago",
           "message" : "",
           "number" : 1,
           "minorEdit" : false,
-          "confRev" : "confluence$content$29918388.2",
+          "confRev" : "confluence$content$34013185.2",
           "contentTypeModified" : false,
           "_expandable" : {
             "collaborators" : "",
-            "content" : "/rest/api/content/29918388"
+            "content" : "/rest/api/content/34013185"
           },
           "_links" : {
-            "self" : "https://site-1.example.invalid/wiki/rest/api/content/29918388/version/1"
+            "self" : "https://site-1.example.invalid/wiki/rest/api/content/34013185/version/1"
           }
         },
         "macroRenderedOutput" : { },
         "extensions" : {
-          "position" : 662274538
+          "position" : 586748382
         },
         "_expandable" : {
           "childTypes" : "",
@@ -159,20 +159,20 @@
           "metadata" : "",
           "operations" : "",
           "schedulePublishDate" : "",
-          "children" : "/rest/api/content/29918388/child",
-          "restrictions" : "/rest/api/content/29918388/restriction/byOperation",
+          "children" : "/rest/api/content/34013185/child",
+          "restrictions" : "/rest/api/content/34013185/restriction/byOperation",
           "ancestors" : "",
           "body" : "",
           "draftVersion" : "",
-          "descendants" : "/rest/api/content/29918388/descendant"
+          "descendants" : "/rest/api/content/34013185/descendant"
         },
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=29918388",
-          "webui" : "/spaces/CLAUDEGRPC/pages/29918388/pipestream-live-change-20261123T134736Z-9fe556c3+copy",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29918388",
+          "editui" : "/pages/resumedraft.action?draftId=34013185",
+          "webui" : "/spaces/CLAUDEGRPC/pages/34013185/pipestream-live-change-20261124T025406Z-82ee7136+copy",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/34013185",
           "context" : "/wiki",
-          "self" : "https://site-1.example.invalid/wiki/rest/api/content/29918388",
-          "tinyui" : "/x/tITIAQ",
+          "self" : "https://site-1.example.invalid/wiki/rest/api/content/34013185",
+          "tinyui" : "/x/AQAHAg",
           "collection" : "/rest/api/content",
           "base" : "https://site-1.example.invalid/wiki"
         }

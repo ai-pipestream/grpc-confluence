@@ -14,10 +14,10 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-change-20261123T134736Z-9fe556c3",
+        "title" : "pipestream-live-change-20261124T025406Z-82ee7136",
         "body" : {
           "representation" : "storage",
-          "value" : "<p>Change feed blog pipestream-live-change-20261123T134736Z-9fe556c3.</p>"
+          "value" : "<p>Change feed blog pipestream-live-change-20261124T025406Z-82ee7136.</p>"
         }
       }
     }
@@ -30,30 +30,30 @@
     "body" : {
       "json" : {
         "authorId" : "account-1",
-        "createdAt" : "2026-11-23T13:53:03.233Z",
+        "createdAt" : "2026-11-24T02:58:54.918Z",
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-23T13:53:03.233Z",
+          "createdAt" : "2026-11-24T02:58:54.918Z",
           "ncsStepVersion" : "1"
         },
-        "id" : "31555589",
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>Change feed blog pipestream-live-change-20261123T134736Z-9fe556c3.</p>"
+            "value" : "<p>Change feed blog pipestream-live-change-20261124T025406Z-82ee7136.</p>"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-change-20261123T134736Z-9fe556c3",
+        "title" : "pipestream-live-change-20261124T025406Z-82ee7136",
+        "id" : "34013204",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=31555589",
-          "webui" : "/spaces/CLAUDEGRPC/blog/2026/11/23/31555589/pipestream-live-change-20261123T134736Z-9fe556c3",
-          "edituiv2" : "/spaces/CLAUDEGRPC/blog/edit-v2/31555589",
-          "tinyui" : "/x/BYDhAQ",
+          "editui" : "/pages/resumedraft.action?draftId=34013204",
+          "webui" : "/spaces/CLAUDEGRPC/blog/2026/11/23/34013204/pipestream-live-change-20261124T025406Z-82ee7136",
+          "edituiv2" : "/spaces/CLAUDEGRPC/blog/edit-v2/34013204",
+          "tinyui" : "/x/FAAHAg",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }
