@@ -1589,7 +1589,34 @@ public final class ConfluenceMapper {
     // SHARED PIECES
     // ======================================================================
 
-    /** Body slots: storage, atlas_doc_format, view, raw. Representation string wins over the slot default. */
+    /** The members of a REST {@code body} object that {@link Body} has a slot for. */
+    private static final java.util.Set<String> BODY_SLOTS = java.util.Set.of("storage",
+            "atlas_doc_format", "view", "raw", "export_view", "anonymous_export_view",
+            "styled_view", "editor");
+
+    /**
+     * The members of {@code node.body} that hold a body and have no slot in
+     * {@link Body}: what {@link #setBody} would leave out of the mapped
+     * entity. A read that returns one entity checks this and fails rather
+     * than answer with part of the body missing.
+     *
+     * @param node a REST entity
+     * @return the member names, in answer order; empty when every body lands in a slot
+     */
+    public static List<String> bodyKeysWithoutSlot(JsonNode node) {
+        List<String> unknown = new ArrayList<>();
+        for (Map.Entry<String, JsonNode> member : node.path("body").properties()) {
+            if (!member.getValue().isNull() && !BODY_SLOTS.contains(member.getKey())) {
+                unknown.add(member.getKey());
+            }
+        }
+        return unknown;
+    }
+
+    /**
+     * Body slots: one per member of the REST {@code body} object (see
+     * {@link #BODY_SLOTS}). Representation string wins over the slot default.
+     */
     private void setBody(JsonNode node, java.util.function.Consumer<Body> bodySetter) {
         JsonNode body = node.path("body");
         if (!body.isObject()) {
@@ -1611,6 +1638,23 @@ public final class ConfluenceMapper {
         JsonNode raw = body.path("raw");
         if (raw.isObject()) {
             b.setRaw(toBodyType(raw, BodyFormat.BODY_FORMAT_RAW));
+        }
+        JsonNode export = body.path("export_view");
+        if (export.isObject()) {
+            b.setExportView(toBodyType(export, BodyFormat.BODY_FORMAT_EXPORT_XHTML));
+        }
+        JsonNode anonymousExport = body.path("anonymous_export_view");
+        if (anonymousExport.isObject()) {
+            b.setAnonymousExportView(toBodyType(anonymousExport,
+                    BodyFormat.BODY_FORMAT_ANONYMOUS_EXPORT_XHTML));
+        }
+        JsonNode styled = body.path("styled_view");
+        if (styled.isObject()) {
+            b.setStyledView(toBodyType(styled, BodyFormat.BODY_FORMAT_STYLED_XHTML));
+        }
+        JsonNode editor = body.path("editor");
+        if (editor.isObject()) {
+            b.setEditor(toBodyType(editor, BodyFormat.BODY_FORMAT_EDITOR));
         }
         bodySetter.accept(b.build());
     }

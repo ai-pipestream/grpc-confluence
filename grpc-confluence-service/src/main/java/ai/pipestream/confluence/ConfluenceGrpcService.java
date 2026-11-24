@@ -356,8 +356,8 @@ public final class ConfluenceGrpcService
                 query.put("version", String.valueOf(request.getVersion()));
             }
             includes(query, request.getInclude(), PAGE_INCLUDES);
-            JsonNode node = session.client.get("/api/v2/pages/" + requireId(request.getId(), "id"),
-                    query.map());
+            JsonNode node = requireBodySlots(session.client.get(
+                    "/api/v2/pages/" + requireId(request.getId(), "id"), query.map()), route);
             reply(observer, GetPageResponse.newBuilder()
                     .setPage(requireValid(session.mapper.toPage(node))).build());
         });
@@ -377,8 +377,8 @@ public final class ConfluenceGrpcService
                 query.put("version", String.valueOf(request.getVersion()));
             }
             includes(query, request.getInclude(), BLOG_POST_INCLUDES);
-            JsonNode node = session.client.get(
-                    "/api/v2/blogposts/" + requireId(request.getId(), "id"), query.map());
+            JsonNode node = requireBodySlots(session.client.get(
+                    "/api/v2/blogposts/" + requireId(request.getId(), "id"), query.map()), route);
             reply(observer, GetBlogPostResponse.newBuilder()
                     .setBlogPost(requireValid(session.mapper.toBlogPost(node))).build());
         });
@@ -877,6 +877,7 @@ public final class ConfluenceGrpcService
                     kind = CommentKind.COMMENT_KIND_INLINE;
                 }
             }
+            requireBodySlots(node, "GET /{kind}-comments/{id}");
             reply(observer, GetCommentResponse.newBuilder()
                     .setComment(requireValid(session.mapper.toComment(node, kind))).build());
         });
@@ -940,8 +941,9 @@ public final class ConfluenceGrpcService
                 query.put("version", String.valueOf(request.getVersion()));
             }
             includes(query, request.getInclude(), ATTACHMENT_INCLUDES);
-            JsonNode node = session.client.get(
-                    "/api/v2/custom-content/" + requireId(request.getId(), "id"), query.map());
+            JsonNode node = requireBodySlots(session.client.get(
+                    "/api/v2/custom-content/" + requireId(request.getId(), "id"), query.map()),
+                    "GET /custom-content/{id}");
             reply(observer, GetCustomContentResponse.newBuilder()
                     .setCustomContent(requireValid(session.mapper.toCustomContent(node))).build());
         });
@@ -3017,6 +3019,22 @@ public final class ConfluenceGrpcService
         if (set) {
             throw invalid(field + " is not accepted by " + route);
         }
+    }
+
+    /**
+     * The answer of a single-entity read, once every body it holds has a slot
+     * in {@code Body}. INTERNAL otherwise: the reply would come back OK with
+     * the body the caller asked for left out.
+     */
+    private static JsonNode requireBodySlots(JsonNode node, String route) {
+        List<String> unknown = ConfluenceMapper.bodyKeysWithoutSlot(node);
+        if (!unknown.isEmpty()) {
+            throw Status.INTERNAL.withDescription("Confluence answered " + route
+                    + " with a body under " + String.join(", ", unknown)
+                    + ", a representation Body has no slot for; not answering without it")
+                    .asRuntimeException();
+        }
+        return node;
     }
 
     /** A single-entity read's body format: UNSPECIFIED = storage, per the request docs. */
