@@ -71,6 +71,8 @@ Live runs go through `.github/workflows/ci.yml` `workflow_dispatch` inputs
 `live_changes_group_member` and `forge_environment`). Reviewers do not
 dispatch them. The live steps of the copy, archive and group write rpcs are
 in `ChangeScenarios`, not `WriteScenarios` (`ConfluenceWriteRoutes.CHANGE_SUITE`).
+The Forge app's development and production environments are both installed
+on the test site and both receive its events, so run one change run at a time.
 
 ## Confluence specifics to keep in mind
 
