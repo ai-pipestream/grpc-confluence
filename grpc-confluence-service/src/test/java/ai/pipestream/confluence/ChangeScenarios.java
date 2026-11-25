@@ -1092,7 +1092,12 @@ final class ChangeScenarios {
 
     // --- groups ----------------------------------------------------------------------------
 
-    /** Creates the group; the directory can answer a write late, so each read back is retried. */
+    /**
+     * Creates the group and reads it back. The create does not always answer
+     * who manages the group or its usage; what it does answer must be read
+     * back the same. The directory can answer a write late, so each read is
+     * retried.
+     */
     private String createGroup() throws InterruptedException {
         Group group = stub().createGroup(CreateGroupRequest.newBuilder().setName(groupName).build())
                 .getGroup();
@@ -1126,8 +1131,12 @@ final class ChangeScenarios {
                         .getGroup();
                 last = "name " + (read.getName().equals(groupName) ? "as created" : "different")
                         + ", managed by " + read.getManagedBy() + ", usage " + read.getUsageType();
-                same = read.getName().equals(groupName) && read.getManagedBy() == group.getManagedBy()
-                        && read.getUsageType() == group.getUsageType();
+                same = read.getName().equals(groupName)
+                        && read.getManagedBy() != GroupManagedBy.GROUP_MANAGED_BY_UNSPECIFIED
+                        && (group.getManagedBy() == GroupManagedBy.GROUP_MANAGED_BY_UNSPECIFIED
+                                || read.getManagedBy() == group.getManagedBy())
+                        && (group.getUsageType() == GroupUsageType.GROUP_USAGE_TYPE_UNSPECIFIED
+                                || read.getUsageType() == group.getUsageType());
             } catch (StatusRuntimeException e) {
                 last = String.valueOf(e.getStatus().getCode());
             }
@@ -1157,7 +1166,8 @@ final class ChangeScenarios {
         }
         check(found, "after " + listings + " listing(s) ListGroups answers " + listed
                 + " group(s) without the new one");
-        return "group created, " + answered + "; read back after " + reads + " read(s), listed among "
+        return "create answered " + answered + "; GetGroup answers " + last + " after " + reads
+                + " read(s); listed among "
                 + listed + " group(s) after " + listings + " listing(s); " + older
                 + " group(s) of earlier runs listed";
     }

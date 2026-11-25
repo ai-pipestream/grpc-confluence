@@ -84,7 +84,10 @@ in `ChangeScenarios`, not `WriteScenarios` (`ConfluenceWriteRoutes.CHANGE_SUITE`
   restrictions that drop the caller's own edit access are refused
   (allow-self-lockout); live sites return `access-class` principals the v2
   spec does not list; a missing group id answers 400, not 404; a deleted
-  group can still read back for a moment after the delete; an update of an
+  group can still read back after the delete (2 s in most runs, more than
+  30 s in one); a member added to a group is listed a few seconds later; the
+  group create does not always answer `managedBy` and `usageType`, the read
+  does; an update of an
   archived page answers 404, and no REST route takes a page out of the
   archive; a page tree copy fires `created:page` and `copied:page` for each
   copy.

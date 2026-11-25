@@ -1484,7 +1484,8 @@ message CreateGroupRequest {
 
 // Response of CreateGroup.
 message CreateGroupResponse {
-  // The created group.
+  // The created group, as the create answered it. Confluence does not always
+  // answer managed_by and usage_type here; GetGroup has them.
   Group group = 1;
 }
 
