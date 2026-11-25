@@ -140,6 +140,7 @@ class ConfluenceLiveCoverageIT {
             Map.entry("GetRestrictionState", "GET /{type}/{id}/restriction-state"),
             Map.entry("GetContentAccess", "GET /{type}/{id}, /ancestors, /restriction-state, /permissions"),
             Map.entry("GetGroup", "v1 GET /rest/api/group/by-id"),
+            Map.entry("ListGroups", "v1 GET /rest/api/group"),
             Map.entry("ListGroupMembers", "v1 GET /rest/api/group/{groupId}/membersByGroupId"),
             Map.entry("ListUserGroups", "v1 GET /rest/api/user/memberof"),
             Map.entry("ListContentPermissions", "GET /{type}/{id}/permissions"),
@@ -1013,8 +1014,13 @@ class ConfluenceLiveCoverageIT {
         return stub.withDeadlineAfter(CALL_DEADLINE_SECONDS, TimeUnit.SECONDS);
     }
 
-    /** GetGroup, ListGroupMembers and ListUserGroups from the first group a space permission names. */
+    /**
+     * ListGroups, then GetGroup, ListGroupMembers and ListUserGroups from the
+     * first group a space permission names.
+     */
     private void groupsAndMembers(List<ListSpacePermissionAssignmentsResponse> assignments) {
+        stream("ListGroups", "ListGroups", LIST_CAP,
+                s -> s.listGroups(ListGroupsRequest.getDefaultInstance()), list -> list.size() + " groups");
         String groupId = assignments == null ? null : assignments.stream()
                 .map(ListSpacePermissionAssignmentsResponse::getAssignment)
                 .filter(a -> a.getPrincipal().getType()

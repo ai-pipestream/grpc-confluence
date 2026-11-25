@@ -566,6 +566,49 @@ public final class ConfluenceCrawler {
         emit(entity.build(), source, cursor);
     }
 
+    /**
+     * Re-reads one group and its members ({@code group:<id>/member/<account id>}).
+     *
+     * @param id the group id
+     * @param source the change source to stamp
+     * @param cursor the cursor to stamp
+     * @throws IOException if a REST call fails (400 or 404 when the group is gone)
+     * @throws InterruptedException if the calling thread is interrupted while waiting
+     */
+    public void rereadGroup(String id, ChangeSource source, String cursor)
+            throws IOException, InterruptedException {
+        Group group = ConfluenceMapper.toGroup(client.get("/rest/api/group/by-id", Map.of("id", id)));
+        emitGroup(group, true, source, cursor);
+    }
+
+    /**
+     * Emits the members of a group, then the group with the completeness of
+     * that read. The members are not read when the group itself was not.
+     *
+     * @return the account ids of the members read
+     */
+    private Set<String> emitGroup(Group group, boolean groupRead, ChangeSource source,
+            String changeCursor) throws IOException, InterruptedException {
+        Set<String> memberIds = new HashSet<>();
+        boolean complete = groupRead;
+        if (complete) {
+            SecurityRead<List<JsonNode>> members = walkOffsets(
+                    "/rest/api/group/" + group.getId() + "/membersByGroupId", "group members");
+            complete = members.complete();
+            for (JsonNode node : members.value()) {
+                User user = mapper.toUser(node);
+                emit(entity("group:" + group.getId() + "/member/" + user.getAccountId())
+                        .setGroupMember(GroupMember.newBuilder().setGroupId(group.getId())
+                                .setUser(user))
+                        .build(), source, changeCursor);
+                memberIds.add(user.getAccountId());
+            }
+        }
+        emit(entity(group.getId()).setGroup(group).setSecurityCompleteness(completeness(complete))
+                .build(), source, changeCursor);
+        return memberIds;
+    }
+
     private void crawlPage(JsonNode node, ChangeSource source, String changeCursor,
             Map<String, Long> counts, Set<String> seenTree, Timestamp stopAt)
             throws IOException, InterruptedException {
@@ -881,21 +924,8 @@ public final class ConfluenceCrawler {
                     "group");
             Group group = read.value() == null ? Group.newBuilder().setId(groupId).build()
                     : ConfluenceMapper.toGroup(read.value());
-            boolean complete = read.complete() && read.value() != null;
-            if (complete) {
-                SecurityRead<List<JsonNode>> members = walkOffsets(
-                        "/rest/api/group/" + groupId + "/membersByGroupId", "group members");
-                complete = members.complete();
-                for (JsonNode node : members.value()) {
-                    User user = mapper.toUser(node);
-                    emit(entity("group:" + groupId + "/member/" + user.getAccountId())
-                            .setGroupMember(GroupMember.newBuilder().setGroupId(groupId).setUser(user))
-                            .build(), source, changeCursor);
-                    memberIds.add(user.getAccountId());
-                }
-            }
-            emit(entity(groupId).setGroup(group).setSecurityCompleteness(completeness(complete)).build(),
-                    source, changeCursor);
+            memberIds.addAll(emitGroup(group, read.complete() && read.value() != null, source,
+                    changeCursor));
         }
         Set<String> users = new java.util.TreeSet<>(accountIds);
         users.addAll(memberIds);

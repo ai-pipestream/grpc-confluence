@@ -15,6 +15,21 @@ the connector take the oldest events and acknowledge them once handled.
 
 * `{"action":"take","max":100}` also answers each event's `expireTime`.
 
+## One collector per queue
+
+`take` removes nothing, and `ack` removes for everyone. Two collectors that
+take before either acknowledges both get an event; once one has acknowledged
+it, the other never sees it. An `ack` of a key that is already gone is
+accepted. Run one `WatchChanges` stream per queue; a second environment of
+the app has its own queue.
+
+## Expiry
+
+An event nobody collects is dropped 7 days after it was stored. Forge removes
+expired entries up to 48 hours late and may still answer them until then, so
+an event can be delivered up to 9 days after it was stored. The live change
+run fails when it finds an older event in the queue.
+
 ## App API forwarding
 
 `POST` to the `app-api` web trigger URL with the same header and
@@ -41,6 +56,11 @@ forge deploy -e development
 forge install -e development --product confluence --site <site>.atlassian.net
 forge webtrigger                   # prints the queue and app-api URLs
 ```
+
+Use `-e production` on each command for the production environment. Each
+environment has its own queue, secret, web trigger URLs and custom content
+type id. The CI job `live-confluence-changes` deploys the environment its
+`forge_environment` input names.
 
 Then start `grpc-confluence` with `CONFLUENCE_FORGE_QUEUE_URL` set to that URL
 and `CONFLUENCE_FORGE_QUEUE_SECRET` set to the same secret.

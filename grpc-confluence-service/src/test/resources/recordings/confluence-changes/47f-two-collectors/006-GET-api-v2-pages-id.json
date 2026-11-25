@@ -1,0 +1,59 @@
+{
+  "scenario" : "47f-two-collectors",
+  "sequence" : 6,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/34930905",
+    "query" : [ {
+      "name" : "body-format",
+      "value" : "storage"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "parentType" : "page",
+        "authorId" : "account-1",
+        "spaceId" : "7798786",
+        "parentId" : "34799707",
+        "ownerId" : "account-1",
+        "createdAt" : "2026-11-24T18:32:35.790Z",
+        "lastOwnerId" : null,
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-24T18:32:35.790Z",
+          "ncsStepVersion" : "1"
+        },
+        "position" : 756851838,
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<p>Two collectors, pipestream-live-change-20261124T182204Z-090b1ad6.</p>"
+          }
+        },
+        "status" : "current",
+        "title" : "pipestream-live-change-20261124T182204Z-090b1ad6 collectors",
+        "id" : "34930905",
+        "_links" : {
+          "editui" : "/pages/resumedraft.action?draftId=34930905",
+          "webui" : "/spaces/CLAUDEGRPC/pages/34930905/pipestream-live-change-20261124T182204Z-090b1ad6+collectors",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/34930905",
+          "tinyui" : "/x/2QAVAg",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

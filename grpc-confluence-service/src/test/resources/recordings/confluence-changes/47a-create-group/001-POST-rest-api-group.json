@@ -13,7 +13,7 @@
     "authorized" : true,
     "body" : {
       "json" : {
-        "name" : "pipestream-live-change-20261124T025406Z-82ee7136-group"
+        "name" : "pipestream-live-change-20261124T182204Z-090b1ad6-group"
       }
     }
   },
@@ -24,14 +24,14 @@
     },
     "body" : {
       "json" : {
-        "id" : "e0e5b93d-f259-470c-83fd-e461f7fc1905",
-        "name" : "pipestream-live-change-20261124T025406Z-82ee7136-group",
+        "id" : "ee660541-01e7-4f58-816d-b9fa4292cdbf",
+        "name" : "pipestream-live-change-20261124T182204Z-090b1ad6-group",
         "managedBy" : "ADMINS",
         "usageType" : "USERBASE_GROUP",
-        "resourceAri" : "ari:cloud:identity::group/e0e5b93d-f259-470c-83fd-e461f7fc1905",
+        "resourceAri" : "ari:cloud:identity::group/ee660541-01e7-4f58-816d-b9fa4292cdbf",
         "type" : "group",
         "_links" : {
-          "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/pipestream-live-change-20261124T025406Z-82ee7136-group",
+          "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/pipestream-live-change-20261124T182204Z-090b1ad6-group",
           "base" : "https://site-1.example.invalid/wiki",
           "context" : "/wiki"
         }

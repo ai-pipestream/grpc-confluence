@@ -1,0 +1,45 @@
+{
+  "scenario" : "08e-update-archived",
+  "sequence" : 2,
+  "request" : {
+    "method" : "PUT",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/34635829",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "id" : "34635829",
+        "status" : "current",
+        "title" : "pipestream-live-change-20261124T182204Z-090b1ad6 copy",
+        "body" : {
+          "representation" : "storage",
+          "value" : "<p>Change feed run pipestream-live-change-20261124T182204Z-090b1ad6, out of the archive.</p><ac:task-list><ac:task><ac:task-id>1</ac:task-id><ac:task-status>incomplete</ac:task-status><ac:task-body>check the change feed</ac:task-body></ac:task></ac:task-list>"
+        },
+        "version" : {
+          "number" : 2
+        }
+      }
+    }
+  },
+  "response" : {
+    "status" : 404,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "errors" : [ {
+          "status" : 404,
+          "code" : "NOT_FOUND",
+          "title" : "Not Found",
+          "detail" : null
+        } ]
+      }
+    }
+  }
+}

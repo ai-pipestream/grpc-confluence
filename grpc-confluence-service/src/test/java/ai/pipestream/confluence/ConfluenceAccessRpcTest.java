@@ -81,6 +81,58 @@ class ConfluenceAccessRpcTest {
     }
 
     @Test
+    void getGroupMapsHowTheGroupIsUsedAndManaged() {
+        fake.stub("/wiki/rest/api/group/by-id", """
+                {"id":"g-1","name":"hr-sync","managedBy":"EXTERNAL","usageType":"TEAM_COLLABORATION",
+                 "resourceAri":"ari:cloud:identity::group/g-1","type":"group"}""");
+
+        Group group = stub.getGroup(GetGroupRequest.newBuilder().setGroupId("g-1").build()).getGroup();
+
+        assertThat(group.getManagedBy()).isEqualTo(GroupManagedBy.GROUP_MANAGED_BY_EXTERNAL);
+        assertThat(group.getUsageType()).isEqualTo(GroupUsageType.GROUP_USAGE_TYPE_TEAM_COLLABORATION);
+        assertThat(group.getResourceAri()).isEqualTo("ari:cloud:identity::group/g-1");
+    }
+
+    @Test
+    void listGroupsWalksOffsetsUntilAShortPage() {
+        String path = "/wiki/rest/api/group";
+        fake.stubOnce(path, FakeConfluenceServer.Stub.json(v1Page(
+                "{\"type\":\"group\",\"name\":\"a\",\"id\":\"g-a\",\"managedBy\":\"ADMINS\"}",
+                "{\"type\":\"group\",\"name\":\"b\",\"id\":\"g-b\"}")));
+        fake.stubOnce(path, FakeConfluenceServer.Stub.json(v1Page(
+                "{\"type\":\"group\",\"name\":\"c\",\"id\":\"g-c\"}")));
+
+        List<Group> groups = new ArrayList<>();
+        stub.listGroups(ListGroupsRequest.getDefaultInstance())
+                .forEachRemaining(r -> groups.add(r.getGroup()));
+
+        assertThat(groups).extracting(Group::getId).containsExactly("g-a", "g-b", "g-c");
+        assertThat(groups.getFirst().getManagedBy()).isEqualTo(GroupManagedBy.GROUP_MANAGED_BY_ADMINS);
+        assertThat(fake.requestsTo(path)).extracting(r -> r.params().get("start")).containsExactly("0", "2");
+        assertThat(fake.requestsTo(path)).allSatisfy(r ->
+                assertThat(r.params()).containsOnlyKeys("start", "limit"));
+    }
+
+    @Test
+    void listGroupsNarrowsToAnAccessType() {
+        String path = "/wiki/rest/api/group";
+        fake.stub(path, v1Page());
+
+        stub.listGroups(ListGroupsRequest.newBuilder()
+                .setAccessType(GroupAccessType.GROUP_ACCESS_TYPE_SITE_ADMIN).build())
+                .forEachRemaining(r -> { });
+
+        assertThat(fake.lastTo(path).params()).containsEntry("accessType", "site-admin");
+    }
+
+    @Test
+    void listGroupsFailsOnAnAnswerThatIsNotAList() {
+        fake.stub("/wiki/rest/api/group", "{}");
+        assertCode(Status.Code.INTERNAL, () -> stub.listGroups(ListGroupsRequest.getDefaultInstance())
+                .hasNext());
+    }
+
+    @Test
     void listGroupMembersWalksOffsetsUntilAShortPage() {
         String path = "/wiki/rest/api/group/g-1/membersByGroupId";
         fake.stubOnce(path, FakeConfluenceServer.Stub.json(v1Page(user("a"), user("b"))));

@@ -4,7 +4,7 @@
   "request" : {
     "method" : "PUT",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/34045966",
+    "path" : "/wiki/api/v2/pages/34799734",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -13,32 +13,58 @@
     "authorized" : true,
     "body" : {
       "json" : {
-        "id" : "34045966",
+        "id" : "34799734",
         "status" : "current",
-        "title" : "pipestream-live-change-20261124T025406Z-82ee7136 backlog",
+        "title" : "pipestream-live-change-20261124T182204Z-090b1ad6 backlog",
         "body" : {
           "representation" : "storage",
-          "value" : "<p>backlog 51</p>"
+          "value" : "<p>backlog 53</p>"
         },
         "version" : {
-          "number" : 52
+          "number" : 54
         }
       }
     }
   },
   "response" : {
-    "status" : 409,
+    "status" : 200,
     "headers" : {
       "content-type" : "application/json"
     },
     "body" : {
       "json" : {
-        "errors" : [ {
-          "status" : 409,
-          "code" : "CONFLICT",
-          "title" : "Batch update returned unexpected row count from update [0]; actual row count: 0; expected: 1; statement executed: update CONTENT set HIBERNATEVERSION=?, TITLE=?, LOWERTITLE=?, VERSION=?, CREATOR=?, AGENT_CREATOR_AAID=?, CREATIONDATE=?, LASTMODIFIER=?, AGENT_LASTMODIFIER_AAID=?, LASTMODDATE=?, VERSIONCOMMENT=?, PREVVER=?, CONTENT_STATUS=?, NAVIGATIONTYPE=?, PAGEID=?, DRAFTTYPE=?, SPACEID=?, CHILD_POSITION=?, PARENTID=?, MESSAGEID=? where CONTENTID=? and HIBERNATEVERSION=?; nested exception is org.hibernate.StaleStateException: Batch update returned unexpected row count from update [0]; actual row count: 0; expected: 1; statement executed: update CONTENT set HIBERNATEVERSION=?, TITLE=?, LOWERTITLE=?, VERSION=?, CREATOR=?, AGENT_CREATOR_AAID=?, CREATIONDATE=?, LASTMODIFIER=?, AGENT_LASTMODIFIER_AAID=?, LASTMODDATE=?, VERSIONCOMMENT=?, PREVVER=?, CONTENT_STATUS=?, NAVIGATIONTYPE=?, PAGEID=?, DRAFTTYPE=?, SPACEID=?, CHILD_POSITION=?, PARENTID=?, MESSAGEID=? where CONTENTID=? and HIBERNATEVERSION=?",
-          "detail" : null
-        } ]
+        "authorId" : "account-1",
+        "parentType" : "page",
+        "parentId" : "7798963",
+        "ownerId" : "account-1",
+        "createdAt" : "2026-11-24T18:29:34.306Z",
+        "lastOwnerId" : null,
+        "position" : 1218,
+        "version" : {
+          "number" : 54,
+          "message" : null,
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-24T18:29:50.538Z",
+          "ncsStepVersion" : "1"
+        },
+        "spaceId" : "7798786",
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<p>backlog 53</p>"
+          }
+        },
+        "status" : "current",
+        "title" : "pipestream-live-change-20261124T182204Z-090b1ad6 backlog",
+        "id" : "34799734",
+        "_links" : {
+          "editui" : "/pages/resumedraft.action?draftId=34799734",
+          "webui" : "/spaces/CLAUDEGRPC/pages/34799734/pipestream-live-change-20261124T182204Z-090b1ad6+backlog",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/34799734",
+          "tinyui" : "/x/dgATAg",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
       }
     }
   }

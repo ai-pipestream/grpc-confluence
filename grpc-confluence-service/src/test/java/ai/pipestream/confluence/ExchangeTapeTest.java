@@ -210,7 +210,7 @@ class ExchangeTapeTest {
                 WriteScenarios.Row::outcome).isEqualTo(live.stream().map(row ->
                 org.assertj.core.groups.Tuple.tuple(row.rpc(), row.label(), row.outcome())).toList());
         assertThat(live).extracting(WriteScenarios.Row::rpc)
-                .containsAll(ConfluenceWriteRoutes.rpcs());
+                .containsAll(ConfluenceWriteRoutes.writeSuite());
     }
 
     private List<WriteScenarios.Row> runScenarios(String baseUrl, ExchangeTape tape,

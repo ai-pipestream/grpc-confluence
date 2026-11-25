@@ -15,6 +15,30 @@ option java_package = "ai.pipestream.confluence.v1";
 // API, and the access-control records that decide who can read one item.
 // ============================================================================
 
+// How the users of a group are used together.
+enum GroupUsageType {
+  // Zero value; the API reported none or one this contract does not model.
+  GROUP_USAGE_TYPE_UNSPECIFIED = 0;
+  // USERBASE_GROUP: used as a group.
+  GROUP_USAGE_TYPE_USERBASE_GROUP = 1;
+  // TEAM_COLLABORATION: used as a team.
+  GROUP_USAGE_TYPE_TEAM_COLLABORATION = 2;
+}
+
+// Who manages the membership of a group.
+enum GroupManagedBy {
+  // Zero value; the API reported none or one this contract does not model.
+  GROUP_MANAGED_BY_UNSPECIFIED = 0;
+  // ADMINS: org, site or product admins.
+  GROUP_MANAGED_BY_ADMINS = 1;
+  // EXTERNAL: an external system (SCIM, HRIS).
+  GROUP_MANAGED_BY_EXTERNAL = 2;
+  // TEAM_MEMBERS: the members themselves.
+  GROUP_MANAGED_BY_TEAM_MEMBERS = 3;
+  // OPEN: nobody actively.
+  GROUP_MANAGED_BY_OPEN = 4;
+}
+
 // A Confluence group.
 message Group {
   // The group ID.
@@ -23,6 +47,12 @@ message Group {
   string name = 2;
   // The group type as the API reports it (for example `group`).
   string type = 3;
+  // How the users of the group are used together.
+  GroupUsageType usage_type = 4;
+  // Who manages the membership of the group.
+  GroupManagedBy managed_by = 5;
+  // The Atlassian resource identifier of the group.
+  string resource_ari = 6;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
 }
@@ -43,6 +73,34 @@ message GetGroupResponse {
   Group group = 1;
   // Extensible key-value metadata (extension-metadata map - see convention).
   map<string, string> metadata = 99;
+}
+
+// The permission level a group listing is narrowed to.
+enum GroupAccessType {
+  // Zero value; every group.
+  GROUP_ACCESS_TYPE_UNSPECIFIED = 0;
+  // user: groups that grant product access.
+  GROUP_ACCESS_TYPE_USER = 1;
+  // admin: groups that grant product admin access.
+  GROUP_ACCESS_TYPE_ADMIN = 2;
+  // site-admin: groups that grant site admin access.
+  GROUP_ACCESS_TYPE_SITE_ADMIN = 3;
+}
+
+// Request for the groups of the site.
+message ListGroupsRequest {
+  // Narrows the listing to groups of this permission level; unset = every group.
+  GroupAccessType access_type = 1;
+  // Catalog connection to use. Empty = the process-default (env) connection.
+  string connection_id = 2;
+  // Extensible key-value metadata (extension-metadata map - see convention).
+  map<string, string> metadata = 99;
+}
+
+// One group of the site.
+message ListGroupsResponse {
+  // The group.
+  Group group = 1;
 }
 
 // Request for the members of a group.

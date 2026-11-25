@@ -1,0 +1,51 @@
+{
+  "scenario" : "08a-copy-page",
+  "sequence" : 2,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/34635829",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "authorId" : "account-1",
+        "parentType" : "page",
+        "parentId" : "34799707",
+        "ownerId" : "account-1",
+        "createdAt" : "2026-11-24T18:23:04.587Z",
+        "lastOwnerId" : null,
+        "position" : 593164653,
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-24T18:23:04.612Z",
+          "ncsStepVersion" : null
+        },
+        "spaceId" : "7798786",
+        "body" : { },
+        "status" : "current",
+        "title" : "pipestream-live-change-20261124T182204Z-090b1ad6 copy",
+        "id" : "34635829",
+        "_links" : {
+          "editui" : "/pages/resumedraft.action?draftId=34635829",
+          "webui" : "/spaces/CLAUDEGRPC/pages/34635829/pipestream-live-change-20261124T182204Z-090b1ad6+copy",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/34635829",
+          "tinyui" : "/x/NYAQAg",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

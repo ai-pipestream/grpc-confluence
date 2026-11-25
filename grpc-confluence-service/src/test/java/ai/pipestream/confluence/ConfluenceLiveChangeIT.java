@@ -37,8 +37,10 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  *
  * <p>Gated on the live credentials, {@code CONFLUENCE_LIVE_CHANGES=1} and
  * {@link ForgeEventQueue#ENV_URL} / {@link ForgeEventQueue#ENV_SECRET}. The
- * space is {@code CONFLUENCE_SPACE_KEY} (default {@code CLAUDEGRPC}). Run
- * with {@code ./gradlew :grpc-confluence-service:liveChangesTest}.</p>
+ * space is {@code CONFLUENCE_SPACE_KEY} (default {@code CLAUDEGRPC}).
+ * {@link ChangeScenarios#ENV_GROUP_MEMBER}{@code =1} also adds the caller to
+ * the run's throwaway group and removes it. Run with
+ * {@code ./gradlew :grpc-confluence-service:liveChangesTest}.</p>
  */
 class ConfluenceLiveChangeIT {
 
@@ -101,7 +103,7 @@ class ConfluenceLiveChangeIT {
 
         // Peeks at the queue off the recording, so a step can wait for Forge.
         ForgeEventQueue peek = new ForgeEventQueue(queueUrl, queueSecret, http);
-        purge(peek);
+        List<Leftover> left = purge(peek);
         ChangeScenarios.Events events = new ChangeScenarios.Events() {
             @Override
             public void await(Predicate<ConfluenceEvent> match) throws Exception {
@@ -125,14 +127,19 @@ class ConfluenceLiveChangeIT {
                 config.apiToken(), Duration.ofMillis(100), tape);
         ConfluenceGrpcService read = new ConfluenceGrpcService(config, client,
                 ConfluenceGrpcService.DEFAULT_ATTACHMENT_MAX_BYTES);
-        ConfluenceChangeGrpcService service = new ConfluenceChangeGrpcService(read,
-                new ForgeEventQueue(queueUrl, queueSecret, tape), Clock.systemUTC());
+        ForgeEventQueue recorded = new ForgeEventQueue(queueUrl, queueSecret, tape);
+        ConfluenceChangeGrpcService service = new ConfluenceChangeGrpcService(read, recorded,
+                Clock.systemUTC());
+        ConfluenceChangeGrpcService second = new ConfluenceChangeGrpcService(read, recorded,
+                Clock.systemUTC());
         String name = InProcessServerBuilder.generateName();
         Server server = InProcessServerBuilder.forName(name)
                 .executor(Executors.newVirtualThreadPerTaskExecutor())
                 .addService(read).addService(service).build().start();
         ManagedChannel channel = InProcessChannelBuilder.forName(name).build();
-        ChangeScenarios scenarios = new ChangeScenarios(channel, client, service, spaceKey, run, events);
+        boolean memberSteps = "1".equals(env(ChangeScenarios.ENV_GROUP_MEMBER));
+        ChangeScenarios scenarios = new ChangeScenarios(channel, service, spaceKey, run, memberSteps,
+                events, recorded, second);
         Instant started = Instant.now();
         try {
             for (ChangeScenarios.Scenario scenario : scenarios.all()) {
@@ -148,7 +155,8 @@ class ConfluenceLiveChangeIT {
             server.shutdownNow();
             server.awaitTermination(10, TimeUnit.SECONDS);
         }
-        String report = report(scenarios, started);
+        String report = report(scenarios, started, left);
+        List<String> overdue = left.stream().filter(Leftover::overdue).map(Leftover::line).toList();
         Files.createDirectories(out.toAbsolutePath().getParent());
         Files.writeString(out, report, StandardCharsets.UTF_8);
         System.out.println(report);
@@ -158,6 +166,7 @@ class ConfluenceLiveChangeIT {
         runFile.put("queueUrl", queueUrl);
         runFile.put("spaceKey", spaceKey);
         runFile.put("run", run);
+        runFile.put("groupMembers", memberSteps);
         scenarios.rows().forEach(row -> runFile.withArray("outcomes").addObject()
                 .put("step", row.id()).put("outcome", row.outcome()));
         tape.finish(runFile);
@@ -167,14 +176,47 @@ class ConfluenceLiveChangeIT {
         scenarios.rows().stream().filter(row -> row.outcome().equals("FAIL"))
                 .forEach(row -> failures.add(row.label() + ": " + row.detail()));
         assertThat(failures).as("failed change steps (see %s)", out).isEmpty();
+        assertThat(overdue).as("events still queued more than %s after they were stored",
+                ChangeScenarios.EVENT_TTL.plus(ChangeScenarios.EXPIRY_LAG)).isEmpty();
     }
 
-    /** Acknowledges everything already queued, so the run starts from an empty queue. */
-    private static void purge(ForgeEventQueue queue) throws Exception {
+    /**
+     * One event that was still queued when the run started.
+     *
+     * @param line its type and when it happened
+     * @param age how long ago the Forge app stored it; {@code null} when unknown
+     */
+    private record Leftover(String line, Duration age) {
+
+        /** Whether Forge should have dropped the event by now. */
+        boolean overdue() {
+            return age != null
+                    && age.compareTo(ChangeScenarios.EVENT_TTL.plus(ChangeScenarios.EXPIRY_LAG)) > 0;
+        }
+    }
+
+    /**
+     * Acknowledges everything already queued, so the run starts from an empty queue.
+     *
+     * @return the events that were still queued
+     */
+    private static List<Leftover> purge(ForgeEventQueue queue) throws Exception {
+        List<Leftover> left = new ArrayList<>();
+        Instant now = Instant.now();
         List<ForgeEventQueue.Queued> batch;
         while (!(batch = queue.take(ForgeEventQueue.DEFAULT_TAKE)).isEmpty()) {
+            for (ForgeEventQueue.Queued queued : batch) {
+                ConfluenceEvent event = queued.event();
+                Duration delay = ChangeScenarios.delay(queued);
+                Instant stored = ChangeScenarios.stored(queued);
+                left.add(new Leftover(event.getEventType() + (event.hasOccurredAt() ? " of "
+                        + Instant.ofEpochSecond(event.getOccurredAt().getSeconds()) : "")
+                        + (delay == null ? "" : ", queued " + delay.toSeconds() + " s after it happened"),
+                        stored == null ? null : Duration.between(stored, now)));
+            }
             queue.ack(batch.stream().map(ForgeEventQueue.Queued::key).toList());
         }
+        return left;
     }
 
     private static void await(ForgeEventQueue queue, Predicate<ConfluenceEvent> match)
@@ -208,7 +250,7 @@ class ConfluenceLiveChangeIT {
                 + ChangeScenarios.EVENT_WAIT);
     }
 
-    private static String report(ChangeScenarios scenarios, Instant started) {
+    private static String report(ChangeScenarios scenarios, Instant started, List<Leftover> left) {
         StringBuilder out = new StringBuilder("# Confluence live change run\n\n- Run: ")
                 .append(started).append(" (")
                 .append(Duration.between(started, Instant.now()).toSeconds()).append(" s)\n\n")
@@ -217,6 +259,25 @@ class ConfluenceLiveChangeIT {
                 .append(row.outcome().equals("FAIL") ? "**FAIL**" : row.outcome())
                 .append(" | ").append(row.detail().replace("|", "\\|").replace("\n", " "))
                 .append(" |\n"));
+        out.append("\n## Forge delivery\n\nEvents the run drained, by type:\n\n");
+        scenarios.deliveries().forEach(line -> out.append("- ").append(line).append('\n'));
+        out.append("\nEvents still queued when the run started (queued after the run before ended): ")
+                .append(left.size()).append("\n\n");
+        left.forEach(event -> out.append("- ").append(event.line()).append('\n'));
+        Duration oldest = left.stream().map(Leftover::age).filter(java.util.Objects::nonNull)
+                .max(Duration::compareTo).orElse(null);
+        out.append("\nExpiry: Forge drops an event ").append(ChangeScenarios.EVENT_TTL.toDays())
+                .append(" days after it is stored, up to ").append(ChangeScenarios.EXPIRY_LAG.toHours())
+                .append(" h late. ");
+        if (oldest == null) {
+            out.append("Nothing was queued, so this run says nothing about it.\n");
+        } else if (left.stream().anyMatch(Leftover::overdue)) {
+            out.append("**FAIL**: the oldest queued event was stored ").append(oldest.toHours())
+                    .append(" h ago.\n");
+        } else {
+            out.append("The oldest queued event was stored ").append(oldest.toHours())
+                    .append(" h ago, inside that time.\n");
+        }
         return out.toString();
     }
 }

@@ -1,0 +1,38 @@
+{
+  "scenario" : "47b-group-created-event",
+  "sequence" : 2,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/group/by-id",
+    "query" : [ {
+      "name" : "id",
+      "value" : "ee660541-01e7-4f58-816d-b9fa4292cdbf"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "id" : "ee660541-01e7-4f58-816d-b9fa4292cdbf",
+        "name" : "pipestream-live-change-20261124T182204Z-090b1ad6-group",
+        "managedBy" : "ADMINS",
+        "usageType" : "USERBASE_GROUP",
+        "resourceAri" : "ari:cloud:identity::group/ee660541-01e7-4f58-816d-b9fa4292cdbf",
+        "type" : "group",
+        "_links" : {
+          "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/pipestream-live-change-20261124T182204Z-090b1ad6-group",
+          "base" : "https://site-1.example.invalid/wiki",
+          "context" : "/wiki"
+        }
+      }
+    }
+  }
+}

@@ -1,10 +1,7 @@
 package ai.pipestream.confluence;
 
 import ai.pipestream.confluence.v1.*;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import ai.pipestream.sync.v1.AclCompleteness;
 import com.google.protobuf.ByteString;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
@@ -16,10 +13,15 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -40,8 +42,14 @@ final class ChangeScenarios {
     static final int BACKLOG = 105;
     /** How long the Forge app keeps an uncollected event. */
     static final Duration EVENT_TTL = Duration.ofDays(7);
+    /** How long after its expiry Forge may still answer an event. */
+    static final Duration EXPIRY_LAG = Duration.ofHours(48);
+    /** Set to {@code 1} for the live step that adds the caller to the throwaway group and removes it. */
+    static final String ENV_GROUP_MEMBER = "CONFLUENCE_LIVE_CHANGES_GROUP_MEMBER";
     private static final long CALL_DEADLINE_SECONDS = 120;
     private static final int MAX_BACKLOG_DRAINS = 40;
+    private static final String TREE_COPY_PREFIX = "Copy of ";
+    private static final int GROUP_GONE_READS = 16;
 
     /** Where queued events come from: live waits for Forge, replay does nothing. */
     interface Events {
@@ -91,10 +99,27 @@ final class ChangeScenarios {
     private record Drained(List<ForgeEventQueue.Queued> taken, List<WatchChangesResponse> streamed) {
     }
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    /** A content tree item whose restrictions the run changes. */
+    private enum Item {
+        FOLDER("folder", ContentType.CONTENT_TYPE_FOLDER,
+                ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_FOLDER),
+        WHITEBOARD("whiteboard", ContentType.CONTENT_TYPE_WHITEBOARD,
+                ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_WHITEBOARD),
+        DATABASE("database", ContentType.CONTENT_TYPE_DATABASE,
+                ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_DATABASE);
+
+        private final String kind;
+        private final ContentType type;
+        private final ConfluenceEventObject object;
+
+        Item(String kind, ContentType type, ConfluenceEventObject object) {
+            this.kind = kind;
+            this.type = type;
+            this.object = object;
+        }
+    }
 
     private final ManagedChannel channel;
-    private final ConfluenceClient rest;
     private final ConfluenceServiceGrpc.ConfluenceServiceBlockingStub confluence;
     private final ConfluenceChangeServiceGrpc.ConfluenceChangeServiceStub changes;
     private final ConfluenceChangeGrpcService service;
@@ -103,10 +128,19 @@ final class ChangeScenarios {
     private final String run;
     private final Events events;
     private final WatchedChanges watched;
+    private final ForgeEventQueue queue;
+    private final ConfluenceChangeGrpcService second;
+    private final WatchedChanges secondWatched;
     private final List<Row> rows = new ArrayList<>();
     private final List<Runnable> cleanups = new ArrayList<>();
+    private final Map<String, ForgeEventQueue.Queued> allTaken = new LinkedHashMap<>();
+    private final Map<Item, String> items = new EnumMap<>(Item.class);
+    private final Set<Item> restricted = EnumSet.noneOf(Item.class);
+    private final Set<Item> unrestricted = EnumSet.noneOf(Item.class);
+    private final boolean memberSteps;
 
     private Context.CancellableContext watch;
+    private Context.CancellableContext secondWatch;
     private Space space;
     private Page page;
     private Page parent;
@@ -119,15 +153,28 @@ final class ChangeScenarios {
     private boolean restored;
     private String copyId;
     private boolean archived;
-    private Folder folder;
+    private String treeCopyId;
     private String groupId;
     private boolean groupDeleted;
     private final String groupName;
 
-    ChangeScenarios(ManagedChannel channel, ConfluenceClient rest, ConfluenceChangeGrpcService service,
-            String spaceKey, String run, Events events) {
+    /**
+     * The steps of one run.
+     *
+     * @param channel the channel to the service under test
+     * @param service the change service behind the channel
+     * @param spaceKey the space the run writes in
+     * @param run the name of the run, unique to it
+     * @param memberSteps whether the run adds the caller to its throwaway group
+     * @param events where queued events come from
+     * @param queue the event queue of {@code service}
+     * @param second a second change service that collects from the same queue
+     */
+    ChangeScenarios(ManagedChannel channel, ConfluenceChangeGrpcService service, String spaceKey,
+            String run, boolean memberSteps, Events events, ForgeEventQueue queue,
+            ConfluenceChangeGrpcService second) {
         this.channel = channel;
-        this.rest = rest;
+        this.memberSteps = memberSteps;
         this.groupName = run + "-group";
         this.confluence = ConfluenceServiceGrpc.newBlockingStub(channel);
         this.changes = ConfluenceChangeServiceGrpc.newStub(channel);
@@ -137,6 +184,9 @@ final class ChangeScenarios {
         this.run = run;
         this.events = events;
         this.watched = new WatchedChanges(service);
+        this.queue = queue;
+        this.second = second;
+        this.secondWatched = new WatchedChanges(second);
     }
 
     /** Every step, in run order. */
@@ -156,10 +206,15 @@ final class ChangeScenarios {
                         pageObject, ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_UPDATED, 2)),
                 new Scenario("07-move-page", "UpdatePage (new parent)", this::movePage),
                 new Scenario("08-moved-event", "page moved event resolved", this::movedEvent),
-                new Scenario("08a-copy-page", "copy the page (REST v1, no rpc)", this::copyPage),
+                new Scenario("08a-copy-page", "CopyPage", this::copyPage),
                 new Scenario("08b-copied-event", "page copied event resolved", this::copiedEvent),
-                new Scenario("08c-archive-copy", "archive the copy (REST v1, no rpc)", this::archiveCopy),
+                new Scenario("08c-archive-copy", "ArchivePages", this::archiveCopy),
                 new Scenario("08d-archived-event", "page archived event resolved", this::archivedEvent),
+                new Scenario("08e-update-archived", "UpdatePage (archived page) is refused",
+                        this::updateArchived),
+                new Scenario("08f-copy-hierarchy", "CopyPageHierarchy", this::copyHierarchy),
+                new Scenario("08g-hierarchy-copied-event", "copied page tree event resolved",
+                        this::hierarchyCopiedEvent),
                 new Scenario("09-create-comment", "CreateFooterComment", this::createComment),
                 new Scenario("10-comment-created-event", "comment created event resolved",
                         () -> commentEvent(ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED, 1)),
@@ -187,14 +242,36 @@ final class ChangeScenarios {
                         this::unrestrictPage),
                 new Scenario("24-unrestricted-event", "page permissions event drops the permission",
                         this::unrestrictedEvent),
-                new Scenario("24a-restrict-folder", "CreateFolder, then restrict it (REST v1)",
-                        this::restrictFolder),
+                new Scenario("24a-restrict-folder", "CreateFolder, AddContentPermissions (folder)",
+                        () -> restrictItem(Item.FOLDER)),
                 new Scenario("24b-folder-restricted-event", "folder permissions event carries the permission",
-                        this::folderRestrictedEvent),
-                new Scenario("24c-unrestrict-folder", "remove the folder restrictions (REST v1)",
-                        this::unrestrictFolder),
+                        () -> itemRestrictedEvent(Item.FOLDER)),
+                new Scenario("24c-unrestrict-folder", "DeleteContentPermissions (folder)",
+                        () -> unrestrictItem(Item.FOLDER)),
                 new Scenario("24d-folder-unrestricted-event",
-                        "folder permissions event drops the permission", this::folderUnrestrictedEvent),
+                        "folder permissions event drops the permission",
+                        () -> itemUnrestrictedEvent(Item.FOLDER)),
+                new Scenario("24e-restrict-whiteboard",
+                        "CreateWhiteboard, AddContentPermissions (whiteboard)",
+                        () -> restrictItem(Item.WHITEBOARD)),
+                new Scenario("24f-whiteboard-restricted-event",
+                        "whiteboard permissions event carries the permission",
+                        () -> itemRestrictedEvent(Item.WHITEBOARD)),
+                new Scenario("24g-unrestrict-whiteboard", "DeleteContentPermissions (whiteboard)",
+                        () -> unrestrictItem(Item.WHITEBOARD)),
+                new Scenario("24h-whiteboard-unrestricted-event",
+                        "whiteboard permissions event drops the permission",
+                        () -> itemUnrestrictedEvent(Item.WHITEBOARD)),
+                new Scenario("24i-restrict-database", "CreateDatabase, AddContentPermissions (database)",
+                        () -> restrictItem(Item.DATABASE)),
+                new Scenario("24j-database-restricted-event",
+                        "database permissions event carries the permission",
+                        () -> itemRestrictedEvent(Item.DATABASE)),
+                new Scenario("24k-unrestrict-database", "DeleteContentPermissions (database)",
+                        () -> unrestrictItem(Item.DATABASE)),
+                new Scenario("24l-database-unrestricted-event",
+                        "database permissions event drops the permission",
+                        () -> itemUnrestrictedEvent(Item.DATABASE)),
                 new Scenario("25-complete-task", "UpdateTask (complete)", this::completeTask),
                 new Scenario("26-task-event", "task updated event resolved", this::taskEvent),
                 new Scenario("27-create-blog", "CreateBlogPost", this::createBlog),
@@ -227,12 +304,17 @@ final class ChangeScenarios {
                 new Scenario("46-delete-space", "DeleteSpace (own throwaway space)", this::deleteSpace),
                 new Scenario("47-space-deleted-event", "space deleted event resolved",
                         this::spaceDeletedEvent),
-                new Scenario("47a-create-group", "create a throwaway group (REST v1)", this::createGroup),
-                new Scenario("47b-group-created-event", "group created event streamed unresolved",
-                        () -> groupEvent(ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED)),
-                new Scenario("47c-delete-group", "delete the throwaway group (REST v1)", this::deleteGroup),
-                new Scenario("47d-group-deleted-event", "group deleted event streamed unresolved",
-                        () -> groupEvent(ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_DELETED)),
+                new Scenario("47a-create-group", "CreateGroup (throwaway), GetGroup, ListGroups",
+                        this::createGroup),
+                new Scenario("47b-group-created-event", "group created event resolved",
+                        this::groupCreatedEvent),
+                new Scenario("47c-group-members", "AddGroupMember, RemoveGroupMember (the caller)",
+                        this::groupMembers),
+                new Scenario("47d-delete-group", "DeleteGroup (throwaway)", this::deleteGroup),
+                new Scenario("47e-group-deleted-event", "group deleted event resolved",
+                        this::groupDeletedEvent),
+                new Scenario("47f-two-collectors", "two collectors on one queue",
+                        this::twoCollectors),
                 new Scenario("48-watch-stop", "WatchChanges (cancel)", this::watchStop));
     }
 
@@ -258,6 +340,9 @@ final class ChangeScenarios {
         if (watch != null) {
             watch.cancel(null);
         }
+        if (secondWatch != null) {
+            secondWatch.cancel(null);
+        }
         for (Runnable cleanup : cleanups.reversed()) {
             try {
                 cleanup.run();
@@ -271,15 +356,19 @@ final class ChangeScenarios {
 
     private String watchStart() throws Exception {
         space = stub().getSpace(GetSpaceRequest.newBuilder().setKey(spaceKey).build()).getSpace();
-        WatchChangesRequest request = WatchChangesRequest.newBuilder()
+        watch = Context.current().withCancellation();
+        watch.run(() -> changes.watchChanges(watchRequest(), watched));
+        return "first drain took " + awaitDrain().size() + " event(s)";
+    }
+
+    /** A watch that drains when it opens and after that only when told to. */
+    private WatchChangesRequest watchRequest() {
+        return WatchChangesRequest.newBuilder()
                 .setSync(SyncRequest.newBuilder().addSpaceKeys(spaceKey).addSpaceKeys(ownSpaceKey))
                 .setSkipInitialPass(true)
                 .setPollInterval(com.google.protobuf.Duration.newBuilder().setSeconds(86_400))
                 .setEventInterval(com.google.protobuf.Duration.newBuilder().setSeconds(86_400))
                 .build();
-        watch = Context.current().withCancellation();
-        watch.run(() -> changes.watchChanges(request, watched));
-        return "first drain took " + awaitDrain().size() + " event(s)";
     }
 
     private String createPages() {
@@ -679,20 +768,82 @@ final class ChangeScenarios {
         return "stream ended: " + Status.fromThrowable(watched.error()).getCode();
     }
 
-    // --- REST v1 steps: no rpc covers these ------------------------------------------------
+    // --- two collectors --------------------------------------------------------------------
 
-    private String copyPage() throws Exception {
-        ObjectNode body = JSON.createObjectNode();
-        body.putObject("destination").put("type", "parent_page").put("value", parent.getId());
-        body.put("pageTitle", run + " copy").put("copyAttachments", false)
-                .put("copyPermissions", false).put("copyProperties", false).put("copyLabels", false)
-                .put("copyCustomContents", false);
-        JsonNode copy = rest.post("/rest/api/content/" + page.getId() + "/copy", Map.of(), body);
-        copyId = copy.path("id").asText("");
-        check(!copyId.isEmpty(), "the copy answered no id");
+    /**
+     * Two collectors that take before either acknowledges both get an event;
+     * once one has acknowledged it, the other no longer gets it, and a late
+     * acknowledgement of it is accepted.
+     */
+    private String twoCollectors() throws Exception {
+        secondWatch = Context.current().withCancellation();
+        Context.CancellableContext opened = secondWatch;
+        Thread.ofVirtual().name("second-collector").start(
+                () -> opened.run(() -> second.watchChanges(watchRequest(), secondWatched)));
+        int opening = secondWatched.awaitDrain(STREAM_WAIT).size();
+
+        Page made = stub().createPage(CreatePageRequest.newBuilder().setSpaceId(space.getId())
+                .setParentId(parent.getId()).setTitle(run + " collectors")
+                .setBody(storage("<p>Two collectors, " + run + ".</p>")).build()).getPage();
+        String id = made.getId();
+        cleanups.add(() -> purgePage(id));
+        Predicate<ConfluenceEvent> created = event -> isAbout(event,
+                ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_PAGE,
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED, id);
+        events.await(created);
+
+        String key = null;
+        for (int collector = 1; collector <= 2; collector++) {
+            String taken = null;
+            for (ForgeEventQueue.Queued queued : queue.take(ForgeEventQueue.DEFAULT_TAKE)) {
+                if (created.test(queued.event())) {
+                    taken = queued.key();
+                }
+            }
+            check(taken != null, "take " + collector + " did not answer the event");
+            check(key == null || key.equals(taken), "the two takes answered different keys");
+            key = taken;
+        }
+
+        ConfluenceChange change = find(drain(created, c -> c.getEntity().getEntityId().equals(id)),
+                created, c -> c.getEntity().getEntityId().equals(id));
+        check(change.getOperation() == ChangeOperation.CHANGE_OPERATION_UPSERT,
+                "operation " + change.getOperation());
+
+        queue.ack(List.of(key));
+
+        second.drainNow();
+        List<ForgeEventQueue.Queued> later = secondWatched.awaitDrain(STREAM_WAIT);
+        check(later.stream().noneMatch(queued -> created.test(queued.event())),
+                "the second collector took the acknowledged event");
+        List<WatchChangesResponse> streamed = new ArrayList<>();
+        secondWatched.drainTo(streamed);
+        check(streamed.stream().noneMatch(message -> message.hasChange()
+                && message.getChange().getEntity().getEntityId().equals(id)),
+                "the second collector streamed the acknowledged event");
+        return "two takes answered the event; the first collector streamed and acknowledged it;"
+                + " a second acknowledgement was accepted; the second collector then took "
+                + later.size() + " event(s) and streamed nothing about it (its opening drain took "
+                + opening + ")";
+    }
+
+    // --- copies and the archive ------------------------------------------------------------
+
+    private String copyPage() {
+        Page copy = stub().copyPage(CopyPageRequest.newBuilder().setId(page.getId())
+                .setDestination(CopyPageDestination.newBuilder().setParentPageId(parent.getId()))
+                .setPageTitle(run + " copy").build()).getPage();
+        check(!copy.getId().isEmpty(), "the copy answered no id");
+        copyId = copy.getId();
         String id = copyId;
         cleanups.add(() -> purgePage(id));
-        return "copy " + copyId;
+        check(!copyId.equals(page.getId()), "the copy has the id of its source");
+        Page read = stub().getPage(GetPageRequest.newBuilder().setId(copyId).build()).getPage();
+        check(read.getTitle().equals(run + " copy"), "the title read back is " + read.getTitle());
+        check(read.getParentId().equals(parent.getId()), "the parent read back is " + read.getParentId());
+        check(copy.getTitle().equals(read.getTitle()) && copy.getParentId().equals(read.getParentId())
+                && copy.getSpaceId().equals(space.getId()), "the answer differs from the page read back");
+        return "copy " + copyId + " under the parent";
     }
 
     private String copiedEvent() throws Exception {
@@ -713,16 +864,20 @@ final class ChangeScenarios {
         if (copyId == null) {
             throw new Skip("the page was not copied");
         }
-        ObjectNode body = JSON.createObjectNode();
-        body.putArray("pages").addObject().put("id", Long.parseLong(copyId));
-        JsonNode task;
+        String task;
         try {
-            task = rest.post("/rest/api/content/archive", Map.of(), body);
-        } catch (ConfluenceClient.ConfluenceApiException e) {
-            throw new Skip("the site refused the archive: HTTP " + e.status());
+            task = stub().archivePages(ArchivePagesRequest.newBuilder().addPageIds(copyId).build())
+                    .getTaskId();
+        } catch (StatusRuntimeException e) {
+            throw new Skip("the site refused the archive: " + e.getStatus().getCode() + " "
+                    + e.getStatus().getDescription());
         }
+        awaitTask(task);
         archived = true;
-        return "archive task " + (task.path("id").asText("").isEmpty() ? "(none)" : "answered");
+        ContentStatus status = stub().getPage(GetPageRequest.newBuilder().setId(copyId).build())
+                .getPage().getStatus();
+        check(status == ContentStatus.CONTENT_STATUS_ARCHIVED, "the status read back is " + status);
+        return "archive task finished; the copy reads back archived";
     }
 
     private String archivedEvent() throws Exception {
@@ -739,46 +894,158 @@ final class ChangeScenarios {
         return event(change) + " -> " + state;
     }
 
-    private String folderPermissionPath() {
-        return "/rest/api/content/" + folder.getId() + "/restriction";
+    /** An archived page reads back, but an update of it answers not found. */
+    private String updateArchived() throws Exception {
+        if (!archived) {
+            throw new Skip("the copy was not archived");
+        }
+        Page copy = stub().getPage(GetPageRequest.newBuilder().setId(copyId).build()).getPage();
+        try {
+            stub().updatePage(UpdatePageRequest.newBuilder().setId(copyId).setTitle(run + " copy")
+                    .setStatus(ContentStatus.CONTENT_STATUS_CURRENT)
+                    .setBody(storage(pageBody(", out of the archive")))
+                    .setExpectedVersion(copy.getVersion().getNumber()).build());
+        } catch (StatusRuntimeException e) {
+            check(e.getStatus().getCode() == Status.Code.NOT_FOUND,
+                    "the update answered " + e.getStatus().getCode());
+            return "NOT_FOUND";
+        }
+        throw new AssertionError("the update of an archived page was accepted");
     }
 
-    private String restrictFolder() throws Exception {
-        folder = stub().createFolder(CreateFolderRequest.newBuilder().setSpaceId(space.getId())
-                .setParentId(parent.getId()).setTitle(run + " folder").build()).getFolder();
-        String id = folder.getId();
+    private String copyHierarchy() throws Exception {
+        Page root = stub().createPage(CreatePageRequest.newBuilder().setSpaceId(space.getId())
+                .setParentId(parent.getId()).setTitle(run + " tree")
+                .setBody(storage("<p>Tree of " + run + ".</p>")).build()).getPage();
+        String rootId = root.getId();
+        cleanups.add(() -> purgePage(rootId));
+        Page leaf = stub().createPage(CreatePageRequest.newBuilder().setSpaceId(space.getId())
+                .setParentId(rootId).setTitle(run + " tree leaf")
+                .setBody(storage("<p>Leaf of " + run + ".</p>")).build()).getPage();
+        String leafId = leaf.getId();
+        cleanups.add(() -> purgePage(leafId));
+        String task = stub().copyPageHierarchy(CopyPageHierarchyRequest.newBuilder().setId(rootId)
+                .setDestinationPageId(parent.getId())
+                .setTitleOptions(CopyPageTitleOptions.newBuilder().setPrefix(TREE_COPY_PREFIX)).build())
+                .getTaskId();
+        awaitTask(task);
+        String leafCopy = null;
+        for (int attempt = 0; attempt < 15 && (treeCopyId == null || leafCopy == null); attempt++) {
+            if (attempt > 0) {
+                events.pause(Duration.ofSeconds(2));
+            }
+            Iterator<ListDescendantsResponse> descendants = stub().listDescendants(
+                    ListDescendantsRequest.newBuilder().setRoot(ContentRef.newBuilder()
+                            .setType(ContentType.CONTENT_TYPE_PAGE).setId(parent.getId())).build());
+            while (descendants.hasNext()) {
+                ContentTreeEntry entry = descendants.next().getEntry();
+                if (entry.getTitle().equals(TREE_COPY_PREFIX + run + " tree")) {
+                    treeCopyId = entry.getId();
+                } else if (entry.getTitle().equals(TREE_COPY_PREFIX + run + " tree leaf")) {
+                    leafCopy = entry.getId();
+                    check(treeCopyId == null || entry.getParentId().equals(treeCopyId),
+                            "the copied leaf is under " + entry.getParentId());
+                }
+            }
+        }
+        for (String id : new String[] {treeCopyId, leafCopy}) {
+            if (id != null) {
+                cleanups.add(() -> purgePage(id));
+            }
+        }
+        check(treeCopyId != null, "no copy of the tree is under the parent");
+        check(leafCopy != null, "the leaf was not copied with the tree");
+        return "copy task finished; tree copy " + treeCopyId + " with its leaf " + leafCopy;
+    }
+
+    /** A page copied with its tree arrives as a copied or a created page event. */
+    private String hierarchyCopiedEvent() throws Exception {
+        if (treeCopyId == null) {
+            throw new Skip("the tree was not copied");
+        }
+        ConfluenceChange change = expect(event -> event.getObject()
+                == ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_PAGE
+                && event.getContentId().equals(treeCopyId)
+                && (event.getAction() == ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_COPIED
+                        || event.getAction() == ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED),
+                c -> c.getEntity().hasPage() && c.getEntity().getEntityId().equals(treeCopyId)
+                        && c.getOperation() == ChangeOperation.CHANGE_OPERATION_UPSERT);
+        check(change.getEntity().getPage().getTitle().equals(TREE_COPY_PREFIX + run + " tree"),
+                "re-read title differs");
+        return event(change) + " -> page upsert of the tree copy";
+    }
+
+    /** Polls a long-running task until it ends without an error. */
+    private void awaitTask(String taskId) throws InterruptedException {
+        check(!taskId.isEmpty(), "no task id was answered");
+        for (int attempt = 0; attempt < 60; attempt++) {
+            LongRunningTask task = stub().getLongRunningTask(GetLongRunningTaskRequest.newBuilder()
+                    .setTaskId(taskId).build()).getTask();
+            if (task.getFinished()) {
+                check(task.getSuccessful(), "the task ended with errors " + task.getErrorsList());
+                return;
+            }
+            events.pause(Duration.ofSeconds(2));
+        }
+        throw new AssertionError("the task did not finish in two minutes");
+    }
+
+    // --- restrictions on folders, whiteboards and databases --------------------------------
+
+    private ContentRef ref(Item item) {
+        return ContentRef.newBuilder().setType(item.type).setId(items.get(item)).build();
+    }
+
+    private String restrictItem(Item item) {
+        String title = run + " " + item.kind;
+        String id = switch (item) {
+            case FOLDER -> stub().createFolder(CreateFolderRequest.newBuilder().setSpaceId(space.getId())
+                    .setParentId(parent.getId()).setTitle(title).build()).getFolder().getId();
+            case WHITEBOARD -> stub().createWhiteboard(CreateWhiteboardRequest.newBuilder()
+                    .setSpaceId(space.getId()).setParentId(parent.getId()).setTitle(title).build())
+                    .getWhiteboard().getId();
+            case DATABASE -> stub().createDatabase(CreateDatabaseRequest.newBuilder()
+                    .setSpaceId(space.getId()).setParentId(parent.getId()).setTitle(title).build())
+                    .getDatabase().getId();
+        };
+        items.put(item, id);
         cleanups.add(() -> {
             try {
-                stub().deleteFolder(DeleteFolderRequest.newBuilder().setId(id).build());
+                switch (item) {
+                    case FOLDER -> stub().deleteFolder(DeleteFolderRequest.newBuilder().setId(id).build());
+                    case WHITEBOARD -> stub().deleteWhiteboard(DeleteWhiteboardRequest.newBuilder()
+                            .setId(id).build());
+                    case DATABASE -> stub().deleteDatabase(DeleteDatabaseRequest.newBuilder().setId(id)
+                            .build());
+                }
             } catch (StatusRuntimeException e) {
                 if (e.getStatus().getCode() != Status.Code.NOT_FOUND) {
                     throw e;
                 }
             }
         });
-        ArrayNode body = JSON.createArrayNode();
-        ObjectNode update = body.addObject().put("operation", "update");
-        update.putObject("restrictions").putArray("user").addObject().put("type", "known")
-                .put("accountId", page.getAuthorId());
-        try {
-            rest.put(folderPermissionPath(), Map.of(), body);
-        } catch (ConfluenceClient.ConfluenceApiException e) {
-            throw new Skip("the site refused a folder restriction: HTTP " + e.status());
-        }
-        return "folder " + id + ", update permission for the author";
+        stub().addContentPermissions(AddContentPermissionsRequest.newBuilder().setContent(ref(item))
+                .addPermissions(ContentPermissionGrant.newBuilder()
+                        .setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_UPDATE)
+                        .addPrincipals(self()))
+                .build());
+        stub().setRestrictionState(SetRestrictionStateRequest.newBuilder().setContent(ref(item))
+                .setState(ContentRestrictionState.CONTENT_RESTRICTION_STATE_EDIT_RESTRICTED).build());
+        restricted.add(item);
+        return item.kind + " " + id + ", update permission for the author; edit restricted";
     }
 
-    private Predicate<ConfluenceEvent> folderEvent() {
-        return event -> isAbout(event, ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_FOLDER,
-                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_PERMISSIONS_UPDATED, folder.getId());
+    private Predicate<ConfluenceEvent> itemEvent(Item item) {
+        return event -> isAbout(event, item.object,
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_PERMISSIONS_UPDATED, items.get(item));
     }
 
-    private String folderRestrictedEvent() throws Exception {
-        if (rows.getLast().outcome().equals("SKIPPED")) {
-            throw new Skip("the folder was not restricted");
+    private String itemRestrictedEvent(Item item) throws Exception {
+        if (!restricted.contains(item)) {
+            throw new Skip("the " + item.kind + " was not restricted");
         }
-        String owner = "folder:" + folder.getId() + "/permission/";
-        ConfluenceChange change = expect(folderEvent(), c -> c.getEntity().hasContentPermission()
+        String owner = item.kind + ":" + items.get(item) + "/permission/";
+        ConfluenceChange change = expect(itemEvent(item), c -> c.getEntity().hasContentPermission()
                 && c.getEntity().getEntityId().startsWith(owner)
                 && c.getEntity().getContentPermission().getPrincipal().getPrincipalId()
                         .equals(page.getAuthorId()));
@@ -786,27 +1053,27 @@ final class ChangeScenarios {
                 + " permission for the author";
     }
 
-    private String unrestrictFolder() throws Exception {
-        if (folder == null) {
-            throw new Skip("no folder was created");
+    private String unrestrictItem(Item item) throws Exception {
+        if (!restricted.contains(item)) {
+            throw new Skip("the " + item.kind + " was not restricted");
         }
-        try {
-            rest.delete(folderPermissionPath(), Map.of());
-        } catch (ConfluenceClient.ConfluenceApiException e) {
-            throw new Skip("the site refused removing folder restrictions: HTTP " + e.status());
-        }
-        return "restrictions removed";
+        stub().setRestrictionState(SetRestrictionStateRequest.newBuilder().setContent(ref(item))
+                .setState(ContentRestrictionState.CONTENT_RESTRICTION_STATE_OPEN).build());
+        stub().deleteContentPermissions(DeleteContentPermissionsRequest.newBuilder()
+                .setContent(ref(item)).setAllowSelfLockout(true).build());
+        unrestricted.add(item);
+        return "open; direct permissions removed";
     }
 
-    private String folderUnrestrictedEvent() throws Exception {
-        if (rows.getLast().outcome().equals("SKIPPED")) {
-            throw new Skip("the folder restrictions were not removed");
+    private String itemUnrestrictedEvent(Item item) throws Exception {
+        if (!unrestricted.contains(item)) {
+            throw new Skip("the " + item.kind + " restrictions were not removed");
         }
-        String state = "folder:" + folder.getId() + "/restriction-state";
-        String owner = "folder:" + folder.getId() + "/permission/";
+        String state = item.kind + ":" + items.get(item) + "/restriction-state";
+        String owner = item.kind + ":" + items.get(item) + "/permission/";
         Predicate<ConfluenceChange> isState = c -> c.getEntity().getEntityId().equals(state);
-        Drained drained = drainUntil(folderEvent(), isState);
-        ConfluenceChange restriction = find(drained, folderEvent(), isState);
+        Drained drained = drainUntil(itemEvent(item), isState);
+        ConfluenceChange restriction = find(drained, itemEvent(item), isState);
         String eventId = restriction.getEvent().getEventId();
         for (WatchChangesResponse message : drained.streamed()) {
             if (message.hasChange() && message.getChange().getEvent().getEventId().equals(eventId)) {
@@ -819,62 +1086,131 @@ final class ChangeScenarios {
                 + restriction.getEntity().getRestrictionState().getState() + ", no direct permission";
     }
 
-    private String createGroup() throws Exception {
-        JsonNode group = rest.post("/rest/api/group", Map.of(),
-                JSON.createObjectNode().put("name", groupName));
-        groupId = group.path("id").asText("");
-        check(!groupId.isEmpty(), "the group answered no id");
+    // --- groups ----------------------------------------------------------------------------
+
+    private String createGroup() {
+        Group group = stub().createGroup(CreateGroupRequest.newBuilder().setName(groupName).build())
+                .getGroup();
+        check(!group.getId().isEmpty(), "the group answered no id");
+        groupId = group.getId();
         String id = groupId;
         cleanups.add(() -> {
             if (!groupDeleted) {
                 try {
-                    rest.delete("/rest/api/group/by-id", Map.of("id", id));
-                } catch (ConfluenceClient.ConfluenceApiException e) {
-                    if (e.status() != 404) {
-                        throw new IllegalStateException(e);
+                    stub().deleteGroup(DeleteGroupRequest.newBuilder().setGroupId(id).build());
+                } catch (StatusRuntimeException e) {
+                    if (e.getStatus().getCode() != Status.Code.NOT_FOUND
+                            && e.getStatus().getCode() != Status.Code.INVALID_ARGUMENT) {
+                        throw e;
                     }
-                } catch (java.io.IOException | InterruptedException e) {
-                    throw new IllegalStateException(e);
                 }
             }
         });
-        return "group created";
+        check(group.getName().equals(groupName), "the group is named " + group.getName());
+        Group read = stub().getGroup(GetGroupRequest.newBuilder().setGroupId(groupId).build()).getGroup();
+        check(read.getName().equals(groupName), "the name read back is " + read.getName());
+        check(read.getManagedBy() == group.getManagedBy() && read.getUsageType() == group.getUsageType(),
+                "the answer differs from the group read back");
+        int listed = 0;
+        boolean found = false;
+        Iterator<ListGroupsResponse> groups = stub().listGroups(ListGroupsRequest.getDefaultInstance());
+        while (groups.hasNext()) {
+            listed++;
+            found |= groups.next().getGroup().getId().equals(groupId);
+        }
+        check(found, "ListGroups answered " + listed + " group(s) without the new one");
+        return "group created, managed by " + read.getManagedBy() + "; read back and listed among "
+                + listed + " group(s)";
     }
 
-    private String deleteGroup() throws Exception {
-        rest.delete("/rest/api/group/by-id", Map.of("id", groupId));
-        groupDeleted = true;
-        return "group deleted";
+    private Predicate<ConfluenceEvent> groupEvent(ConfluenceEventAction action) {
+        return event -> event.getObject() == ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_GROUP
+                && event.getAction() == action && event.getContentId().equals(groupId);
     }
 
-    /** Group events have no entity in the contract, so they arrive as typed unresolved events. */
-    private String groupEvent(ConfluenceEventAction action) throws Exception {
-        Predicate<ConfluenceEvent> match = event ->
-                event.getObject() == ConfluenceEventObject.CONFLUENCE_EVENT_OBJECT_GROUP
-                        && event.getAction() == action
-                        && (event.getContentId().equals(groupId) || event.getTitle().equals(groupName));
+    /** A created group is re-read; Forge does not always deliver the event. */
+    private String groupCreatedEvent() throws Exception {
+        Predicate<ConfluenceEvent> match = groupEvent(
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED);
         try {
             events.await(match);
         } catch (AssertionError e) {
-            if (action == ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED) {
-                throw new Lost("Forge delivered no group created event: " + e.getMessage());
-            }
-            throw e;
+            throw new Lost("Forge delivered no group created event: " + e.getMessage());
         }
-        List<WatchChangesResponse> streamed = new ArrayList<>();
-        for (int round = 0; round < 3; round++) {
-            service.drainNow();
-            awaitDrain();
-            watched.drainTo(streamed);
-            for (WatchChangesResponse message : streamed) {
-                if (message.hasUnresolvedEvent() && match.test(message.getUnresolvedEvent())) {
-                    ConfluenceEvent event = message.getUnresolvedEvent();
-                    return event.getEventType() + " -> unresolved event, group "
-                            + (event.getContentId().equals(groupId) ? "id" : "name") + " matches";
-                }
+        Predicate<ConfluenceChange> wanted = c -> c.getEntity().hasGroup()
+                && c.getEntity().getEntityId().equals(groupId);
+        ConfluenceChange change = find(drain(match, wanted), match, wanted);
+        check(change.getOperation() == ChangeOperation.CHANGE_OPERATION_UPSERT,
+                "operation " + change.getOperation());
+        check(change.getEntity().getGroup().getName().equals(groupName), "re-read name differs");
+        check(change.getEntity().getSecurityCompleteness() == AclCompleteness.ACL_COMPLETENESS_COMPLETE,
+                "members are " + change.getEntity().getSecurityCompleteness());
+        return event(change) + " -> group upsert with its members read";
+    }
+
+    private List<String> members() {
+        List<String> ids = new ArrayList<>();
+        stub().listGroupMembers(ListGroupMembersRequest.newBuilder().setGroupId(groupId).build())
+                .forEachRemaining(member -> ids.add(member.getUser().getAccountId()));
+        return ids;
+    }
+
+    private String groupMembers() throws Exception {
+        if (!memberSteps) {
+            throw new Skip("not enabled; set " + ENV_GROUP_MEMBER + "=1");
+        }
+        String account = page.getAuthorId();
+        stub().addGroupMember(AddGroupMemberRequest.newBuilder().setGroupId(groupId)
+                .setAccountId(account).build());
+        List<String> added = members();
+        check(added.equals(List.of(account)), "after the add the group has " + added.size()
+                + " member(s)");
+        stub().removeGroupMember(RemoveGroupMemberRequest.newBuilder().setGroupId(groupId)
+                .setAccountId(account).build());
+        List<String> left = members();
+        check(left.isEmpty(), "after the remove the group has " + left.size() + " member(s)");
+        return "the caller added, listed, removed and gone from the list";
+    }
+
+    /** Deletes the group; it can still read back for a while, so the read is retried for 30 seconds. */
+    private String deleteGroup() throws InterruptedException {
+        stub().deleteGroup(DeleteGroupRequest.newBuilder().setGroupId(groupId).build());
+        groupDeleted = true;
+        for (int attempt = 0; attempt < GROUP_GONE_READS; attempt++) {
+            if (attempt > 0) {
+                events.pause(Duration.ofSeconds(2));
+            }
+            try {
+                stub().getGroup(GetGroupRequest.newBuilder().setGroupId(groupId).build());
+            } catch (StatusRuntimeException e) {
+                Status.Code code = e.getStatus().getCode();
+                check(code == Status.Code.NOT_FOUND || code == Status.Code.INVALID_ARGUMENT,
+                        "GetGroup of the deleted group answered " + code);
+                return "group deleted; GetGroup answers " + code + " after " + (attempt + 1)
+                        + " read(s)";
             }
         }
-        throw new AssertionError("no unresolved group event was streamed");
+        throw new AssertionError("the deleted group still reads back after " + GROUP_GONE_READS
+                + " reads");
+    }
+
+    private String groupDeletedEvent() throws Exception {
+        Predicate<ConfluenceEvent> match = groupEvent(
+                ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_DELETED);
+        Predicate<ConfluenceChange> wanted = c -> c.getEntity().hasGroup()
+                && c.getEntity().getEntityId().equals(groupId)
+                && c.getOperation() == ChangeOperation.CHANGE_OPERATION_DELETE;
+        Drained drained = drainUntil(match, wanted);
+        ConfluenceChange change = find(drained, match, wanted);
+        check(change.getEntity().getGroup().getName().equals(groupName), "the delete names "
+                + change.getEntity().getGroup().getName());
+        String late = "";
+        for (ForgeEventQueue.Queued queued : drained.taken()) {
+            if (groupEvent(ConfluenceEventAction.CONFLUENCE_EVENT_ACTION_CREATED).test(queued.event())) {
+                late = "; the created event was queued with it, " + lag(queued) + " after it happened";
+            }
+        }
+        return event(change) + " -> group delete" + late;
     }
 
     // --- event checks ----------------------------------------------------------------------
@@ -942,6 +1278,15 @@ final class ChangeScenarios {
     private Drained drainUntil(Predicate<ConfluenceEvent> event, Predicate<ConfluenceChange> wanted)
             throws Exception {
         events.await(event);
+        return drain(event, wanted);
+    }
+
+    /**
+     * Drains until a change matching {@code wanted} and stamped with a
+     * matching event is streamed, at most three drains.
+     */
+    private Drained drain(Predicate<ConfluenceEvent> event, Predicate<ConfluenceChange> wanted)
+            throws Exception {
         List<ForgeEventQueue.Queued> taken = new ArrayList<>();
         List<WatchChangesResponse> streamed = new ArrayList<>();
         for (int round = 0; round < 3; round++) {
@@ -990,7 +1335,69 @@ final class ChangeScenarios {
     }
 
     private List<ForgeEventQueue.Queued> awaitDrain() throws Exception {
-        return watched.awaitDrain(STREAM_WAIT);
+        List<ForgeEventQueue.Queued> drained = watched.awaitDrain(STREAM_WAIT);
+        drained.forEach(queued -> allTaken.putIfAbsent(queued.key(), queued));
+        return drained;
+    }
+
+    // --- delivery --------------------------------------------------------------------------
+
+    /**
+     * How long Forge took to queue the events the run drained, one line per
+     * event type: the count and the shortest, median and longest delay.
+     */
+    List<String> deliveries() {
+        Map<String, List<Duration>> byType = new TreeMap<>();
+        for (ForgeEventQueue.Queued queued : allTaken.values()) {
+            Duration delay = delay(queued);
+            if (delay != null) {
+                byType.computeIfAbsent(queued.event().getEventType(), type -> new ArrayList<>())
+                        .add(delay);
+            }
+        }
+        List<String> lines = new ArrayList<>();
+        byType.forEach((type, delays) -> {
+            delays.sort(null);
+            lines.add(type + ": " + delays.size() + " event(s), queued " + seconds(delays.getFirst())
+                    + " / " + seconds(delays.get(delays.size() / 2)) + " / " + seconds(delays.getLast())
+                    + " after they happened (shortest / median / longest)");
+        });
+        return lines;
+    }
+
+    /** When the Forge app stored an event, read from its queue key; null when the key holds no time. */
+    static Instant stored(ForgeEventQueue.Queued queued) {
+        String key = queued.key();
+        int start = key.indexOf(':');
+        int end = key.indexOf(':', start + 1);
+        if (start < 0 || end < 0) {
+            return null;
+        }
+        try {
+            return Instant.ofEpochMilli(Long.parseLong(key.substring(start + 1, end)));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** The time between an event and the moment the Forge app queued it; null when either is unknown. */
+    static Duration delay(ForgeEventQueue.Queued queued) {
+        Instant stored = stored(queued);
+        if (stored == null || !queued.event().hasOccurredAt()) {
+            return null;
+        }
+        Instant occurred = Instant.ofEpochSecond(queued.event().getOccurredAt().getSeconds(),
+                queued.event().getOccurredAt().getNanos());
+        return Duration.between(occurred, stored);
+    }
+
+    private static String lag(ForgeEventQueue.Queued queued) {
+        Duration delay = delay(queued);
+        return delay == null ? "an unknown time" : seconds(delay);
+    }
+
+    private static String seconds(Duration delay) {
+        return String.format(Locale.ROOT, "%.1f s", delay.toMillis() / 1000.0);
     }
 
     // --- helpers ---------------------------------------------------------------------------

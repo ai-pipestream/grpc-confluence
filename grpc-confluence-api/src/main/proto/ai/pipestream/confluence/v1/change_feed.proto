@@ -17,6 +17,10 @@ option java_package = "ai.pipestream.confluence.v1";
 // server is configured with the companion Forge app's event queue, drains
 // that queue between passes and re-reads each changed object at once. The
 // server only calls out to the queue; nothing needs to reach the server.
+//
+// A queue feeds one stream. An event one stream has acknowledged is not
+// delivered to another, so two streams on one queue each get part of the
+// events; the Sync passes of each still cover everything.
 // ============================================================================
 
 // Streams Confluence changes continuously.
@@ -68,6 +72,19 @@ message PassCompleted {
   google.protobuf.Timestamp completed_at = 5;
 }
 
+// Why a queued event was sent unresolved.
+enum UnresolvedReason {
+  // Zero value; not set.
+  UNRESOLVED_REASON_UNSPECIFIED = 0;
+  // The event names no object this server re-reads (users, unknown types).
+  UNRESOLVED_REASON_NOT_REREAD = 1;
+  // Confluence rejected the re-read with an answer a retry cannot change
+  // (for example 403).
+  UNRESOLVED_REASON_READ_REJECTED = 2;
+  // Confluence answered the re-read with something this server cannot map.
+  UNRESOLVED_REASON_READ_UNMAPPABLE = 3;
+}
+
 // One message of the change feed.
 message WatchChangesResponse {
   // Position within this stream, from 1, increasing by one per message.
@@ -84,8 +101,10 @@ message WatchChangesResponse {
     ConfluenceSnapshot snapshot = 4;
     // The end of a Sync pass.
     PassCompleted pass_completed = 5;
-    // A queued event that names no object this server re-reads (users,
-    // groups, tasks, unknown types). Sent as is.
+    // A queued event this server could not turn into changes. Sent as is,
+    // with unresolved_reason, and removed from the queue.
     ConfluenceEvent unresolved_event = 6;
   }
+  // Why unresolved_event was not resolved; set only with unresolved_event.
+  UnresolvedReason unresolved_reason = 7;
 }

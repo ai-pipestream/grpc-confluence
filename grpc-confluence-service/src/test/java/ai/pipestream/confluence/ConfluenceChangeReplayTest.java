@@ -42,8 +42,11 @@ class ConfluenceChangeReplayTest {
                 config.apiToken(), Duration.ZERO, tape);
         ConfluenceGrpcService read = new ConfluenceGrpcService(config, client,
                 ConfluenceGrpcService.DEFAULT_ATTACHMENT_MAX_BYTES);
-        ConfluenceChangeGrpcService service = new ConfluenceChangeGrpcService(read,
-                new ForgeEventQueue(run.path("queueUrl").asText(), "replay", tape, time -> { }),
+        ForgeEventQueue queue = new ForgeEventQueue(run.path("queueUrl").asText(), "replay", tape,
+                time -> { });
+        ConfluenceChangeGrpcService service = new ConfluenceChangeGrpcService(read, queue,
+                Clock.systemUTC());
+        ConfluenceChangeGrpcService second = new ConfluenceChangeGrpcService(read, queue,
                 Clock.systemUTC());
         String name = InProcessServerBuilder.generateName();
         Server server = InProcessServerBuilder.forName(name)
@@ -57,8 +60,9 @@ class ConfluenceChangeReplayTest {
                 lost.add(row.path("step").asText());
             }
         });
-        ChangeScenarios scenarios = new ChangeScenarios(channel, client, service,
-                run.path("spaceKey").asText(), run.path("run").asText(), new ChangeScenarios.Events() {
+        ChangeScenarios scenarios = new ChangeScenarios(channel, service,
+                run.path("spaceKey").asText(), run.path("run").asText(),
+                run.path("groupMembers").asBoolean(), new ChangeScenarios.Events() {
                     @Override
                     public void await(java.util.function.Predicate<ConfluenceEvent> match) {
                         // The recorded take answers already hold the event, unless it was lost.
@@ -76,7 +80,7 @@ class ConfluenceChangeReplayTest {
                     public void pause(java.time.Duration time) {
                         // Replay does not wait.
                     }
-                });
+                }, queue, second);
         try {
             for (ChangeScenarios.Scenario scenario : scenarios.all()) {
                 tape.scenario(scenario.id());

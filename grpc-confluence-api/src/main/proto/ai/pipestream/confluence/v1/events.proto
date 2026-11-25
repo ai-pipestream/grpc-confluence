@@ -158,7 +158,7 @@ message ConfluenceEvent {
   ConfluenceEventAction action = 3;
   // The object part of the name.
   ConfluenceEventObject object = 4;
-  // Id of the content (or space) the event is about.
+  // Id of the content (or space, or group) the event is about.
   string content_id = 5;
   // Content type Confluence reported (page, blogpost, attachment, comment, ...).
   string content_type = 6;
@@ -166,7 +166,7 @@ message ConfluenceEvent {
   string space_id = 7;
   // Space key of the content.
   string space_key = 8;
-  // Title of the content.
+  // Title of the content, or name of the group.
   string title = 9;
   // Content version number after the event; 0 when absent.
   int32 version_number = 10;

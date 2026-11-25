@@ -1,0 +1,59 @@
+{
+  "scenario" : "08a-copy-page",
+  "sequence" : 3,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/34635829",
+    "query" : [ {
+      "name" : "body-format",
+      "value" : "storage"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "parentType" : "page",
+        "authorId" : "account-1",
+        "parentId" : "34799707",
+        "ownerId" : "account-1",
+        "createdAt" : "2026-11-24T18:23:04.587Z",
+        "lastOwnerId" : null,
+        "position" : 593164653,
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-24T18:23:04.612Z",
+          "ncsStepVersion" : null
+        },
+        "id" : "34635829",
+        "spaceId" : "7798786",
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<p>Change feed run pipestream-live-change-20261124T182204Z-090b1ad6, edited.</p><ac:task-list><ac:task><ac:task-id>1</ac:task-id><ac:task-status>incomplete</ac:task-status><ac:task-body>check the change feed</ac:task-body></ac:task></ac:task-list>"
+          }
+        },
+        "status" : "current",
+        "title" : "pipestream-live-change-20261124T182204Z-090b1ad6 copy",
+        "_links" : {
+          "editui" : "/pages/resumedraft.action?draftId=34635829",
+          "webui" : "/spaces/CLAUDEGRPC/pages/34635829/pipestream-live-change-20261124T182204Z-090b1ad6+copy",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/34635829",
+          "tinyui" : "/x/NYAQAg",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

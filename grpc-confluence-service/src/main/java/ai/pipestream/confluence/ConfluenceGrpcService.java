@@ -1680,6 +1680,25 @@ public final class ConfluenceGrpcService
     }
 
     @Override
+    public void listGroups(ListGroupsRequest request, StreamObserver<ListGroupsResponse> observer) {
+        handle(observer, () -> {
+            Session session = session(request.getConnectionId());
+            String accessType = switch (request.getAccessType()) {
+                case GROUP_ACCESS_TYPE_UNSPECIFIED -> null;
+                case GROUP_ACCESS_TYPE_USER -> "user";
+                case GROUP_ACCESS_TYPE_ADMIN -> "admin";
+                case GROUP_ACCESS_TYPE_SITE_ADMIN -> "site-admin";
+                case UNRECOGNIZED -> throw invalid("access_type is not a known value");
+            };
+            walkOffsets(session, "/rest/api/group",
+                    new ConfluenceRoutes.Query().put("accessType", accessType).map(),
+                    node -> observer.onNext(ListGroupsResponse.newBuilder()
+                            .setGroup(ConfluenceMapper.toGroup(node)).build()));
+            observer.onCompleted();
+        });
+    }
+
+    @Override
     public void listGroupMembers(ListGroupMembersRequest request,
             StreamObserver<ListGroupMembersResponse> observer) {
         handle(observer, () -> {
@@ -2401,6 +2420,47 @@ public final class ConfluenceGrpcService
     public void updatePageTitle(UpdatePageTitleRequest request,
             StreamObserver<UpdatePageTitleResponse> observer) {
         write(request, observer, ConfluenceWriter::updatePageTitle);
+    }
+
+    @Override
+    public void copyPage(CopyPageRequest request, StreamObserver<CopyPageResponse> observer) {
+        write(request, observer, ConfluenceWriter::copyPage);
+    }
+
+    @Override
+    public void copyPageHierarchy(CopyPageHierarchyRequest request,
+            StreamObserver<CopyPageHierarchyResponse> observer) {
+        write(request, observer, ConfluenceWriter::copyPageHierarchy);
+    }
+
+    @Override
+    public void archivePages(ArchivePagesRequest request,
+            StreamObserver<ArchivePagesResponse> observer) {
+        write(request, observer, ConfluenceWriter::archivePages);
+    }
+
+    @Override
+    public void createGroup(CreateGroupRequest request,
+            StreamObserver<CreateGroupResponse> observer) {
+        write(request, observer, ConfluenceWriter::createGroup);
+    }
+
+    @Override
+    public void deleteGroup(DeleteGroupRequest request,
+            StreamObserver<DeleteGroupResponse> observer) {
+        write(request, observer, ConfluenceWriter::deleteGroup);
+    }
+
+    @Override
+    public void addGroupMember(AddGroupMemberRequest request,
+            StreamObserver<AddGroupMemberResponse> observer) {
+        write(request, observer, ConfluenceWriter::addGroupMember);
+    }
+
+    @Override
+    public void removeGroupMember(RemoveGroupMemberRequest request,
+            StreamObserver<RemoveGroupMemberResponse> observer) {
+        write(request, observer, ConfluenceWriter::removeGroupMember);
     }
 
     @Override

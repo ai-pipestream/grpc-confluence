@@ -30,6 +30,15 @@ on:
         description: Deploy the Forge app to the test site, run the live change feed test and record it
         type: boolean
         default: false
+      live_changes_group_member:
+        description: With run_live_changes, also add the test account to the run's throwaway group and remove it
+        type: boolean
+        default: false
+      forge_environment:
+        description: With run_live_changes, the Forge environment the app is deployed to and installed from
+        type: choice
+        options: [development, production]
+        default: development
       live_app_properties_task:
         description: Gradle task run after the change run with the app-api trigger URL and secret (empty = none)
         type: string
@@ -298,6 +307,7 @@ jobs:
     env:
       FORGE_EMAIL: ${{ secrets.FORGE_EMAIL || secrets.CONFLUENCE_EMAIL }}
       FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN || secrets.CONFLUENCE_API_TOKEN }}
+      FORGE_ENVIRONMENT: ${{ inputs.forge_environment || 'development' }}
       # Development environment of the registered app (from forge install output).
       FORGE_DEV_ENVIRONMENT_ID: b5506979-43d3-4c0e-9bd5-60f77934bdf3
       CONFLUENCE_BASE_URL: ${{ secrets.CONFLUENCE_BASE_URL }}
@@ -352,13 +362,13 @@ jobs:
           cp manifest.yml "$RUNNER_TEMP/manifest.yml"
           secret=$(openssl rand -hex 32)
           echo "::add-mask::${secret}"
-          forge variables set -e development --encrypt QUEUE_SECRET "${secret}"
+          forge variables set -e "${FORGE_ENVIRONMENT}" --encrypt QUEUE_SECRET "${secret}"
           # A scope change is a major version; the install --upgrade below consents to it.
-          forge deploy -e development --non-interactive --approve MAJOR_VERSION_RULE
-          if ! forge install -e development --product confluence --site "${site}" --non-interactive --confirm-scopes --verbose; then
-            forge install -e development --product confluence --site "${site}" --non-interactive --confirm-scopes --upgrade
+          forge deploy -e "${FORGE_ENVIRONMENT}" --non-interactive --approve MAJOR_VERSION_RULE
+          if ! forge install -e "${FORGE_ENVIRONMENT}" --product confluence --site "${site}" --non-interactive --confirm-scopes --verbose; then
+            forge install -e "${FORGE_ENVIRONMENT}" --product confluence --site "${site}" --non-interactive --confirm-scopes --upgrade
           fi
-          url=$(forge webtrigger create -e development -f event-queue -s "${site}" -p confluence | grep -o 'https://[^[:space:]]*' | head -1)
+          url=$(forge webtrigger create -e "${FORGE_ENVIRONMENT}" -f event-queue -s "${site}" -p confluence | grep -o 'https://[^[:space:]]*' | head -1)
           if [ -z "${url}" ]; then
             echo "no web trigger URL"
             exit 1
@@ -366,7 +376,7 @@ jobs:
           echo "::add-mask::${url}"
           printf '%s' "${url}" > "$RUNNER_TEMP/queue.url"
           printf '%s' "${secret}" > "$RUNNER_TEMP/queue.secret"
-          app=$(forge webtrigger create -e development -f app-api -s "${site}" -p confluence | grep -o 'https://[^[:space:]]*' | head -1)
+          app=$(forge webtrigger create -e "${FORGE_ENVIRONMENT}" -f app-api -s "${site}" -p confluence | grep -o 'https://[^[:space:]]*' | head -1)
           if [ -z "${app}" ]; then
             echo "no app-api web trigger URL"
             exit 1
@@ -380,23 +390,28 @@ jobs:
             | python3 -c 'import json,sys;print(json.load(sys.stdin).get("status"))')
           echo "app-api GET /wiki/api/v2/app/properties answered ${status}"
           [ "${status}" = "200" ] || { echo "the app-api trigger did not list app properties"; exit 1; }
-          # Custom content type of the app's pipestream-record module in the development environment.
-          app_id=$(grep -o 'ari:cloud:ecosystem::app/[0-9a-f-]*' manifest.yml | sed 's|.*/||')
-          type="forge:${app_id}:${FORGE_DEV_ENVIRONMENT_ID}:pipestream-record"
-          echo "CONFLUENCE_FORGE_CUSTOM_CONTENT_TYPE=${type}" >> "$GITHUB_ENV"
-          echo "custom content type: ${type}"
-          status=$(curl -sS -X POST "${app}" -H "x-pipestream-queue-secret: ${secret}" \
-            -H 'content-type: application/json' \
-            -d "{\"method\":\"GET\",\"path\":\"/wiki/api/v2/custom-content?type=${type}&limit=1\",\"body\":null}" \
-            | python3 -c 'import json,sys;print(json.load(sys.stdin).get("status"))')
-          echo "app-api GET /wiki/api/v2/custom-content?type=<type> answered ${status}"
-          [ "${status}" = "200" ] || { echo "the custom content type is not usable through the app-api trigger"; exit 1; }
+          # Custom content type of the app's pipestream-record module; its id names the environment.
+          if [ "${FORGE_ENVIRONMENT}" = "development" ]; then
+            app_id=$(grep -o 'ari:cloud:ecosystem::app/[0-9a-f-]*' manifest.yml | sed 's|.*/||')
+            type="forge:${app_id}:${FORGE_DEV_ENVIRONMENT_ID}:pipestream-record"
+            echo "CONFLUENCE_FORGE_CUSTOM_CONTENT_TYPE=${type}" >> "$GITHUB_ENV"
+            echo "custom content type: ${type}"
+            status=$(curl -sS -X POST "${app}" -H "x-pipestream-queue-secret: ${secret}" \
+              -H 'content-type: application/json' \
+              -d "{\"method\":\"GET\",\"path\":\"/wiki/api/v2/custom-content?type=${type}&limit=1\",\"body\":null}" \
+              | python3 -c 'import json,sys;print(json.load(sys.stdin).get("status"))')
+            echo "app-api GET /wiki/api/v2/custom-content?type=<type> answered ${status}"
+            [ "${status}" = "200" ] || { echo "the custom content type is not usable through the app-api trigger"; exit 1; }
+          else
+            echo "custom content type not checked: the id of the ${FORGE_ENVIRONMENT} environment is not recorded here"
+          fi
       - name: Live Confluence change run
         working-directory: grpc-confluence
         env:
           CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
           CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
           CONFLUENCE_LIVE_CHANGES: "1"
+          CONFLUENCE_LIVE_CHANGES_GROUP_MEMBER: ${{ inputs.live_changes_group_member && '1' || '' }}
           CONFLUENCE_SPACE_KEY: CLAUDEGRPC
         run: |
           export CONFLUENCE_FORGE_QUEUE_URL="$(cat "$RUNNER_TEMP/queue.url")"
@@ -429,7 +444,7 @@ jobs:
         working-directory: grpc-confluence/grpc-confluence-forge
         run: |
           sleep 60
-          forge logs -e development --since 15m --limit 200 || true
+          forge logs -e "${FORGE_ENVIRONMENT}" --since 15m --limit 200 || true
       - name: Report
         if: always()
         working-directory: grpc-confluence

@@ -8,10 +8,9 @@ specific to the Confluence connector.
 
 ## Which branch this describes
 
-`main` has the reads, the write rpcs, the ACL data and custom content. The
+`main` has the reads, the write rpcs, the ACL data, custom content and the
 change stream (`ConfluenceChangeService` and the `grpc-confluence-forge`
-app) is still on open PR #29, branch `claude/project-thread-sbyfoc`; the
-parts below marked "change branch" describe that branch.
+app).
 
 ## Build
 
@@ -30,9 +29,9 @@ build. Do not change how tests are run.
 
 | Module | What |
 |---|---|
-| `grpc-confluence-api` | `ai.pipestream.confluence.v1`. `confluence_service.proto` is the service; `write.proto` the write messages; `adf.proto` the typed ADF document model; `property.proto` typed property values (no `Struct`); `permission.proto`, `access.proto` (ACL records); on the change branch, `change_feed.proto` and `events.proto`. |
-| `grpc-confluence-service` | The process (port 9095). `ConfluenceGrpcService` (rpc handlers), `ConfluenceClient` (REST, retries), `ConfluenceRoutes`, `ConfluenceMapper` (JSON to proto), `ConfluenceWriter` and `AdfCodec` (proto to JSON), `ConfluenceValidator`, `ConfluenceCrawler` (`Sync`), the change sinks (`SyncTableChangeSink`, `KafkaChangeSink`, `OutputChangeSink`, `OkfChangeSink`). On the change branch: `ConfluenceChangeGrpcService`, `ForgeEventQueue`. |
-| `grpc-confluence-forge` | (change branch) Forge app with no UI: product events into Forge KVS, `event-queue` and `app-api` web triggers behind a shared-secret header. `npm test`. |
+| `grpc-confluence-api` | `ai.pipestream.confluence.v1`. `confluence_service.proto` is the service; `write.proto` the write messages; `adf.proto` the typed ADF document model; `property.proto` typed property values (no `Struct`); `permission.proto`, `access.proto` (ACL records); `change_feed.proto` and `events.proto` (the change stream). |
+| `grpc-confluence-service` | The process (port 9095). `ConfluenceGrpcService` (rpc handlers), `ConfluenceClient` (REST, retries), `ConfluenceRoutes`, `ConfluenceMapper` (JSON to proto), `ConfluenceWriter` and `AdfCodec` (proto to JSON), `ConfluenceValidator`, `ConfluenceCrawler` (`Sync`), the change sinks (`SyncTableChangeSink`, `KafkaChangeSink`, `OutputChangeSink`, `OkfChangeSink`), `ConfluenceChangeGrpcService`, `ForgeEventQueue`. |
+| `grpc-confluence-forge` | Forge app with no UI: product events into Forge KVS, `event-queue` and `app-api` web triggers behind a shared-secret header. `npm test`. |
 | `grpc-confluence-output` | Store keys and OKF catalog mapping (`OkfCatalogSource`). |
 | `grpc-confluence-mcp` | `confluence_*` tools for the combined MCP server. |
 | `grpc-confluence-connect` | Kafka Connect source. |
@@ -40,13 +39,15 @@ build. Do not change how tests are run.
 ## Contract references
 
 - `docs/upstream/atlassian/confluence-v2.json`: the vendored Confluence
-  Cloud REST v2 spec. `adf-schema-full.json`: the ADF schema.
+  Cloud REST v2 spec. `confluence-v1.json`: the REST v1 spec.
+  `adf-schema-full.json`: the ADF schema.
 - `docs/contracts/confluence-gap-analysis.md`: rpc to route map. Its
   "Decisions" section is the owner's ruling and wins over earlier sections.
 - `docs/contracts/confluence-fidelity.md`: field-by-field check that every
   response property reaches a typed field.
-- v1 routes are used only where v2 has none (groups, attachments upload,
-  labels, `permission/check`, space delete).
+- v1 routes are used only where v2 has none (groups and their members,
+  attachments upload, labels, `permission/check`, space delete, page copy,
+  page archive).
 
 ## Tests
 
@@ -56,7 +57,7 @@ build. Do not change how tests are run.
 | app properties | `liveAppPropertiesTest` | `ConfluenceWriteReplayTest` | `recordings/confluence-app-properties/` |
 | custom content | `liveWriteTest` with `CONFLUENCE_LIVE_WRITE_CUSTOM_CONTENT_TYPE` (a Forge custom content type) | `ConfluenceWriteReplayTest` | `recordings/confluence-custom-content/` |
 | `AclScenarios` | `liveAclTest` | `ConfluenceAclReplayTest` | `recordings/confluence-acl/` |
-| `ChangeScenarios` (change branch) | `liveChangesTest` | `ConfluenceChangeReplayTest` | `recordings/confluence-changes/` |
+| `ChangeScenarios` | `liveChangesTest` | `ConfluenceChangeReplayTest` | `recordings/confluence-changes/` |
 | read coverage | `liveCoverageTest` | none | report only |
 | smoke | `liveSmokeTest` | none | none |
 
@@ -66,8 +67,10 @@ Recording and scrubbing rules:
 
 Live runs go through `.github/workflows/ci.yml` `workflow_dispatch` inputs
 (`run_live_write`, `live_write_custom_content`, `import_recordings_run_id`,
-`run_live_acl`, `import_acl_recordings_run_id`, and on the change branch
-`run_live_changes`). Reviewers do not dispatch them.
+`run_live_acl`, `import_acl_recordings_run_id`, `run_live_changes` with
+`live_changes_group_member` and `forge_environment`). Reviewers do not
+dispatch them. The live steps of the copy, archive and group write rpcs are
+in `ChangeScenarios`, not `WriteScenarios` (`ConfluenceWriteRoutes.CHANGE_SUITE`).
 
 ## Confluence specifics to keep in mind
 
@@ -80,7 +83,11 @@ Live runs go through `.github/workflows/ci.yml` `workflow_dispatch` inputs
   writes do not bump the page version; a v2 move fires `updated:page`;
   restrictions that drop the caller's own edit access are refused
   (allow-self-lockout); live sites return `access-class` principals the v2
-  spec does not list; a missing group id answers 400, not 404.
+  spec does not list; a missing group id answers 400, not 404; a deleted
+  group can still read back for a moment after the delete; an update of an
+  archived page answers 404, and no REST route takes a page out of the
+  archive; a page tree copy fires `created:page` and `copied:page` for each
+  copy.
 - App property rpcs are served to Forge apps only, so they go through the
   Forge `app-api` trigger (`CONFLUENCE_FORGE_APP_URL` /
   `CONFLUENCE_FORGE_APP_SECRET`).
@@ -99,5 +106,7 @@ Live runs go through `.github/workflows/ci.yml` `workflow_dispatch` inputs
 - `ConfluenceGrpcService` request validation against what the response type
   can hold (#41).
 - `ForgeEventQueue` and `ConfluenceChangeGrpcService`: ack only after
-  emit, coalescing, events Forge never sends (#31, #32).
+  emit, coalescing, events Forge never sends (#31, #32), which failed
+  re-reads are sent unresolved and acknowledged (#57), one collector per
+  queue.
 - `RecordingScrubber`: anything that could leak tenant data.

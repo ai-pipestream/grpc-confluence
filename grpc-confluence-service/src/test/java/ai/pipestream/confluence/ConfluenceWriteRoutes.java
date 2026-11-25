@@ -165,14 +165,32 @@ final class ConfluenceWriteRoutes {
             Map.entry("DisableAdminKey", List.of(
                     "DELETE /admin-key")));
 
-    /** Write rpcs served by REST API v1, whose document is not vendored. */
+    /** Write rpcs served by REST API v1: operations of the vendored v1 document. */
     static final Map<String, List<String>> V1 = Map.ofEntries(
             Map.entry("AddLabels", List.of(
                     "POST /rest/api/content/{id}/label")),
             Map.entry("RemoveLabel", List.of(
                     "DELETE /rest/api/content/{id}/label")),
             Map.entry("DeleteSpace", List.of(
-                    "DELETE /rest/api/space/{spaceKey}")));
+                    "DELETE /rest/api/space/{spaceKey}")),
+            Map.entry("CopyPage", List.of(
+                    "POST /rest/api/content/{id}/copy")),
+            Map.entry("CopyPageHierarchy", List.of(
+                    "POST /rest/api/content/{id}/pagehierarchy/copy")),
+            Map.entry("ArchivePages", List.of(
+                    "POST /rest/api/content/archive")),
+            Map.entry("CreateGroup", List.of(
+                    "POST /rest/api/group")),
+            Map.entry("DeleteGroup", List.of(
+                    "DELETE /rest/api/group/by-id")),
+            Map.entry("AddGroupMember", List.of(
+                    "POST /rest/api/group/userByGroupId")),
+            Map.entry("RemoveGroupMember", List.of(
+                    "DELETE /rest/api/group/userByGroupId")));
+
+    /** Write rpcs whose live steps are in {@link ChangeScenarios}, next to the events they cause. */
+    static final Set<String> CHANGE_SUITE = Set.of("CopyPage", "CopyPageHierarchy", "ArchivePages",
+            "CreateGroup", "DeleteGroup", "AddGroupMember", "RemoveGroupMember");
 
     /** The streaming write rpcs. */
     static final Set<String> STREAMING = Set.of("UploadAttachment", "Mutate");
@@ -185,6 +203,13 @@ final class ConfluenceWriteRoutes {
         Set<String> rpcs = new TreeSet<>(V2.keySet());
         rpcs.addAll(V1.keySet());
         rpcs.addAll(STREAMING);
+        return rpcs;
+    }
+
+    /** The write rpcs whose live steps are in {@code WriteScenarios}. */
+    static Set<String> writeSuite() {
+        Set<String> rpcs = rpcs();
+        rpcs.removeAll(CHANGE_SUITE);
         return rpcs;
     }
 }

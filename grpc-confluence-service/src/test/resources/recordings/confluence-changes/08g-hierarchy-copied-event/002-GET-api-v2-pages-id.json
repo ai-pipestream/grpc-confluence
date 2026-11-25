@@ -1,0 +1,59 @@
+{
+  "scenario" : "08g-hierarchy-copied-event",
+  "sequence" : 2,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/pages/35258394",
+    "query" : [ {
+      "name" : "body-format",
+      "value" : "storage"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "authorId" : "account-1",
+        "parentType" : "page",
+        "parentId" : "34799707",
+        "ownerId" : "account-1",
+        "lastOwnerId" : null,
+        "createdAt" : "2026-11-24T18:23:29.391Z",
+        "version" : {
+          "number" : 1,
+          "message" : "",
+          "minorEdit" : false,
+          "authorId" : "account-1",
+          "createdAt" : "2026-11-24T18:23:29.391Z",
+          "ncsStepVersion" : "1"
+        },
+        "position" : 235250745,
+        "spaceId" : "7798786",
+        "body" : {
+          "storage" : {
+            "representation" : "storage",
+            "value" : "<p>Tree of pipestream-live-change-20261124T182204Z-090b1ad6.</p>"
+          }
+        },
+        "status" : "current",
+        "title" : "pipestream-live-change-20261124T182204Z-090b1ad6 tree",
+        "id" : "35258394",
+        "_links" : {
+          "editui" : "/pages/resumedraft.action?draftId=35258394",
+          "webui" : "/spaces/CLAUDEGRPC/pages/35258394/pipestream-live-change-20261124T182204Z-090b1ad6+tree",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/35258394",
+          "tinyui" : "/x/GgAaAg",
+          "base" : "https://site-1.example.invalid/wiki"
+        }
+      }
+    }
+  }
+}

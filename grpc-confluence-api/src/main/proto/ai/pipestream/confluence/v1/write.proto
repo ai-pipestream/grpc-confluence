@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package ai.pipestream.confluence.v1;
 
+import "ai/pipestream/confluence/v1/access.proto";
 import "ai/pipestream/confluence/v1/admin_key.proto";
 import "ai/pipestream/confluence/v1/attachment.proto";
 import "ai/pipestream/confluence/v1/blogpost.proto";
@@ -423,6 +424,107 @@ message UpdatePageTitleRequest {
 message UpdatePageTitleResponse {
   // The updated page.
   Page page = 1;
+}
+
+// Where a page copy goes.
+message CopyPageDestination {
+  // The destination.
+  oneof target {
+    // Key of the space the copy becomes a root page of.
+    string space_key = 1;
+    // ID of the page the copy becomes a child of.
+    string parent_page_id = 2;
+    // ID of the content (a folder, whiteboard or database, for example) the
+    // copy becomes a child of.
+    string parent_content_id = 3;
+    // ID of the existing page the copy replaces.
+    string existing_page_id = 4;
+  }
+}
+
+// Request of CopyPage.
+message CopyPageRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the page to copy.
+  string id = 2;
+  // Where the copy goes.
+  CopyPageDestination destination = 3;
+  // Title of the copy; empty keeps the title of the source.
+  string page_title = 4;
+  // Copies the attachments of the page.
+  bool copy_attachments = 5;
+  // Copies the restrictions of the page.
+  bool copy_permissions = 6;
+  // Copies the content properties of the page.
+  bool copy_properties = 7;
+  // Copies the labels of the page.
+  bool copy_labels = 8;
+  // Copies the custom content of the page.
+  bool copy_custom_contents = 9;
+  // Body of the copy, replacing the body of the source; storage format only.
+  ContentBody body = 10;
+}
+
+// Response of CopyPage.
+message CopyPageResponse {
+  // The copy.
+  Page page = 1;
+}
+
+// How CopyPageHierarchy renames the pages it copies.
+message CopyPageTitleOptions {
+  // Text put in front of every title.
+  string prefix = 1;
+  // Text to find in every title.
+  string search = 2;
+  // Text that replaces what `search` finds.
+  string replace = 3;
+}
+
+// Request of CopyPageHierarchy.
+message CopyPageHierarchyRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the page at the top of the hierarchy to copy.
+  string id = 2;
+  // ID of the page the copy becomes a child of.
+  string destination_page_id = 3;
+  // Copies the attachments of each page.
+  bool copy_attachments = 4;
+  // Copies the restrictions of each page.
+  bool copy_permissions = 5;
+  // Copies the content properties of each page.
+  bool copy_properties = 6;
+  // Copies the labels of each page.
+  bool copy_labels = 7;
+  // Copies the custom content of each page.
+  bool copy_custom_contents = 8;
+  // Copies the descendants of the page; unset = the site default (true).
+  optional bool copy_descendants = 9;
+  // How the copies are renamed. Confluence requires it for a copy within
+  // one space.
+  CopyPageTitleOptions title_options = 10;
+}
+
+// Response of CopyPageHierarchy.
+message CopyPageHierarchyResponse {
+  // ID of the background task making the copy.
+  string task_id = 1;
+}
+
+// Request of ArchivePages.
+message ArchivePagesRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // IDs of the pages to archive.
+  repeated string page_ids = 2;
+}
+
+// Response of ArchivePages.
+message ArchivePagesResponse {
+  // ID of the background task archiving the pages.
+  string task_id = 1;
 }
 
 // Request of CreateBlogPost.
@@ -1371,3 +1473,54 @@ message DisableAdminKeyRequest {
 
 // Response of DisableAdminKey.
 message DisableAdminKeyResponse {}
+
+// Request of CreateGroup.
+message CreateGroupRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // Name of the group.
+  string name = 2;
+}
+
+// Response of CreateGroup.
+message CreateGroupResponse {
+  // The created group.
+  Group group = 1;
+}
+
+// Request of DeleteGroup.
+message DeleteGroupRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the group.
+  string group_id = 2;
+}
+
+// Response of DeleteGroup.
+message DeleteGroupResponse {}
+
+// Request of AddGroupMember.
+message AddGroupMemberRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the group.
+  string group_id = 2;
+  // Atlassian account ID of the user to add.
+  string account_id = 3;
+}
+
+// Response of AddGroupMember.
+message AddGroupMemberResponse {}
+
+// Request of RemoveGroupMember.
+message RemoveGroupMemberRequest {
+  // Catalog connection to use; empty for the process default.
+  string connection_id = 1;
+  // ID of the group.
+  string group_id = 2;
+  // Atlassian account ID of the user to remove.
+  string account_id = 3;
+}
+
+// Response of RemoveGroupMember.
+message RemoveGroupMemberResponse {}
