@@ -14,11 +14,11 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-change-20261124T182204Z-090b1ad6 tree leaf",
-        "parentId" : "35258394",
+        "title" : "pipestream-live-change-20261125T093638Z-b48677b9 tree leaf",
+        "parentId" : "36405690",
         "body" : {
           "representation" : "storage",
-          "value" : "<p>Leaf of pipestream-live-change-20261124T182204Z-090b1ad6.</p>"
+          "value" : "<p>Leaf of pipestream-live-change-20261125T093638Z-b48677b9.</p>"
         }
       }
     }
@@ -32,34 +32,34 @@
       "json" : {
         "authorId" : "account-1",
         "parentType" : "page",
-        "parentId" : "35258394",
+        "spaceId" : "7798786",
+        "parentId" : "36405690",
         "ownerId" : "account-1",
-        "createdAt" : "2026-11-24T18:23:29.854Z",
         "lastOwnerId" : null,
-        "position" : 469,
+        "createdAt" : "2026-11-25T09:38:04.038Z",
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-24T18:23:29.854Z",
+          "createdAt" : "2026-11-25T09:38:04.038Z",
           "ncsStepVersion" : "1"
         },
-        "id" : "35356726",
-        "spaceId" : "7798786",
-        "status" : "current",
+        "position" : 511,
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>Leaf of pipestream-live-change-20261124T182204Z-090b1ad6.</p>"
+            "value" : "<p>Leaf of pipestream-live-change-20261125T093638Z-b48677b9.</p>"
           }
         },
-        "title" : "pipestream-live-change-20261124T182204Z-090b1ad6 tree leaf",
+        "status" : "current",
+        "title" : "pipestream-live-change-20261125T093638Z-b48677b9 tree leaf",
+        "id" : "36470959",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=35356726",
-          "webui" : "/spaces/CLAUDEGRPC/pages/35356726/pipestream-live-change-20261124T182204Z-090b1ad6+tree+leaf",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/35356726",
-          "tinyui" : "/x/NoAbAg",
+          "editui" : "/pages/resumedraft.action?draftId=36470959",
+          "webui" : "/spaces/CLAUDEGRPC/pages/36470959/pipestream-live-change-20261125T093638Z-b48677b9+tree+leaf",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/36470959",
+          "tinyui" : "/x/r4AsAg",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

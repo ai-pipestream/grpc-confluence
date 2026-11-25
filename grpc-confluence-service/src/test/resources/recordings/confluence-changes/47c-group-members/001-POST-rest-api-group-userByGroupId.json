@@ -1,0 +1,27 @@
+{
+  "scenario" : "47c-group-members",
+  "sequence" : 1,
+  "request" : {
+    "method" : "POST",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/group/userByGroupId",
+    "query" : [ {
+      "name" : "groupId",
+      "value" : "db2396c2-b7f4-427a-be34-ab40a7c1c970"
+    } ],
+    "headers" : {
+      "accept" : "application/json",
+      "content-type" : "application/json"
+    },
+    "authorized" : true,
+    "body" : {
+      "json" : {
+        "accountId" : "account-1"
+      }
+    }
+  },
+  "response" : {
+    "status" : 201,
+    "headers" : { }
+  }
+}

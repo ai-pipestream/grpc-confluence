@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/35258637/restriction-state",
+    "path" : "/wiki/api/v2/pages/36569504/restriction-state",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"

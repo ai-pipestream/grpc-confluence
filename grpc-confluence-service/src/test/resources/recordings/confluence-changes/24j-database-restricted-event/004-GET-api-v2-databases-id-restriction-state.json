@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/databases/34996311/restriction-state",
+    "path" : "/wiki/api/v2/databases/36470986/restriction-state",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -19,7 +19,7 @@
     "body" : {
       "json" : {
         "state" : "EDIT_RESTRICTED",
-        "createdAt" : "2026-11-24T18:27:15.200Z",
+        "createdAt" : "2026-11-25T09:42:06.113Z",
         "createdByAaid" : "account-1",
         "createdBy" : "account-1"
       }

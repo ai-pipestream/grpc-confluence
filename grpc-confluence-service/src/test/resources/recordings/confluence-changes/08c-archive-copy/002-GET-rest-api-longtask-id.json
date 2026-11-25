@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/rest/api/longtask/34996309",
+    "path" : "/wiki/rest/api/longtask/35979649",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -18,13 +18,13 @@
     },
     "body" : {
       "json" : {
-        "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:long-running-task/activation/b1593a2f-bf8a-4c2e-a0c6-8b31a89d2389/34996309",
-        "id" : "34996309",
+        "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:long-running-task/activation/b1593a2f-bf8a-4c2e-a0c6-8b31a89d2389/35979649",
+        "id" : "35979649",
         "name" : {
           "key" : "com.atlassian.confluence.api.impl.service.longtasks.BulkPageArchiveTaskRunner_FIFO",
           "args" : [ ]
         },
-        "elapsedTime" : 44,
+        "elapsedTime" : 31,
         "percentageComplete" : 0,
         "successful" : false,
         "finished" : false,

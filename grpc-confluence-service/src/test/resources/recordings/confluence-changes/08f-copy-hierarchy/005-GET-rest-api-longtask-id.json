@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/rest/api/longtask/34766932",
+    "path" : "/wiki/rest/api/longtask/36044927",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -18,24 +18,24 @@
     },
     "body" : {
       "json" : {
-        "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:long-running-task/activation/b1593a2f-bf8a-4c2e-a0c6-8b31a89d2389/34766932",
-        "id" : "34766932",
+        "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:long-running-task/activation/b1593a2f-bf8a-4c2e-a0c6-8b31a89d2389/36044927",
+        "id" : "36044927",
         "name" : {
           "key" : "com.atlassian.confluence.api.impl.service.longtasks.BulkPageCopyTaskRunner",
           "args" : [ ]
         },
-        "elapsedTime" : 676,
+        "elapsedTime" : 663,
         "percentageComplete" : 100,
         "successful" : true,
         "finished" : true,
         "messages" : [ {
-          "translation" : "{\"status\":{\"key\":\"STATUS_COPIED_PAGES\",\"args\":[\"2\"]},\"destinationId\":\"35160099\",\"totalPageNeedToCopy\":2,\"errors\":[]}",
+          "translation" : "{\"status\":{\"key\":\"STATUS_COPIED_PAGES\",\"args\":[\"2\"]},\"destinationId\":\"36306968\",\"totalPageNeedToCopy\":2,\"errors\":[]}",
           "args" : [ ]
         } ],
         "status" : "STATUS_COPIED_PAGES",
         "errors" : [ ],
         "additionalDetails" : {
-          "destinationId" : "35160099",
+          "destinationId" : "36306968",
           "totalPageNeedToCopy" : 2
         },
         "_links" : {

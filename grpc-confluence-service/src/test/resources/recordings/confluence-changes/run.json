@@ -2,8 +2,8 @@
   "baseUrl" : "https://site-1.example.invalid/wiki",
   "queueUrl" : "https://site-2.example.invalid/x1/token-1",
   "spaceKey" : "CLAUDEGRPC",
-  "run" : "pipestream-live-change-20261124T182204Z-090b1ad6",
-  "groupMembers" : false,
+  "run" : "pipestream-live-change-20261125T093638Z-b48677b9",
+  "groupMembers" : true,
   "outcomes" : [ {
     "step" : "01-watch-start",
     "outcome" : "PASS"
@@ -207,10 +207,10 @@
     "outcome" : "PASS"
   }, {
     "step" : "47b-group-created-event",
-    "outcome" : "PASS"
+    "outcome" : "LOST"
   }, {
     "step" : "47c-group-members",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "step" : "47d-delete-group",
     "outcome" : "PASS"

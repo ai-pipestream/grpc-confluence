@@ -1,0 +1,24 @@
+{
+  "scenario" : "47c-group-members",
+  "sequence" : 4,
+  "request" : {
+    "method" : "DELETE",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/group/userByGroupId",
+    "query" : [ {
+      "name" : "accountId",
+      "value" : "account-1"
+    }, {
+      "name" : "groupId",
+      "value" : "db2396c2-b7f4-427a-be34-ab40a7c1c970"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 204,
+    "headers" : { }
+  }
+}

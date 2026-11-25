@@ -4,7 +4,7 @@
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/footer-comments/35094606",
+    "path" : "/wiki/api/v2/footer-comments/36175985",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"

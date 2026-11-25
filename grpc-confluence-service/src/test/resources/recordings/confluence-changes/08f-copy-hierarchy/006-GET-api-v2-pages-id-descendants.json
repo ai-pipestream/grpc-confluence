@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/34799707/descendants",
+    "path" : "/wiki/api/v2/pages/36470939/descendants",
     "query" : [ {
       "name" : "limit",
       "value" : "25"
@@ -22,50 +22,50 @@
     "body" : {
       "json" : {
         "results" : [ {
-          "id" : "34930836",
+          "id" : "36438136",
           "status" : "current",
-          "title" : "pipestream-live-change-20261124T182204Z-090b1ad6",
-          "parentId" : "34799707",
+          "title" : "pipestream-live-change-20261125T093638Z-b48677b9",
+          "parentId" : "36470939",
           "depth" : 1,
-          "childPosition" : 235250712,
+          "childPosition" : 146309452,
           "type" : "page",
-          "lastModified" : "2026-11-24T18:22:46.682Z"
+          "lastModified" : "2026-11-25T09:37:20.110Z"
         }, {
-          "id" : "35160099",
+          "id" : "36306968",
           "status" : "current",
-          "title" : "Copy of pipestream-live-change-20261124T182204Z-090b1ad6 tree",
-          "parentId" : "34799707",
+          "title" : "Copy of pipestream-live-change-20261125T093638Z-b48677b9 tree",
+          "parentId" : "36470939",
           "depth" : 1,
-          "childPosition" : 235250745,
+          "childPosition" : 146310046,
           "type" : "page",
-          "lastModified" : "2026-11-24T18:23:30.591Z"
+          "lastModified" : "2026-11-25T09:38:04.685Z"
         }, {
-          "id" : "35258394",
+          "id" : "36405690",
           "status" : "current",
-          "title" : "pipestream-live-change-20261124T182204Z-090b1ad6 tree",
-          "parentId" : "34799707",
+          "title" : "pipestream-live-change-20261125T093638Z-b48677b9 tree",
+          "parentId" : "36470939",
           "depth" : 1,
-          "childPosition" : 235250745,
+          "childPosition" : 146310046,
           "type" : "page",
-          "lastModified" : "2026-11-24T18:23:29.391Z"
+          "lastModified" : "2026-11-25T09:38:03.540Z"
         }, {
-          "id" : "35160115",
+          "id" : "36306984",
           "status" : "current",
-          "title" : "Copy of pipestream-live-change-20261124T182204Z-090b1ad6 tree leaf",
-          "parentId" : "35160099",
+          "title" : "Copy of pipestream-live-change-20261125T093638Z-b48677b9 tree leaf",
+          "parentId" : "36306968",
           "depth" : 2,
-          "childPosition" : 469,
+          "childPosition" : 511,
           "type" : "page",
-          "lastModified" : "2026-11-24T18:23:30.882Z"
+          "lastModified" : "2026-11-25T09:38:05.004Z"
         }, {
-          "id" : "35356726",
+          "id" : "36470959",
           "status" : "current",
-          "title" : "pipestream-live-change-20261124T182204Z-090b1ad6 tree leaf",
-          "parentId" : "35258394",
+          "title" : "pipestream-live-change-20261125T093638Z-b48677b9 tree leaf",
+          "parentId" : "36405690",
           "depth" : 2,
-          "childPosition" : 469,
+          "childPosition" : 511,
           "type" : "page",
-          "lastModified" : "2026-11-24T18:23:29.854Z"
+          "lastModified" : "2026-11-25T09:38:04.038Z"
         } ],
         "_links" : {
           "base" : "https://site-1.example.invalid/wiki"

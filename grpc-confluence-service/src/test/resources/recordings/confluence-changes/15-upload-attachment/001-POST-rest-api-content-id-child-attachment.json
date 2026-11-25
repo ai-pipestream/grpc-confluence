@@ -4,7 +4,7 @@
   "request" : {
     "method" : "POST",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/rest/api/content/34930836/child/attachment",
+    "path" : "/wiki/rest/api/content/36438136/child/attachment",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -21,9 +21,9 @@
         "value" : "true"
       }, {
         "name" : "file",
-        "filename" : "pipestream-live-change-20261124T182204Z-090b1ad6.txt",
+        "filename" : "pipestream-live-change-20261125T093638Z-b48677b9.txt",
         "contentType" : "text/plain",
-        "sha256" : "838b8707a3809fb9c6e735031cd53a5310f38db88c664889fa56f966def78494",
+        "sha256" : "345ff1634762745f015fe59a00246393709741b6650d27322182ecbda7e526f8",
         "length" : 72
       } ]
     }
@@ -36,12 +36,12 @@
     "body" : {
       "json" : {
         "results" : [ {
-          "id" : "att35651661",
+          "id" : "att36470979",
           "type" : "attachment",
-          "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:attachment/35651661",
+          "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:attachment/36470979",
           "base64EncodedAri" : "opaque-3",
           "status" : "current",
-          "title" : "pipestream-live-change-20261124T182204Z-090b1ad6.txt",
+          "title" : "pipestream-live-change-20261125T093638Z-b48677b9.txt",
           "version" : {
             "by" : {
               "type" : "known",
@@ -68,7 +68,7 @@
                 "self" : "https://site-1.example.invalid/wiki/rest/api/user?accountId=account-1"
               }
             },
-            "when" : "2026-11-24T18:24:35.606Z",
+            "when" : "2026-11-25T09:39:09.108Z",
             "friendlyWhen" : "just a moment ago",
             "message" : "live change run",
             "number" : 1,
@@ -76,46 +76,46 @@
             "contentTypeModified" : false,
             "_expandable" : {
               "collaborators" : "",
-              "content" : "/rest/api/content/att35651661"
+              "content" : "/rest/api/content/att36470979"
             },
             "_links" : {
-              "self" : "https://site-1.example.invalid/wiki/rest/api/content/att35651661/version/1"
+              "self" : "https://site-1.example.invalid/wiki/rest/api/content/att36470979/version/1"
             }
           },
           "container" : {
-            "id" : "34930836",
+            "id" : "36438136",
             "type" : "page",
-            "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:page/34930836",
+            "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:page/36438136",
             "base64EncodedAri" : "opaque-1",
             "status" : "current",
-            "title" : "pipestream-live-change-20261124T182204Z-090b1ad6",
+            "title" : "pipestream-live-change-20261125T093638Z-b48677b9",
             "macroRenderedOutput" : { },
             "extensions" : {
-              "position" : 235250712
+              "position" : 146309452
             },
             "_expandable" : {
               "container" : "/rest/api/space/CLAUDEGRPC",
               "metadata" : "",
-              "restrictions" : "/rest/api/content/34930836/restriction/byOperation",
-              "history" : "/rest/api/content/34930836/history",
+              "restrictions" : "/rest/api/content/36438136/restriction/byOperation",
+              "history" : "/rest/api/content/36438136/history",
               "body" : "",
               "version" : "",
-              "descendants" : "/rest/api/content/34930836/descendant",
+              "descendants" : "/rest/api/content/36438136/descendant",
               "space" : "/rest/api/space/CLAUDEGRPC",
               "childTypes" : "",
               "schedulePublishInfo" : "",
               "operations" : "",
               "schedulePublishDate" : "",
-              "children" : "/rest/api/content/34930836/child",
+              "children" : "/rest/api/content/36438136/child",
               "ancestors" : "",
               "draftVersion" : ""
             },
             "_links" : {
-              "self" : "https://site-1.example.invalid/wiki/rest/api/content/34930836",
-              "tinyui" : "/x/lAAVAg",
-              "editui" : "/pages/resumedraft.action?draftId=34930836",
-              "webui" : "/spaces/CLAUDEGRPC/pages/34930836/pipestream-live-change-20261124T182204Z-090b1ad6",
-              "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/34930836"
+              "self" : "https://site-1.example.invalid/wiki/rest/api/content/36438136",
+              "tinyui" : "/x/eAAsAg",
+              "editui" : "/pages/resumedraft.action?draftId=36438136",
+              "webui" : "/spaces/CLAUDEGRPC/pages/36438136/pipestream-live-change-20261125T093638Z-b48677b9",
+              "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/36438136"
             }
           },
           "macroRenderedOutput" : { },
@@ -128,8 +128,8 @@
               "limit" : 200,
               "size" : 0,
               "_links" : {
-                "next" : "/rest/api/content/att35651661/label?next=true&limit=200&start=200",
-                "self" : "https://site-1.example.invalid/wiki/rest/api/content/att35651661/label"
+                "next" : "/rest/api/content/att36470979/label?next=true&limit=200&start=200",
+                "self" : "https://site-1.example.invalid/wiki/rest/api/content/att36470979/label"
               }
             },
             "_expandable" : {
@@ -150,27 +150,27 @@
             "fileSize" : 72,
             "comment" : "live change run",
             "mediaTypeDescription" : "Text File",
-            "fileId" : "a2019003-75d7-4348-95ae-39fc705e53ab",
-            "collectionName" : "contentId-34930836"
+            "fileId" : "5a6ee9f7-2ab4-4981-a9fa-11c982e179ba",
+            "collectionName" : "contentId-36438136"
           },
           "_expandable" : {
             "childTypes" : "",
             "schedulePublishInfo" : "",
             "operations" : "",
             "schedulePublishDate" : "",
-            "children" : "/rest/api/content/att35651661/child",
-            "restrictions" : "/rest/api/content/att35651661/restriction/byOperation",
-            "history" : "/rest/api/content/att35651661/history",
+            "children" : "/rest/api/content/att36470979/child",
+            "restrictions" : "/rest/api/content/att36470979/restriction/byOperation",
+            "history" : "/rest/api/content/att36470979/history",
             "ancestors" : "",
             "body" : "",
             "draftVersion" : "",
-            "descendants" : "/rest/api/content/att35651661/descendant",
+            "descendants" : "/rest/api/content/att36470979/descendant",
             "space" : "/rest/api/space/CLAUDEGRPC"
           },
           "_links" : {
-            "webui" : "/pages/viewpageattachments.action?pageId=34930836&preview=%2F34930836%2F35651661%2Fpipestream-live-change-20261124T182204Z-090b1ad6.txt",
-            "self" : "https://site-1.example.invalid/wiki/rest/api/content/att35651661",
-            "download" : "/rest/api/content/34930836/child/attachment/att35651661/download"
+            "webui" : "/pages/viewpageattachments.action?pageId=36438136&preview=%2F36438136%2F36470979%2Fpipestream-live-change-20261125T093638Z-b48677b9.txt",
+            "self" : "https://site-1.example.invalid/wiki/rest/api/content/att36470979",
+            "download" : "/rest/api/content/36438136/child/attachment/att36470979/download"
           }
         } ],
         "size" : 1,

@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/35258637",
+    "path" : "/wiki/api/v2/pages/36569504",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -23,20 +23,20 @@
       "json" : {
         "authorId" : "account-1",
         "parentType" : null,
-        "spaceId" : "35258429",
+        "spaceId" : "36569301",
         "parentId" : null,
         "ownerId" : "account-1",
-        "createdAt" : "2026-11-24T18:31:22.060Z",
         "lastOwnerId" : null,
+        "createdAt" : "2026-11-25T09:46:07.582Z",
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-24T18:31:22.060Z",
+          "createdAt" : "2026-11-25T09:46:07.582Z",
           "ncsStepVersion" : null
         },
-        "position" : 600,
+        "position" : 341,
         "body" : {
           "storage" : {
             "representation" : "storage",
@@ -44,13 +44,13 @@
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-change-20261124T182204Z-090b1ad6 Home",
-        "id" : "35258637",
+        "title" : "pipestream-live-change-20261125T093638Z-b48677b9 Home",
+        "id" : "36569504",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=35258637",
-          "webui" : "/spaces/LC090B1AD6/overview",
-          "edituiv2" : "/spaces/LC090B1AD6/pages/edit-v2/35258637",
-          "tinyui" : "/x/DQEaAg",
+          "editui" : "/pages/resumedraft.action?draftId=36569504",
+          "webui" : "/spaces/LCB48677B9/overview",
+          "edituiv2" : "/spaces/LCB48677B9/pages/edit-v2/36569504",
+          "tinyui" : "/x/oAEuAg",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }
