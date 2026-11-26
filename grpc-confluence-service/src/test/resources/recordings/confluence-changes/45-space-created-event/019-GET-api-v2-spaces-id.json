@@ -1,0 +1,40 @@
+{
+  "scenario" : "45-space-created-event",
+  "sequence" : 19,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/spaces/36569301",
+    "query" : [ ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "spaceOwnerId" : "account-1",
+        "homepageId" : "36569504",
+        "authorId" : "account-1",
+        "createdAt" : "2026-11-25T09:46:06.673Z",
+        "icon" : null,
+        "name" : "pipestream-live-change-20261125T093638Z-b48677b9",
+        "key" : "LCB48677B9",
+        "id" : "36569301",
+        "type" : "global",
+        "description" : { },
+        "status" : "current",
+        "_links" : {
+          "webui" : "/spaces/LCB48677B9",
+          "base" : "https://site-1.example.invalid/wiki"
+        },
+        "currentActiveAlias" : "LCB48677B9"
+      }
+    }
+  }
+}

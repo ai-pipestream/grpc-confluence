@@ -1,0 +1,63 @@
+{
+  "scenario" : "47c-group-members",
+  "sequence" : 3,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/rest/api/group/db2396c2-b7f4-427a-be34-ab40a7c1c970/membersByGroupId",
+    "query" : [ {
+      "name" : "limit",
+      "value" : "25"
+    }, {
+      "name" : "start",
+      "value" : "0"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "results" : [ {
+          "type" : "known",
+          "accountId" : "account-1",
+          "accountType" : "atlassian",
+          "email" : "user-1@example.invalid",
+          "publicName" : "User 2",
+          "profilePicture" : {
+            "path" : "/avatars/avatar-1.png",
+            "width" : 48,
+            "height" : 48,
+            "isDefault" : false
+          },
+          "displayName" : "User 2",
+          "isExternalCollaborator" : false,
+          "isGuest" : false,
+          "locale" : "en_US",
+          "accountStatus" : "active",
+          "_expandable" : {
+            "operations" : "",
+            "personalSpace" : ""
+          },
+          "_links" : {
+            "self" : "https://site-1.example.invalid/wiki/rest/api/user?accountId=account-1"
+          }
+        } ],
+        "start" : 0,
+        "limit" : 25,
+        "size" : 1,
+        "_links" : {
+          "base" : "https://site-1.example.invalid/wiki",
+          "context" : "/wiki",
+          "self" : "https://site-1.example.invalid/wiki/rest/api/group/db2396c2-b7f4-427a-be34-ab40a7c1c970/membersByGroupId"
+        }
+      }
+    }
+  }
+}

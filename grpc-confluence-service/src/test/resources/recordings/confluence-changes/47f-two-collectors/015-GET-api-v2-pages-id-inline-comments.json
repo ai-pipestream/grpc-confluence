@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/34930905/inline-comments",
+    "path" : "/wiki/api/v2/pages/36339967/inline-comments",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"

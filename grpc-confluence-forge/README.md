@@ -60,7 +60,9 @@ forge webtrigger                   # prints the queue and app-api URLs
 Use `-e production` on each command for the production environment. Each
 environment has its own queue, secret, web trigger URLs and custom content
 type id. The CI job `live-confluence-changes` deploys the environment its
-`forge_environment` input names.
+`forge_environment` input names; both are installed on the test site. The
+job reads custom content of the environment's type through the `app-api`
+trigger, with the environment ids kept in `ci.yml`.
 
 Then start `grpc-confluence` with `CONFLUENCE_FORGE_QUEUE_URL` set to that URL
 and `CONFLUENCE_FORGE_QUEUE_SECRET` set to the same secret.

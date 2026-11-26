@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/spaces/35258429/role-assignments",
+    "path" : "/wiki/api/v2/spaces/36569301/role-assignments",
     "query" : [ {
       "name" : "limit",
       "value" : "25"
@@ -25,12 +25,6 @@
           "roleId" : "6820786b-b8db-4102-b789-dcb45cba7c83",
           "principal" : {
             "principalType" : "USER",
-            "principalId" : "account-4"
-          }
-        }, {
-          "roleId" : "6820786b-b8db-4102-b789-dcb45cba7c83",
-          "principal" : {
-            "principalType" : "USER",
             "principalId" : "account-3"
           }
         }, {
@@ -38,6 +32,12 @@
           "principal" : {
             "principalType" : "USER",
             "principalId" : "account-2"
+          }
+        }, {
+          "roleId" : "6820786b-b8db-4102-b789-dcb45cba7c83",
+          "principal" : {
+            "principalType" : "USER",
+            "principalId" : "account-4"
           }
         }, {
           "roleId" : "6820786b-b8db-4102-b789-dcb45cba7c83",

@@ -205,14 +205,14 @@
             "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/analytics-admins-pipestreamai"
           }
         }, {
-          "id" : "ee660541-01e7-4f58-816d-b9fa4292cdbf",
-          "name" : "pipestream-live-change-20261124T182204Z-090b1ad6-group",
+          "id" : "db2396c2-b7f4-427a-be34-ab40a7c1c970",
+          "name" : "pipestream-live-change-20261125T093638Z-b48677b9-group",
           "managedBy" : "ADMINS",
           "usageType" : "USERBASE_GROUP",
-          "resourceAri" : "ari:cloud:identity::group/ee660541-01e7-4f58-816d-b9fa4292cdbf",
+          "resourceAri" : "ari:cloud:identity::group/db2396c2-b7f4-427a-be34-ab40a7c1c970",
           "type" : "group",
           "_links" : {
-            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/pipestream-live-change-20261124T182204Z-090b1ad6-group"
+            "self" : "https://site-1.example.invalid/wiki/rest/experimental/group/pipestream-live-change-20261125T093638Z-b48677b9-group"
           }
         } ],
         "start" : 0,

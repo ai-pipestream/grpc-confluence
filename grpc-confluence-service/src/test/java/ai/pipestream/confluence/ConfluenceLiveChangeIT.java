@@ -79,7 +79,7 @@ class ConfluenceLiveChangeIT {
         if (spaceKey == null) {
             spaceKey = "CLAUDEGRPC";
         }
-        String run = "pipestream-live-change-"
+        String run = ChangeScenarios.RUN_PREFIX
                 + DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC)
                         .format(Instant.now())
                 + "-" + UUID.randomUUID().toString().substring(0, 8);

@@ -49,7 +49,11 @@ final class ChangeScenarios {
     private static final long CALL_DEADLINE_SECONDS = 120;
     private static final int MAX_BACKLOG_DRAINS = 40;
     private static final String TREE_COPY_PREFIX = "Copy of ";
-    private static final int GROUP_GONE_READS = 16;
+    /** How the name of every live run, and so of its throwaway group, starts. */
+    static final String RUN_PREFIX = "pipestream-live-change-";
+    /** Most reads of a group or its members while a write to it is not yet read back. */
+    private static final int GROUP_READS = 60;
+    private static final Duration GROUP_READ_PAUSE = Duration.ofSeconds(3);
 
     /** Where queued events come from: live waits for Forge, replay does nothing. */
     interface Events {
@@ -1088,7 +1092,13 @@ final class ChangeScenarios {
 
     // --- groups ----------------------------------------------------------------------------
 
-    private String createGroup() {
+    /**
+     * Creates the group and reads it back. The create does not always answer
+     * who manages the group or its usage; what it does answer must be read
+     * back the same. The directory can answer a write late, so each read is
+     * retried.
+     */
+    private String createGroup() throws InterruptedException {
         Group group = stub().createGroup(CreateGroupRequest.newBuilder().setName(groupName).build())
                 .getGroup();
         check(!group.getId().isEmpty(), "the group answered no id");
@@ -1107,20 +1117,59 @@ final class ChangeScenarios {
             }
         });
         check(group.getName().equals(groupName), "the group is named " + group.getName());
-        Group read = stub().getGroup(GetGroupRequest.newBuilder().setGroupId(groupId).build()).getGroup();
-        check(read.getName().equals(groupName), "the name read back is " + read.getName());
-        check(read.getManagedBy() == group.getManagedBy() && read.getUsageType() == group.getUsageType(),
-                "the answer differs from the group read back");
-        int listed = 0;
-        boolean found = false;
-        Iterator<ListGroupsResponse> groups = stub().listGroups(ListGroupsRequest.getDefaultInstance());
-        while (groups.hasNext()) {
-            listed++;
-            found |= groups.next().getGroup().getId().equals(groupId);
+        String answered = "managed by " + group.getManagedBy() + ", usage " + group.getUsageType();
+        String last = "nothing";
+        int reads = 0;
+        boolean same = false;
+        while (!same && reads < GROUP_READS) {
+            if (reads > 0) {
+                events.pause(GROUP_READ_PAUSE);
+            }
+            reads++;
+            try {
+                Group read = stub().getGroup(GetGroupRequest.newBuilder().setGroupId(groupId).build())
+                        .getGroup();
+                last = "name " + (read.getName().equals(groupName) ? "as created" : "different")
+                        + ", managed by " + read.getManagedBy() + ", usage " + read.getUsageType();
+                same = read.getName().equals(groupName)
+                        && read.getManagedBy() != GroupManagedBy.GROUP_MANAGED_BY_UNSPECIFIED
+                        && (group.getManagedBy() == GroupManagedBy.GROUP_MANAGED_BY_UNSPECIFIED
+                                || read.getManagedBy() == group.getManagedBy())
+                        && (group.getUsageType() == GroupUsageType.GROUP_USAGE_TYPE_UNSPECIFIED
+                                || read.getUsageType() == group.getUsageType());
+            } catch (StatusRuntimeException e) {
+                last = String.valueOf(e.getStatus().getCode());
+            }
         }
-        check(found, "ListGroups answered " + listed + " group(s) without the new one");
-        return "group created, managed by " + read.getManagedBy() + "; read back and listed among "
-                + listed + " group(s)";
+        check(same, "CreateGroup answered " + answered + "; after " + reads + " read(s) GetGroup answers "
+                + last);
+        int listings = 0;
+        int listed = 0;
+        int older = 0;
+        boolean found = false;
+        while (!found && listings < GROUP_READS) {
+            if (listings > 0) {
+                events.pause(GROUP_READ_PAUSE);
+            }
+            listings++;
+            listed = 0;
+            older = 0;
+            Iterator<ListGroupsResponse> groups = stub().listGroups(ListGroupsRequest.getDefaultInstance());
+            while (groups.hasNext()) {
+                Group next = groups.next().getGroup();
+                listed++;
+                found |= next.getId().equals(groupId);
+                if (next.getName().startsWith(RUN_PREFIX) && !next.getId().equals(groupId)) {
+                    older++;
+                }
+            }
+        }
+        check(found, "after " + listings + " listing(s) ListGroups answers " + listed
+                + " group(s) without the new one");
+        return "create answered " + answered + "; GetGroup answers " + last + " after " + reads
+                + " read(s); listed among "
+                + listed + " group(s) after " + listings + " listing(s); " + older
+                + " group(s) of earlier runs listed";
     }
 
     private Predicate<ConfluenceEvent> groupEvent(ConfluenceEventAction action) {
@@ -1155,6 +1204,24 @@ final class ChangeScenarios {
         return ids;
     }
 
+    /** Reads the members until they are {@code wanted}; answers the reads it took. */
+    private int awaitMembers(List<String> wanted, String when) throws InterruptedException {
+        List<String> listed = List.of();
+        for (int reads = 1; reads <= GROUP_READS; reads++) {
+            if (reads > 1) {
+                events.pause(GROUP_READ_PAUSE);
+            }
+            listed = members();
+            if (listed.equals(wanted)) {
+                return reads;
+            }
+        }
+        throw new AssertionError(when + " the group has " + listed.size() + " member(s) after "
+                + GROUP_READS + " reads, " + (listed.containsAll(wanted) ? "with" : "without")
+                + " the caller");
+    }
+
+    /** Adds the caller to the group and removes it; the removal is sent even when the add is not read back. */
     private String groupMembers() throws Exception {
         if (!memberSteps) {
             throw new Skip("not enabled; set " + ENV_GROUP_MEMBER + "=1");
@@ -1162,23 +1229,25 @@ final class ChangeScenarios {
         String account = page.getAuthorId();
         stub().addGroupMember(AddGroupMemberRequest.newBuilder().setGroupId(groupId)
                 .setAccountId(account).build());
-        List<String> added = members();
-        check(added.equals(List.of(account)), "after the add the group has " + added.size()
-                + " member(s)");
-        stub().removeGroupMember(RemoveGroupMemberRequest.newBuilder().setGroupId(groupId)
-                .setAccountId(account).build());
-        List<String> left = members();
-        check(left.isEmpty(), "after the remove the group has " + left.size() + " member(s)");
-        return "the caller added, listed, removed and gone from the list";
+        int added;
+        try {
+            added = awaitMembers(List.of(account), "after the add");
+        } finally {
+            stub().removeGroupMember(RemoveGroupMemberRequest.newBuilder().setGroupId(groupId)
+                    .setAccountId(account).build());
+        }
+        int removed = awaitMembers(List.of(), "after the remove");
+        return "the caller added (listed after " + added + " read(s)) and removed (gone after "
+                + removed + " read(s))";
     }
 
-    /** Deletes the group; it can still read back for a while, so the read is retried for 30 seconds. */
+    /** Deletes the group; it can still read back for a while, so the read is retried. */
     private String deleteGroup() throws InterruptedException {
         stub().deleteGroup(DeleteGroupRequest.newBuilder().setGroupId(groupId).build());
         groupDeleted = true;
-        for (int attempt = 0; attempt < GROUP_GONE_READS; attempt++) {
+        for (int attempt = 0; attempt < GROUP_READS; attempt++) {
             if (attempt > 0) {
-                events.pause(Duration.ofSeconds(2));
+                events.pause(GROUP_READ_PAUSE);
             }
             try {
                 stub().getGroup(GetGroupRequest.newBuilder().setGroupId(groupId).build());
@@ -1190,7 +1259,7 @@ final class ChangeScenarios {
                         + " read(s)";
             }
         }
-        throw new AssertionError("the deleted group still reads back after " + GROUP_GONE_READS
+        throw new AssertionError("the deleted group still reads back after " + GROUP_READS
                 + " reads");
     }
 

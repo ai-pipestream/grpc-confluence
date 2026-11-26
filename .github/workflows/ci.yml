@@ -308,8 +308,9 @@ jobs:
       FORGE_EMAIL: ${{ secrets.FORGE_EMAIL || secrets.CONFLUENCE_EMAIL }}
       FORGE_API_TOKEN: ${{ secrets.FORGE_API_TOKEN || secrets.CONFLUENCE_API_TOKEN }}
       FORGE_ENVIRONMENT: ${{ inputs.forge_environment || 'development' }}
-      # Development environment of the registered app (from forge install output).
+      # Environments of the registered app (from forge install --verbose output).
       FORGE_DEV_ENVIRONMENT_ID: b5506979-43d3-4c0e-9bd5-60f77934bdf3
+      FORGE_PRODUCTION_ENVIRONMENT_ID: bf59b2f7-b8d9-4d93-875d-f0aab3a80c23
       CONFLUENCE_BASE_URL: ${{ secrets.CONFLUENCE_BASE_URL }}
     steps:
       - uses: actions/checkout@v5
@@ -391,9 +392,14 @@ jobs:
           echo "app-api GET /wiki/api/v2/app/properties answered ${status}"
           [ "${status}" = "200" ] || { echo "the app-api trigger did not list app properties"; exit 1; }
           # Custom content type of the app's pipestream-record module; its id names the environment.
-          if [ "${FORGE_ENVIRONMENT}" = "development" ]; then
+          case "${FORGE_ENVIRONMENT}" in
+            development) environment_id="${FORGE_DEV_ENVIRONMENT_ID}" ;;
+            production) environment_id="${FORGE_PRODUCTION_ENVIRONMENT_ID}" ;;
+            *) environment_id="" ;;
+          esac
+          if [ -n "${environment_id}" ]; then
             app_id=$(grep -o 'ari:cloud:ecosystem::app/[0-9a-f-]*' manifest.yml | sed 's|.*/||')
-            type="forge:${app_id}:${FORGE_DEV_ENVIRONMENT_ID}:pipestream-record"
+            type="forge:${app_id}:${environment_id}:pipestream-record"
             echo "CONFLUENCE_FORGE_CUSTOM_CONTENT_TYPE=${type}" >> "$GITHUB_ENV"
             echo "custom content type: ${type}"
             status=$(curl -sS -X POST "${app}" -H "x-pipestream-queue-secret: ${secret}" \

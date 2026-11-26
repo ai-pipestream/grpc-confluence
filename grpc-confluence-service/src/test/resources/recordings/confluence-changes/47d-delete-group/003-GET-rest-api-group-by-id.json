@@ -7,7 +7,7 @@
     "path" : "/wiki/rest/api/group/by-id",
     "query" : [ {
       "name" : "id",
-      "value" : "ee660541-01e7-4f58-816d-b9fa4292cdbf"
+      "value" : "db2396c2-b7f4-427a-be34-ab40a7c1c970"
     } ],
     "headers" : {
       "accept" : "application/json"
@@ -28,7 +28,7 @@
           "errors" : [ ],
           "successful" : true
         },
-        "message" : "com.atlassian.confluence.api.service.exceptions.api.NotFoundException: No group with id : ee660541-01e7-4f58-816d-b9fa4292cdbf"
+        "message" : "com.atlassian.confluence.api.service.exceptions.api.NotFoundException: No group with id : db2396c2-b7f4-427a-be34-ab40a7c1c970"
       }
     }
   }

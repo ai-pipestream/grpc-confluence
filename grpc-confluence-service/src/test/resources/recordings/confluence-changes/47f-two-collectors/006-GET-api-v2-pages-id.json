@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/34930905",
+    "path" : "/wiki/api/v2/pages/36339967",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -21,36 +21,36 @@
     },
     "body" : {
       "json" : {
-        "parentType" : "page",
         "authorId" : "account-1",
-        "spaceId" : "7798786",
-        "parentId" : "34799707",
+        "parentType" : "page",
+        "parentId" : "36470939",
         "ownerId" : "account-1",
-        "createdAt" : "2026-11-24T18:32:35.790Z",
         "lastOwnerId" : null,
+        "createdAt" : "2026-11-25T09:53:01.839Z",
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-24T18:32:35.790Z",
+          "createdAt" : "2026-11-25T09:53:01.839Z",
           "ncsStepVersion" : "1"
         },
-        "position" : 756851838,
+        "position" : 748747363,
+        "id" : "36339967",
+        "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>Two collectors, pipestream-live-change-20261124T182204Z-090b1ad6.</p>"
+            "value" : "<p>Two collectors, pipestream-live-change-20261125T093638Z-b48677b9.</p>"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-change-20261124T182204Z-090b1ad6 collectors",
-        "id" : "34930905",
+        "title" : "pipestream-live-change-20261125T093638Z-b48677b9 collectors",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=34930905",
-          "webui" : "/spaces/CLAUDEGRPC/pages/34930905/pipestream-live-change-20261124T182204Z-090b1ad6+collectors",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/34930905",
-          "tinyui" : "/x/2QAVAg",
+          "editui" : "/pages/resumedraft.action?draftId=36339967",
+          "webui" : "/spaces/CLAUDEGRPC/pages/36339967/pipestream-live-change-20261125T093638Z-b48677b9+collectors",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/36339967",
+          "tinyui" : "/x/-4AqAg",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }
