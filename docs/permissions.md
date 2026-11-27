@@ -42,7 +42,7 @@ lesser account):
 
 | rpcs | Needs | How it is known |
 |---|---|---|
-| `ProbeConnection`, `ListSpaces`, `StreamSpaces`, `GetSpace`, `GetPage`, `GetBlogPost`, `ListPages`, `ListBlogPosts`, `GetAttachment`, `ListAttachments`, `DownloadAttachment`, `DownloadAttachmentThumbnail`, `ListComments`, `GetComment`, `ListCustomContent`, `GetCustomContent`, `GetWhiteboard`, `GetDatabase`, `GetFolder`, `GetSmartLink`, `ListChildren`, `ListDescendants`, `ListAncestors`, `ListDatabaseFields`, `ListDatabaseEntries`, `GetDatabaseEntry`, `ListDatabaseViews`, `ListLabels`, `ListVersions`, `GetVersion`, `ListLikes`, `GetLikeCount`, `ListOperations`, `ListTasks`, `GetTask`, `ListContentProperties`, `GetContentProperty`, `ListSpaceProperties`, `GetSpaceProperty`, `ResolveContentTypes`, `GetLongRunningTask`, `Sync` | Product access and view on the space; view on the content where it is restricted | Passed as admin. The read coverage run is local only and its report is not kept, so there is no per-rpc record for the reads |
+| `ProbeConnection`, `ListSpaces`, `StreamSpaces`, `GetSpace`, `GetPage`, `GetBlogPost`, `ListPages`, `ListBlogPosts`, `GetAttachment`, `ListAttachments`, `DownloadAttachment`, `DownloadAttachmentThumbnail`, `ListComments`, `GetComment`, `ListCustomContent`, `GetCustomContent`, `GetWhiteboard`, `GetDatabase`, `GetFolder`, `GetSmartLink`, `ListChildren`, `ListDescendants`, `ListAncestors`, `ListDatabaseFields`, `ListDatabaseEntries`, `GetDatabaseEntry`, `ListDatabaseViews`, `ListLabels`, `ListVersions`, `GetVersion`, `ListLikes`, `GetLikeCount`, `ListOperations`, `ListTasks`, `GetTask`, `ListContentProperties`, `GetContentProperty`, `ListSpaceProperties`, `GetSpaceProperty`, `ResolveContentTypes`, `GetLongRunningTask`, `Sync` | Product access and view on the space; view on the content where it is restricted | Passed as admin (read coverage run: `ci` workflow, `run_live_coverage`) |
 | `GetRestrictionState`, `ListContentPermissions`, `ListSpacePermissions`, `ListSpacePermissionAssignments`, `ListSpaceRoles`, `GetSpaceRole`, `ListSpaceRoleAssignments`, `GetSpaceRoleMode`, `GetContentAccess`, `ListGroups`, `GetGroup`, `ListGroupMembers`, `ListUserGroups`, `CheckAccessByEmail` | Product access; view on the space or content read | Passed as admin (access control suite, recorded) |
 | `BatchGetUsers` | Product access and permission to view user profiles | Passed as admin |
 | `CheckContentPermission` | Product access for the caller's own access; Confluence administrator to check another user or a group | Passed as admin |
@@ -85,8 +85,6 @@ install. Whether each scope is needed was not tried one by one.
 - Nothing is proven with a non-admin account. A second account on the test
   site with only a viewer role, then only a collaborator role, would prove
   the first three rows of the table above.
-- The read coverage run is not in CI, so its per-rpc results are not on
-  record.
 - The Premium trial of the test site ends about 2026-12-22. After that the
   restriction writes are refused again in live runs.
 - Classification and redaction need Atlassian Guard Premium and stay

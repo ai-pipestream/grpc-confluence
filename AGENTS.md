@@ -72,7 +72,9 @@ Recording and scrubbing rules:
 Live runs go through `.github/workflows/ci.yml` `workflow_dispatch` inputs
 (`run_live_write`, `live_write_custom_content`, `import_recordings_run_id`,
 `run_live_acl`, `import_acl_recordings_run_id`, `run_live_changes` with
-`live_changes_group_member` and `forge_environment`). Reviewers do not
+`live_changes_group_member` and `forge_environment`, `run_live_coverage`;
+`live_minimal_account` runs the coverage and the account probe as the
+non-admin test account). Reviewers do not
 dispatch them. The live steps of the copy, archive and group write rpcs are
 in `ChangeScenarios`, not `WriteScenarios` (`ConfluenceWriteRoutes.CHANGE_SUITE`).
 The Forge app's development and production environments are both installed
