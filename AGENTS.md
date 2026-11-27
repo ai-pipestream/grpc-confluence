@@ -45,6 +45,10 @@ build. Do not change how tests are run.
   "Decisions" section is the owner's ruling and wins over earlier sections.
 - `docs/contracts/confluence-fidelity.md`: field-by-field check that every
   response property reaches a typed field.
+- `docs/permissions.md`: what each rpc needs from the service user, the
+  plan it needs, and whether that is proven on the test site. A pull request
+  that adds an rpc or changes what the service user must hold updates it
+  (`PermissionsDocTest`).
 - v1 routes are used only where v2 has none (groups and their members,
   attachments upload, labels, `permission/check`, space delete, page copy,
   page archive).
