@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/inline-comments/29851870",
+    "path" : "/wiki/api/v2/inline-comments/37421064",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -21,35 +21,35 @@
     },
     "body" : {
       "json" : {
-        "id" : "29851870",
+        "id" : "37421064",
         "status" : "current",
-        "title" : "Re: pipestream-live-write-20261122T154612Z-76a48fba retitled",
-        "pageId" : "30179844",
+        "title" : "Re: pipestream-live-write-20261127T183356Z-7e950beb retitled",
+        "pageId" : "37060666",
         "version" : {
           "number" : 2,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T15:46:51.191Z",
+          "createdAt" : "2026-11-27T18:34:40.304Z",
           "contributorIds" : [ ]
         },
         "resolutionStatus" : "resolved",
         "resolutionLastModifierId" : "account-1",
-        "resolutionLastModifiedAt" : "2026-11-22T15:46:51.109Z",
+        "resolutionLastModifiedAt" : "2026-11-27T18:34:40.285Z",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>inline edited pipestream-live-write-20261122T154612Z-76a48fba</p>"
+            "value" : "<p>inline edited pipestream-live-write-20261127T183356Z-7e950beb</p>"
           }
         },
         "properties" : {
-          "inlineMarkerRef" : "6d054465-1d8f-4fb0-84f8-370f92d4a01a",
+          "inlineMarkerRef" : "0f1d9485-41fb-4a11-8838-448131d882d4",
           "inlineOriginalSelection" : "inlinetarget",
-          "inline-original-selection" : "inlinetarget",
-          "inline-marker-ref" : "6d054465-1d8f-4fb0-84f8-370f92d4a01a"
+          "inline-marker-ref" : "0f1d9485-41fb-4a11-8838-448131d882d4",
+          "inline-original-selection" : "inlinetarget"
         },
         "_links" : {
-          "webui" : "/spaces/CLAUDEGRPC/pages/30179844/pipestream-live-write-20261122T154612Z-76a48fba+retitled?focusedCommentId=29851870",
+          "webui" : "/spaces/CLAUDEGRPC/pages/37060666/pipestream-live-write-20261127T183356Z-7e950beb+retitled?focusedCommentId=37421064",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/spaces/30048484",
+    "path" : "/wiki/api/v2/spaces/37388355",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -21,7 +21,7 @@
         "errors" : [ {
           "status" : 404,
           "code" : "NOT_FOUND",
-          "title" : "Cannot find a space with id [30048484]",
+          "title" : "Cannot find a space with id [37388355]",
           "detail" : null
         } ]
       }
