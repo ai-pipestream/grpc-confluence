@@ -42,8 +42,8 @@ lesser account):
 
 | rpcs | Needs | How it is known |
 |---|---|---|
-| `ProbeConnection`, `ListSpaces`, `StreamSpaces`, `GetSpace`, `GetPage`, `GetBlogPost`, `ListPages`, `ListBlogPosts`, `GetAttachment`, `ListAttachments`, `DownloadAttachment`, `DownloadAttachmentThumbnail`, `ListComments`, `GetComment`, `GetCustomContent`, `GetWhiteboard`, `GetDatabase`, `GetFolder`, `GetSmartLink`, `ListChildren`, `ListDescendants`, `ListAncestors`, `ListLabels`, `ListVersions`, `GetVersion`, `ListLikes`, `GetLikeCount`, `ListOperations`, `ListTasks`, `GetTask`, `ListContentProperties`, `GetContentProperty`, `ListSpaceProperties`, `GetSpaceProperty`, `ResolveContentTypes`, `GetLongRunningTask`, `Sync` | Product access and view on the space; view on the content where it is restricted | Passed as admin: read coverage run 46046332397 (`ci` workflow, `run_live_coverage`), and the write suite for content the site holds none of |
-| `ListCustomContent`, `ListDatabaseFields`, `ListDatabaseEntries`, `ListDatabaseViews`, `GetDatabaseEntry` | The same | Not run: the test site holds no database, and the read coverage run finds no custom content |
+| `ProbeConnection`, `ListSpaces`, `StreamSpaces`, `GetSpace`, `GetPage`, `GetBlogPost`, `ListPages`, `ListBlogPosts`, `GetAttachment`, `ListAttachments`, `DownloadAttachment`, `DownloadAttachmentThumbnail`, `ListComments`, `GetComment`, `ListCustomContent`, `GetCustomContent`, `GetWhiteboard`, `GetDatabase`, `GetFolder`, `GetSmartLink`, `ListChildren`, `ListDescendants`, `ListAncestors`, `ListLabels`, `ListVersions`, `GetVersion`, `ListLikes`, `GetLikeCount`, `ListOperations`, `ListTasks`, `GetTask`, `ListContentProperties`, `GetContentProperty`, `ListSpaceProperties`, `GetSpaceProperty`, `ResolveContentTypes`, `GetLongRunningTask`, `Sync` | Product access and view on the space; view on the content where it is restricted | Passed as admin: read coverage run 46046332397 (`ci` workflow, `run_live_coverage`), and the write suite for content the site holds none of |
+| `ListDatabaseFields`, `ListDatabaseEntries`, `ListDatabaseViews`, `GetDatabaseEntry` | The same | Not run. Confluence answers `404 DATABASE_NOT_FOUND` on these routes for a database created through the API, still a minute later (runs 46047429351, 46047937322), and the test site holds no other database |
 | `GetRestrictionState`, `ListContentPermissions`, `ListSpacePermissions`, `ListSpacePermissionAssignments`, `ListSpaceRoles`, `GetSpaceRole`, `ListSpaceRoleAssignments`, `GetSpaceRoleMode`, `GetContentAccess`, `ListGroups`, `GetGroup`, `ListGroupMembers`, `ListUserGroups`, `CheckAccessByEmail` | Product access; view on the space or content read | Passed as admin (access control suite, recorded) |
 | `BatchGetUsers` | Product access and permission to view user profiles | Passed as admin |
 | `CheckContentPermission` | Product access for the caller's own access; Confluence administrator to check another user or a group | Passed as admin |
@@ -88,5 +88,8 @@ install. Whether each scope is needed was not tried one by one.
   the first three rows of the table above.
 - The Premium trial of the test site ends about 2026-12-22. After that the
   restriction writes are refused again in live runs.
+- The database field, entry and view reads need a database made in the
+  Confluence UI in the test space, with one row. The read coverage run then
+  calls them.
 - Classification and redaction need Atlassian Guard Premium and stay
   unproven by the owner's choice.
