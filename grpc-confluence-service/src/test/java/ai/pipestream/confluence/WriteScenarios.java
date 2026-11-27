@@ -26,6 +26,7 @@ import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 
 /**
@@ -910,24 +911,18 @@ final class WriteScenarios {
         });
         step("ListDatabaseFields", "ListDatabaseFields [new database]", () -> {
             String id = require(database.get(), "no database was created");
-            List<String> fields = new ArrayList<>();
-            stub().listDatabaseFields(ListDatabaseFieldsRequest.newBuilder().setDatabaseId(id).build())
-                    .forEachRemaining(response -> fields.add(response.getField().getName()));
-            return fields.size() + " field(s)";
+            return newDatabaseRows("field(s)", () -> stub().listDatabaseFields(
+                    ListDatabaseFieldsRequest.newBuilder().setDatabaseId(id).build()));
         });
         step("ListDatabaseEntries", "ListDatabaseEntries [new database]", () -> {
             String id = require(database.get(), "no database was created");
-            List<String> entries = new ArrayList<>();
-            stub().listDatabaseEntries(ListDatabaseEntriesRequest.newBuilder().setDatabaseId(id).build())
-                    .forEachRemaining(response -> entries.add(response.getEntry().getId()));
-            return entries.size() + " entry(ies)";
+            return newDatabaseRows("entry(ies)", () -> stub().listDatabaseEntries(
+                    ListDatabaseEntriesRequest.newBuilder().setDatabaseId(id).build()));
         });
         step("ListDatabaseViews", "ListDatabaseViews [new database]", () -> {
             String id = require(database.get(), "no database was created");
-            List<String> views = new ArrayList<>();
-            stub().listDatabaseViews(ListDatabaseViewsRequest.newBuilder().setDatabaseId(id).build())
-                    .forEachRemaining(response -> views.add(response.getView().getName()));
-            return views.size() + " view(s)";
+            return newDatabaseRows("view(s)", () -> stub().listDatabaseViews(
+                    ListDatabaseViewsRequest.newBuilder().setDatabaseId(id).build()));
         });
         step("DeleteDatabase", "DeleteDatabase", () -> {
             String id = require(database.get(), "no database was created");
@@ -1288,6 +1283,24 @@ final class WriteScenarios {
         } catch (StatusRuntimeException e) {
             if (e.getStatus().getCode() != Status.Code.NOT_FOUND) {
                 leftBehind.add(what + " (in the trash, not purged): " + describe(e));
+            }
+        }
+    }
+
+    /** Counts the rows of a database read, waiting up to a minute while a new database is NOT_FOUND. */
+    private String newDatabaseRows(String what, Supplier<Iterator<?>> read) throws InterruptedException {
+        for (int waits = 0;; waits++) {
+            try {
+                int rows = 0;
+                for (Iterator<?> answers = read.get(); answers.hasNext(); answers.next()) {
+                    rows++;
+                }
+                return rows + " " + what + " after " + waits + " wait(s)";
+            } catch (StatusRuntimeException e) {
+                if (e.getStatus().getCode() != Status.Code.NOT_FOUND || waits == 30) {
+                    throw e;
+                }
+                backend.tape().pause(Duration.ofSeconds(2));
             }
         }
     }
