@@ -1,9 +1,9 @@
 {
   "baseUrl" : "https://site-1.example.invalid/wiki",
   "spaceKey" : "CLAUDEGRPC",
-  "run" : "pipestream-live-write-20261122T154612Z-76a48fba",
-  "admin" : true,
-  "customContentType" : null,
+  "run" : "pipestream-live-write-20261127T182316Z-aa79d29c",
+  "admin" : false,
+  "customContentType" : "forge:d16971ce-921a-40d5-a97b-84b84a4cbfe1:b5506979-43d3-4c0e-9bd5-60f77934bdf3:pipestream-record",
   "inviteEmail" : null,
   "outcomes" : [ {
     "rpc" : "CreatePage",
@@ -180,15 +180,19 @@
   }, {
     "rpc" : "CreateCustomContent",
     "step" : "CreateCustomContent",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
+  }, {
+    "rpc" : "ListCustomContent",
+    "step" : "ListCustomContent [type, page]",
+    "outcome" : "PASS"
   }, {
     "rpc" : "UpdateCustomContent",
     "step" : "UpdateCustomContent",
-    "outcome" : "SKIPPED"
+    "outcome" : "PASS"
   }, {
     "rpc" : "DeleteCustomContent",
-    "step" : "DeleteCustomContent",
-    "outcome" : "SKIPPED"
+    "step" : "DeleteCustomContent (trash, then purge)",
+    "outcome" : "PASS"
   }, {
     "rpc" : "CreateFolder",
     "step" : "CreateFolder",
@@ -209,6 +213,18 @@
     "rpc" : "CreateDatabase",
     "step" : "CreateDatabase",
     "outcome" : "PASS"
+  }, {
+    "rpc" : "ListDatabaseFields",
+    "step" : "ListDatabaseFields [new database]",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "ListDatabaseEntries",
+    "step" : "ListDatabaseEntries [new database]",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "ListDatabaseViews",
+    "step" : "ListDatabaseViews [new database]",
+    "outcome" : "SKIPPED"
   }, {
     "rpc" : "DeleteDatabase",
     "step" : "DeleteDatabase",
@@ -232,27 +248,27 @@
   }, {
     "rpc" : "CreateSpace",
     "step" : "CreateSpace",
-    "outcome" : "PASS"
+    "outcome" : "SKIPPED"
   }, {
     "rpc" : "DeleteSpace",
     "step" : "DeleteSpace",
-    "outcome" : "PASS"
+    "outcome" : "SKIPPED"
   }, {
     "rpc" : "CreateSpaceRole",
     "step" : "CreateSpaceRole",
-    "outcome" : "PASS"
+    "outcome" : "SKIPPED"
   }, {
     "rpc" : "UpdateSpaceRole",
     "step" : "UpdateSpaceRole",
-    "outcome" : "PASS"
-  }, {
-    "rpc" : "SetSpaceRoleAssignments",
-    "step" : "SetSpaceRoleAssignments (re-sets one existing assignment)",
-    "outcome" : "PASS"
+    "outcome" : "SKIPPED"
   }, {
     "rpc" : "DeleteSpaceRole",
     "step" : "DeleteSpaceRole",
-    "outcome" : "PASS"
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "SetSpaceRoleAssignments",
+    "step" : "SetSpaceRoleAssignments",
+    "outcome" : "SKIPPED"
   }, {
     "rpc" : "InviteByEmail",
     "step" : "InviteByEmail",
@@ -260,11 +276,11 @@
   }, {
     "rpc" : "EnableAdminKey",
     "step" : "EnableAdminKey",
-    "outcome" : "PASS"
+    "outcome" : "SKIPPED"
   }, {
     "rpc" : "DisableAdminKey",
     "step" : "DisableAdminKey",
-    "outcome" : "PASS"
+    "outcome" : "SKIPPED"
   }, {
     "rpc" : "BulkAssignSpaceRoles",
     "step" : "BulkAssignSpaceRoles",

@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/29884784",
+    "path" : "/wiki/api/v2/pages/37748760",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -21,22 +21,21 @@
     },
     "body" : {
       "json" : {
-        "authorId" : "account-1",
         "parentType" : "page",
-        "parentId" : "30376427",
+        "authorId" : "account-1",
+        "parentId" : "37716000",
         "ownerId" : "account-1",
         "lastOwnerId" : null,
-        "createdAt" : "2026-11-22T15:47:12.477Z",
-        "position" : 1213,
+        "createdAt" : "2026-11-27T18:24:31.228Z",
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T15:47:12.477Z",
+          "createdAt" : "2026-11-27T18:24:31.228Z",
           "ncsStepVersion" : "1"
         },
-        "id" : "29884784",
+        "position" : 1421,
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
@@ -45,12 +44,13 @@
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261122T154612Z-76a48fba mutate a",
+        "title" : "pipestream-live-write-20261127T182316Z-aa79d29c mutate a",
+        "id" : "37748760",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=29884784",
-          "webui" : "/spaces/CLAUDEGRPC/pages/29884784/pipestream-live-write-20261122T154612Z-76a48fba+mutate+a",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/29884784",
-          "tinyui" : "/x/cAHIAQ",
+          "editui" : "/pages/resumedraft.action?draftId=37748760",
+          "webui" : "/spaces/CLAUDEGRPC/pages/37748760/pipestream-live-write-20261127T182316Z-aa79d29c+mutate+a",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/37748760",
+          "tinyui" : "/x/GABAAg",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

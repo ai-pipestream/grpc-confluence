@@ -4,7 +4,7 @@
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/attachments/att29884777",
+    "path" : "/wiki/api/v2/attachments/att37224482",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"

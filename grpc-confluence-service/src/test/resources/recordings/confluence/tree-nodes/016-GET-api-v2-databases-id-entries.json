@@ -1,0 +1,33 @@
+{
+  "scenario" : "tree-nodes",
+  "sequence" : 16,
+  "request" : {
+    "method" : "GET",
+    "host" : "site-1.example.invalid",
+    "path" : "/wiki/api/v2/databases/37191747/entries",
+    "query" : [ {
+      "name" : "limit",
+      "value" : "25"
+    } ],
+    "headers" : {
+      "accept" : "application/json"
+    },
+    "authorized" : true
+  },
+  "response" : {
+    "status" : 404,
+    "headers" : {
+      "content-type" : "application/json"
+    },
+    "body" : {
+      "json" : {
+        "errors" : [ {
+          "status" : 404,
+          "code" : "DATABASE_NOT_FOUND",
+          "title" : "Database not found",
+          "detail" : "No database with id \"37191747\" exists, or you do not have permission to view it."
+        } ]
+      }
+    }
+  }
+}
