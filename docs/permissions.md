@@ -42,7 +42,8 @@ lesser account):
 
 | rpcs | Needs | How it is known |
 |---|---|---|
-| `ProbeConnection`, `ListSpaces`, `StreamSpaces`, `GetSpace`, `GetPage`, `GetBlogPost`, `ListPages`, `ListBlogPosts`, `GetAttachment`, `ListAttachments`, `DownloadAttachment`, `DownloadAttachmentThumbnail`, `ListComments`, `GetComment`, `ListCustomContent`, `GetCustomContent`, `GetWhiteboard`, `GetDatabase`, `GetFolder`, `GetSmartLink`, `ListChildren`, `ListDescendants`, `ListAncestors`, `ListDatabaseFields`, `ListDatabaseEntries`, `GetDatabaseEntry`, `ListDatabaseViews`, `ListLabels`, `ListVersions`, `GetVersion`, `ListLikes`, `GetLikeCount`, `ListOperations`, `ListTasks`, `GetTask`, `ListContentProperties`, `GetContentProperty`, `ListSpaceProperties`, `GetSpaceProperty`, `ResolveContentTypes`, `GetLongRunningTask`, `Sync` | Product access and view on the space; view on the content where it is restricted | Passed as admin (read coverage run: `ci` workflow, `run_live_coverage`) |
+| `ProbeConnection`, `ListSpaces`, `StreamSpaces`, `GetSpace`, `GetPage`, `GetBlogPost`, `ListPages`, `ListBlogPosts`, `GetAttachment`, `ListAttachments`, `DownloadAttachment`, `DownloadAttachmentThumbnail`, `ListComments`, `GetComment`, `GetCustomContent`, `GetWhiteboard`, `GetDatabase`, `GetFolder`, `GetSmartLink`, `ListChildren`, `ListDescendants`, `ListAncestors`, `ListLabels`, `ListVersions`, `GetVersion`, `ListLikes`, `GetLikeCount`, `ListOperations`, `ListTasks`, `GetTask`, `ListContentProperties`, `GetContentProperty`, `ListSpaceProperties`, `GetSpaceProperty`, `ResolveContentTypes`, `GetLongRunningTask`, `Sync` | Product access and view on the space; view on the content where it is restricted | Passed as admin: read coverage run 46046332397 (`ci` workflow, `run_live_coverage`), and the write suite for content the site holds none of |
+| `ListCustomContent`, `ListDatabaseFields`, `ListDatabaseEntries`, `ListDatabaseViews`, `GetDatabaseEntry` | The same | Not run: the test site holds no database, and the read coverage run finds no custom content |
 | `GetRestrictionState`, `ListContentPermissions`, `ListSpacePermissions`, `ListSpacePermissionAssignments`, `ListSpaceRoles`, `GetSpaceRole`, `ListSpaceRoleAssignments`, `GetSpaceRoleMode`, `GetContentAccess`, `ListGroups`, `GetGroup`, `ListGroupMembers`, `ListUserGroups`, `CheckAccessByEmail` | Product access; view on the space or content read | Passed as admin (access control suite, recorded) |
 | `BatchGetUsers` | Product access and permission to view user profiles | Passed as admin |
 | `CheckContentPermission` | Product access for the caller's own access; Confluence administrator to check another user or a group | Passed as admin |
@@ -56,15 +57,15 @@ lesser account):
 | `CreateSpaceRole`, `UpdateSpaceRole`, `DeleteSpaceRole` | Organization or site admin | Passed as admin (Premium) |
 | `GetAdminKey`, `EnableAdminKey`, `DisableAdminKey` | Organization or site admin | Passed as admin (Premium) |
 | `CreateGroup`, `DeleteGroup`, `AddGroupMember`, `RemoveGroupMember` | Site admin | Passed as admin (change suite, recorded) |
-| `ListSpacePermissionTransitionCombinations`, `GetSpacePermissionTransitionTask` | Confluence administrator | Passed as admin |
+| `ListSpacePermissionTransitionCombinations`, `GetSpacePermissionTransitionTask` | Confluence administrator | The list passed as admin. The task read was only called with an unknown id (`NOT_FOUND`) |
 | `BulkAssignSpaceRoles`, `BulkRemoveSpaceAccess` | Confluence administrator | Not run: they change every space of the site |
 | `InviteByEmail` | Product access | Not run: it sends real mail |
-| `ListClassificationLevels`, `GetClassificationLevel` | Product access; view on the content | Passed as admin; the test site defines no levels |
+| `ListClassificationLevels`, `GetClassificationLevel` | Product access; view on the content | The list passed as admin and is empty: the test site defines no levels, so `GetClassificationLevel` answers `NOT_FOUND` |
 | `SetContentClassificationLevel`, `ResetContentClassificationLevel` | Edit on the content. Levels exist only with Atlassian Guard Premium | Not run |
 | `UpdateSpaceDefaultClassificationLevel`, `DeleteSpaceDefaultClassificationLevel` | `manage/space` on the space. Atlassian Guard Premium | Not run |
 | `RedactPage`, `RedactBlogPost` | Edit on the content. Atlassian Guard Premium | Not run |
-| `ListAppProperties`, `GetAppProperty`, `SetAppProperty`, `DeleteAppProperty` | A Forge app: Confluence serves them to apps only. They go through the `app-api` trigger of `grpc-confluence-forge` (`CONFLUENCE_FORGE_APP_URL`, `CONFLUENCE_FORGE_APP_SECRET`) | Proven: passed through the app |
-| `ListDataPolicySpaces`, `GetDataPolicyMetadata` | An app credential; no route for an API token | Proven: `PERMISSION_DENIED` with the token. Not served today |
+| `ListAppProperties`, `GetAppProperty`, `SetAppProperty`, `DeleteAppProperty` | A Forge app: Confluence serves them to apps only. They go through the `app-api` trigger of `grpc-confluence-forge` (`CONFLUENCE_FORGE_APP_URL`, `CONFLUENCE_FORGE_APP_SECRET`) | Proven: passed through the app, `PERMISSION_DENIED` with the token alone (run 46045053396) |
+| `ListDataPolicySpaces`, `GetDataPolicyMetadata` | An app credential; no route for an API token | Proven: refused with the token (`NOT_FOUND`, run 46045053396). Not served today |
 | `WatchChanges` | The Forge app's event queue (`CONFLUENCE_FORGE_QUEUE_URL`, `CONFLUENCE_FORGE_QUEUE_SECRET`), and for the service user what the reads above need | Passed as admin, on the app's development and production environments |
 
 ## The Forge app

@@ -102,7 +102,7 @@ on the test site and both receive its events, so run one change run at a time.
 - App property rpcs are served to Forge apps only, so they go through the
   Forge `app-api` trigger (`CONFLUENCE_FORGE_APP_URL` /
   `CONFLUENCE_FORGE_APP_SECRET`).
-- Data policy rpcs answer `PERMISSION_DENIED` with API-token auth; upstream
+- Data policy rpcs answer `NOT_FOUND` with API-token auth (live); upstream
   serves them to app credentials only.
 - Custom content is proven live against a custom content type that a Forge
   app declares (PR #46).
