@@ -104,6 +104,9 @@ on the test site and both receive its events, so run one change run at a time.
   `CONFLUENCE_FORGE_APP_SECRET`).
 - Data policy rpcs answer `NOT_FOUND` with API-token auth (live); upstream
   serves them to app credentials only.
+- The database field, entry and view reads answer `404 DATABASE_NOT_FOUND`
+  for a database created through the API, still a minute later (live). They
+  are unproven until the test space holds a database made in the UI.
 - Custom content is proven live against a custom content type that a Forge
   app declares (PR #46).
 - Not proven live: classification levels and Guard Premium redaction (the
