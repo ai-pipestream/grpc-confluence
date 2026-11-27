@@ -824,6 +824,16 @@ final class WriteScenarios {
             check(read.getTitle().equals(run + " custom"), "the title read back is " + read.getTitle());
             return "custom content " + content.getId();
         });
+        step("ListCustomContent", "ListCustomContent [type, page]", () -> {
+            CustomContent content = require(created.get(), "no custom content was created");
+            List<String> listed = new ArrayList<>();
+            stub().listCustomContent(ListCustomContentRequest.newBuilder().setType(type)
+                    .setContainer(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_PAGE)
+                            .setId(parent.getId())).build())
+                    .forEachRemaining(response -> listed.add(response.getCustomContent().getId()));
+            check(listed.contains(content.getId()), "the custom content is not listed under its page");
+            return "listed among " + listed.size();
+        });
         step("UpdateCustomContent", "UpdateCustomContent", () -> {
             CustomContent content = require(created.get(), "no custom content was created");
             stub().updateCustomContent(UpdateCustomContentRequest.newBuilder().setId(content.getId())
@@ -897,6 +907,27 @@ final class WriteScenarios {
                     .setId(created.getId()).build()).getDatabase();
             check(read.getTitle().equals(run + " database"), "the title read back is " + read.getTitle());
             return "database " + created.getId();
+        });
+        step("ListDatabaseFields", "ListDatabaseFields [new database]", () -> {
+            String id = require(database.get(), "no database was created");
+            List<String> fields = new ArrayList<>();
+            stub().listDatabaseFields(ListDatabaseFieldsRequest.newBuilder().setDatabaseId(id).build())
+                    .forEachRemaining(response -> fields.add(response.getField().getName()));
+            return fields.size() + " field(s)";
+        });
+        step("ListDatabaseEntries", "ListDatabaseEntries [new database]", () -> {
+            String id = require(database.get(), "no database was created");
+            List<String> entries = new ArrayList<>();
+            stub().listDatabaseEntries(ListDatabaseEntriesRequest.newBuilder().setDatabaseId(id).build())
+                    .forEachRemaining(response -> entries.add(response.getEntry().getId()));
+            return entries.size() + " entry(ies)";
+        });
+        step("ListDatabaseViews", "ListDatabaseViews [new database]", () -> {
+            String id = require(database.get(), "no database was created");
+            List<String> views = new ArrayList<>();
+            stub().listDatabaseViews(ListDatabaseViewsRequest.newBuilder().setDatabaseId(id).build())
+                    .forEachRemaining(response -> views.add(response.getView().getName()));
+            return views.size() + " view(s)";
         });
         step("DeleteDatabase", "DeleteDatabase", () -> {
             String id = require(database.get(), "no database was created");
