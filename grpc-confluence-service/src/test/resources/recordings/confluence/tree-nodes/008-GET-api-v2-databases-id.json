@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/databases/37191747",
+    "path" : "/wiki/api/v2/databases/30572900",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -18,29 +18,29 @@
     },
     "body" : {
       "json" : {
-        "id" : "37191747",
+        "id" : "30572900",
         "type" : "database",
-        "parentId" : "37716000",
-        "title" : "pipestream-live-write-20261127T182316Z-aa79d29c database",
+        "parentId" : "30376427",
+        "title" : "pipestream-live-write-20261122T154612Z-76a48fba database",
         "parentType" : "page",
-        "position" : 1213,
+        "position" : 1423,
         "authorId" : "account-1",
         "ownerId" : "account-1",
-        "createdAt" : 1795803848995,
+        "createdAt" : 1795362431418,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-27T18:24:09.037Z"
+          "createdAt" : "2026-11-22T15:47:11.484Z"
         },
         "status" : "current",
         "spaceId" : "7798786",
         "_links" : {
-          "editui" : "/spaces/CLAUDEGRPC/database/37191747",
-          "webui" : "/spaces/CLAUDEGRPC/database/37191747",
-          "edituiv2" : "/spaces/CLAUDEGRPC/database/37191747",
-          "tinyui" : "/x/Q4A3Ag",
+          "editui" : "/spaces/CLAUDEGRPC/database/30572900",
+          "webui" : "/spaces/CLAUDEGRPC/database/30572900",
+          "edituiv2" : "/spaces/CLAUDEGRPC/database/30572900",
+          "tinyui" : "/x/ZIHSAQ",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

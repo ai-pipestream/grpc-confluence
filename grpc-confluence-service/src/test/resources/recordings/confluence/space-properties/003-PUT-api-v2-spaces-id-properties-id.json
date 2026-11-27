@@ -4,7 +4,7 @@
   "request" : {
     "method" : "PUT",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/spaces/7798786/properties/37716023",
+    "path" : "/wiki/api/v2/spaces/7798786/properties/29917419",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -13,7 +13,7 @@
     "authorized" : true,
     "body" : {
       "json" : {
-        "key" : "pipestream-live-write-20261127T182316Z-aa79d29c",
+        "key" : "pipestream-live-write-20261122T154612Z-76a48fba",
         "value" : {
           "string" : "two",
           "integer" : 42,
@@ -38,8 +38,8 @@
     },
     "body" : {
       "json" : {
-        "id" : "37716023",
-        "key" : "pipestream-live-write-20261127T182316Z-aa79d29c",
+        "id" : "29917419",
+        "key" : "pipestream-live-write-20261122T154612Z-76a48fba",
         "value" : {
           "string" : "two",
           "integer" : 42,
@@ -51,10 +51,10 @@
             "nested" : false
           }
         },
-        "createdAt" : "2026-11-27T18:24:02.101Z",
+        "createdAt" : "2026-11-22T15:47:08.013Z",
         "authorId" : "account-1",
         "version" : {
-          "createdAt" : "2026-11-27T18:24:02.417Z",
+          "createdAt" : "2026-11-22T15:47:08.230Z",
           "authorId" : "account-1",
           "number" : 2,
           "message" : ""

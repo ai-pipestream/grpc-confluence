@@ -1,7 +1,7 @@
 {
   "baseUrl" : "https://site-1.example.invalid/wiki",
   "spaceKey" : "CLAUDEGRPC",
-  "run" : "pipestream-live-write-20261123T223930Z-2b7ba40f",
+  "run" : "pipestream-live-write-20261127T182316Z-aa79d29c",
   "admin" : false,
   "customContentType" : "forge:d16971ce-921a-40d5-a97b-84b84a4cbfe1:b5506979-43d3-4c0e-9bd5-60f77934bdf3:pipestream-record",
   "inviteEmail" : null,
@@ -182,6 +182,10 @@
     "step" : "CreateCustomContent",
     "outcome" : "PASS"
   }, {
+    "rpc" : "ListCustomContent",
+    "step" : "ListCustomContent [type, page]",
+    "outcome" : "PASS"
+  }, {
     "rpc" : "UpdateCustomContent",
     "step" : "UpdateCustomContent",
     "outcome" : "PASS"
@@ -209,6 +213,18 @@
     "rpc" : "CreateDatabase",
     "step" : "CreateDatabase",
     "outcome" : "PASS"
+  }, {
+    "rpc" : "ListDatabaseFields",
+    "step" : "ListDatabaseFields [new database]",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "ListDatabaseEntries",
+    "step" : "ListDatabaseEntries [new database]",
+    "outcome" : "SKIPPED"
+  }, {
+    "rpc" : "ListDatabaseViews",
+    "step" : "ListDatabaseViews [new database]",
+    "outcome" : "SKIPPED"
   }, {
     "rpc" : "DeleteDatabase",
     "step" : "DeleteDatabase",

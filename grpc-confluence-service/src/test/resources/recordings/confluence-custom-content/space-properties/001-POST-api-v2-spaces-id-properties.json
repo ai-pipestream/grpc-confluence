@@ -13,7 +13,7 @@
     "authorized" : true,
     "body" : {
       "json" : {
-        "key" : "pipestream-live-write-20261123T223930Z-2b7ba40f",
+        "key" : "pipestream-live-write-20261127T182316Z-aa79d29c",
         "value" : {
           "string" : "one",
           "integer" : 42,
@@ -32,12 +32,12 @@
     "status" : 201,
     "headers" : {
       "content-type" : "application/json",
-      "location" : "https://site-1.example.invalid/wiki/api/v2/spaces/7798786/properties/32669768"
+      "location" : "https://site-1.example.invalid/wiki/api/v2/spaces/7798786/properties/37716023"
     },
     "body" : {
       "json" : {
-        "id" : "32669768",
-        "key" : "pipestream-live-write-20261123T223930Z-2b7ba40f",
+        "id" : "37716023",
+        "key" : "pipestream-live-write-20261127T182316Z-aa79d29c",
         "value" : {
           "string" : "one",
           "integer" : 42,
@@ -49,10 +49,10 @@
             "nested" : false
           }
         },
-        "createdAt" : "2026-11-23T22:40:13.329Z",
+        "createdAt" : "2026-11-27T18:24:02.101Z",
         "authorId" : "account-1",
         "version" : {
-          "createdAt" : "2026-11-23T22:40:13.329Z",
+          "createdAt" : "2026-11-27T18:24:02.101Z",
           "authorId" : "account-1",
           "number" : 1,
           "message" : ""

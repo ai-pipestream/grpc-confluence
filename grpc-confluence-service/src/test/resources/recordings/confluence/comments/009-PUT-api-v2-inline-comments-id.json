@@ -4,7 +4,7 @@
   "request" : {
     "method" : "PUT",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/inline-comments/37158975",
+    "path" : "/wiki/api/v2/inline-comments/29851870",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -18,7 +18,7 @@
         },
         "body" : {
           "representation" : "storage",
-          "value" : "<p>inline edited pipestream-live-write-20261127T182316Z-aa79d29c</p>"
+          "value" : "<p>inline edited pipestream-live-write-20261122T154612Z-76a48fba</p>"
         },
         "resolved" : true
       }
@@ -31,35 +31,35 @@
     },
     "body" : {
       "json" : {
-        "id" : "37158975",
+        "id" : "29851870",
         "status" : "current",
-        "title" : "Re: pipestream-live-write-20261127T182316Z-aa79d29c retitled",
-        "pageId" : "37322816",
+        "title" : "Re: pipestream-live-write-20261122T154612Z-76a48fba retitled",
+        "pageId" : "30179844",
         "version" : {
           "number" : 2,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-27T18:23:49.443Z",
+          "createdAt" : "2026-11-22T15:46:51.191Z",
           "contributorIds" : [ ]
         },
         "resolutionStatus" : "resolved",
         "resolutionLastModifierId" : "account-1",
-        "resolutionLastModifiedAt" : "2026-11-27T18:23:49.408Z",
+        "resolutionLastModifiedAt" : "2026-11-22T15:46:51.109Z",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>inline edited pipestream-live-write-20261127T182316Z-aa79d29c</p>"
+            "value" : "<p>inline edited pipestream-live-write-20261122T154612Z-76a48fba</p>"
           }
         },
         "properties" : {
-          "inlineMarkerRef" : "c953430e-9c69-4ca8-93d5-d17199d4fd92",
+          "inlineMarkerRef" : "6d054465-1d8f-4fb0-84f8-370f92d4a01a",
           "inlineOriginalSelection" : "inlinetarget",
-          "inline-marker-ref" : "c953430e-9c69-4ca8-93d5-d17199d4fd92",
+          "inline-marker-ref" : "6d054465-1d8f-4fb0-84f8-370f92d4a01a",
           "inline-original-selection" : "inlinetarget"
         },
         "_links" : {
-          "webui" : "/spaces/CLAUDEGRPC/pages/37322816/pipestream-live-write-20261127T182316Z-aa79d29c+retitled?focusedCommentId=37158975",
+          "webui" : "/spaces/CLAUDEGRPC/pages/30179844/pipestream-live-write-20261122T154612Z-76a48fba+retitled?focusedCommentId=29851870",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

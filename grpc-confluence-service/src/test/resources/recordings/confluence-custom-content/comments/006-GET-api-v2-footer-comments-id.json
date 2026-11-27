@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/footer-comments/32833556",
+    "path" : "/wiki/api/v2/footer-comments/37716021",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -24,7 +24,7 @@
         "errors" : [ {
           "status" : 404,
           "code" : "NOT_FOUND",
-          "title" : "footer comment with id: [32833556] not found",
+          "title" : "footer comment with id: [37716021] not found",
           "detail" : null
         } ]
       }

@@ -4,7 +4,7 @@
   "request" : {
     "method" : "PUT",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/37322816",
+    "path" : "/wiki/api/v2/pages/30179844",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -13,9 +13,9 @@
     "authorized" : true,
     "body" : {
       "json" : {
-        "id" : "37322816",
+        "id" : "30179844",
         "status" : "current",
-        "title" : "pipestream-live-write-20261127T182316Z-aa79d29c storage",
+        "title" : "pipestream-live-write-20261122T154612Z-76a48fba storage",
         "body" : {
           "representation" : "storage",
           "value" : "<p>stale</p>"
