@@ -15,8 +15,8 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-write-20261123T223930Z-2b7ba40f mutate a",
-        "parentId" : "32899104",
+        "title" : "pipestream-live-write-20261127T182316Z-aa79d29c mutate a",
+        "parentId" : "37716000",
         "body" : {
           "representation" : "storage",
           "value" : "<p>mutate a</p>"
@@ -31,21 +31,22 @@
     },
     "body" : {
       "json" : {
-        "authorId" : "account-1",
         "parentType" : "page",
-        "parentId" : "32899104",
+        "authorId" : "account-1",
+        "parentId" : "37716000",
         "ownerId" : "account-1",
-        "createdAt" : "2026-11-23T22:40:19.285Z",
         "lastOwnerId" : null,
+        "createdAt" : "2026-11-27T18:24:31.228Z",
+        "position" : 1421,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-23T22:40:19.285Z",
+          "createdAt" : "2026-11-27T18:24:31.228Z",
           "ncsStepVersion" : "1"
         },
-        "position" : 1834,
+        "id" : "37748760",
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
@@ -54,13 +55,12 @@
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261123T223930Z-2b7ba40f mutate a",
-        "id" : "32866328",
+        "title" : "pipestream-live-write-20261127T182316Z-aa79d29c mutate a",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=32866328",
-          "webui" : "/spaces/CLAUDEGRPC/pages/32866328/pipestream-live-write-20261123T223930Z-2b7ba40f+mutate+a",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/32866328",
-          "tinyui" : "/x/GID1AQ",
+          "editui" : "/pages/resumedraft.action?draftId=37748760",
+          "webui" : "/spaces/CLAUDEGRPC/pages/37748760/pipestream-live-write-20261127T182316Z-aa79d29c+mutate+a",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/37748760",
+          "tinyui" : "/x/GABAAg",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

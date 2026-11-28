@@ -14,8 +14,8 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-write-20261123T223930Z-2b7ba40f to delete",
-        "parentId" : "32899104",
+        "title" : "pipestream-live-write-20261127T182316Z-aa79d29c to delete",
+        "parentId" : "37716000",
         "body" : {
           "representation" : "storage",
           "value" : "<p>delete me</p>"
@@ -30,22 +30,22 @@
     },
     "body" : {
       "json" : {
-        "authorId" : "account-1",
-        "parentId" : "32899104",
-        "ownerId" : "account-1",
-        "createdAt" : "2026-11-23T22:40:20.202Z",
         "parentType" : "page",
+        "authorId" : "account-1",
+        "spaceId" : "7798786",
+        "parentId" : "37716000",
+        "ownerId" : "account-1",
         "lastOwnerId" : null,
+        "createdAt" : "2026-11-27T18:24:32.509Z",
+        "position" : 2862,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-23T22:40:20.202Z",
+          "createdAt" : "2026-11-27T18:24:32.509Z",
           "ncsStepVersion" : "1"
         },
-        "position" : 2379,
-        "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
@@ -53,13 +53,13 @@
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261123T223930Z-2b7ba40f to delete",
-        "id" : "33161229",
+        "title" : "pipestream-live-write-20261127T182316Z-aa79d29c to delete",
+        "id" : "36831255",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=33161229",
-          "webui" : "/spaces/CLAUDEGRPC/pages/33161229/pipestream-live-write-20261123T223930Z-2b7ba40f+to+delete",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/33161229",
-          "tinyui" : "/x/DQD6AQ",
+          "editui" : "/pages/resumedraft.action?draftId=36831255",
+          "webui" : "/spaces/CLAUDEGRPC/pages/36831255/pipestream-live-write-20261127T182316Z-aa79d29c+to+delete",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/36831255",
+          "tinyui" : "/x/FwAyAg",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

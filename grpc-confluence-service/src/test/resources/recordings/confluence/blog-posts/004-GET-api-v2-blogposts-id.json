@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/blogposts/30572880",
+    "path" : "/wiki/api/v2/blogposts/37486621",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -22,30 +22,30 @@
     "body" : {
       "json" : {
         "authorId" : "account-1",
-        "createdAt" : "2026-11-22T15:47:08.763Z",
+        "createdAt" : "2026-11-27T18:34:55.964Z",
         "version" : {
           "number" : 2,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T15:47:09.395Z",
+          "createdAt" : "2026-11-27T18:34:56.884Z",
           "ncsStepVersion" : "1"
         },
-        "id" : "30572880",
+        "id" : "37486621",
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>blog edited REDACTME pipestream-live-write-20261122T154612Z-76a48fba</p>"
+            "value" : "<p>blog edited REDACTME pipestream-live-write-20261127T183356Z-7e950beb</p>"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261122T154612Z-76a48fba blog edited",
+        "title" : "pipestream-live-write-20261127T183356Z-7e950beb blog edited",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=30572880",
-          "webui" : "/spaces/CLAUDEGRPC/blog/2026/11/22/30572880/pipestream-live-write-20261122T154612Z-76a48fba+blog+edited",
-          "edituiv2" : "/spaces/CLAUDEGRPC/blog/edit-v2/30572880",
-          "tinyui" : "/x/UIHSAQ",
+          "editui" : "/pages/resumedraft.action?draftId=37486621",
+          "webui" : "/spaces/CLAUDEGRPC/blog/2026/11/27/37486621/pipestream-live-write-20261127T183356Z-7e950beb+blog+edited",
+          "edituiv2" : "/spaces/CLAUDEGRPC/blog/edit-v2/37486621",
+          "tinyui" : "/x/HQA8Ag",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

@@ -1,11 +1,11 @@
 {
   "scenario" : "mutate",
-  "sequence" : 4,
+  "sequence" : 2,
   "unordered" : 1,
   "request" : {
     "method" : "POST",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/rest/api/content/32669736/label",
+    "path" : "/wiki/rest/api/content/37322816/label",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json",
@@ -33,9 +33,9 @@
           "label" : "live-write-mutate"
         }, {
           "prefix" : "global",
-          "name" : "live-write-2b7ba40f-b",
-          "id" : "33357841",
-          "label" : "live-write-2b7ba40f-b"
+          "name" : "live-write-aa79d29c-b",
+          "id" : "37453866",
+          "label" : "live-write-aa79d29c-b"
         } ],
         "start" : 0,
         "limit" : 200,

@@ -26,6 +26,7 @@ import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 
 /**
@@ -824,6 +825,16 @@ final class WriteScenarios {
             check(read.getTitle().equals(run + " custom"), "the title read back is " + read.getTitle());
             return "custom content " + content.getId();
         });
+        step("ListCustomContent", "ListCustomContent [type, page]", () -> {
+            CustomContent content = require(created.get(), "no custom content was created");
+            List<String> listed = new ArrayList<>();
+            stub().listCustomContent(ListCustomContentRequest.newBuilder().setType(type)
+                    .setContainer(ContentRef.newBuilder().setType(ContentType.CONTENT_TYPE_PAGE)
+                            .setId(parent.getId())).build())
+                    .forEachRemaining(response -> listed.add(response.getCustomContent().getId()));
+            check(listed.contains(content.getId()), "the custom content is not listed under its page");
+            return "listed among " + listed.size();
+        });
         step("UpdateCustomContent", "UpdateCustomContent", () -> {
             CustomContent content = require(created.get(), "no custom content was created");
             stub().updateCustomContent(UpdateCustomContentRequest.newBuilder().setId(content.getId())
@@ -897,6 +908,21 @@ final class WriteScenarios {
                     .setId(created.getId()).build()).getDatabase();
             check(read.getTitle().equals(run + " database"), "the title read back is " + read.getTitle());
             return "database " + created.getId();
+        });
+        step("ListDatabaseFields", "ListDatabaseFields [new database]", () -> {
+            String id = require(database.get(), "no database was created");
+            return newDatabaseRows("field(s)", () -> stub().listDatabaseFields(
+                    ListDatabaseFieldsRequest.newBuilder().setDatabaseId(id).build()));
+        });
+        step("ListDatabaseEntries", "ListDatabaseEntries [new database]", () -> {
+            String id = require(database.get(), "no database was created");
+            return newDatabaseRows("entry(ies)", () -> stub().listDatabaseEntries(
+                    ListDatabaseEntriesRequest.newBuilder().setDatabaseId(id).build()));
+        });
+        step("ListDatabaseViews", "ListDatabaseViews [new database]", () -> {
+            String id = require(database.get(), "no database was created");
+            return newDatabaseRows("view(s)", () -> stub().listDatabaseViews(
+                    ListDatabaseViewsRequest.newBuilder().setDatabaseId(id).build()));
         });
         step("DeleteDatabase", "DeleteDatabase", () -> {
             String id = require(database.get(), "no database was created");
@@ -1257,6 +1283,30 @@ final class WriteScenarios {
         } catch (StatusRuntimeException e) {
             if (e.getStatus().getCode() != Status.Code.NOT_FOUND) {
                 leftBehind.add(what + " (in the trash, not purged): " + describe(e));
+            }
+        }
+    }
+
+    /**
+     * Counts the rows of a database read. Confluence does not serve these routes for a database
+     * that was only just created through the API; the step is then SKIPPED.
+     */
+    private String newDatabaseRows(String what, Supplier<Iterator<?>> read) throws InterruptedException {
+        for (int waits = 0;; waits++) {
+            try {
+                int rows = 0;
+                for (Iterator<?> answers = read.get(); answers.hasNext(); answers.next()) {
+                    rows++;
+                }
+                return rows + " " + what + " after " + waits + " wait(s)";
+            } catch (StatusRuntimeException e) {
+                if (e.getStatus().getCode() != Status.Code.NOT_FOUND) {
+                    throw e;
+                }
+                if (waits == 3) {
+                    throw new Skip("Confluence answers NOT_FOUND for a database created through the API");
+                }
+                backend.tape().pause(Duration.ofSeconds(2));
             }
         }
     }

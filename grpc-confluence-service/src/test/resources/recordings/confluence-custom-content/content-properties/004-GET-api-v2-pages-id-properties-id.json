@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/32669736/properties/32768035",
+    "path" : "/wiki/api/v2/pages/37322816/properties/37126183",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -23,13 +23,13 @@
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-23T22:39:37.631Z"
+          "createdAt" : "2026-11-27T18:23:25.849Z"
         },
         "value" : {
           "big" : 123456789012345678901234567890
         },
-        "key" : "pipestream-live-write-20261123T223930Z-2b7ba40f-exact",
-        "id" : "32768035"
+        "key" : "pipestream-live-write-20261127T182316Z-aa79d29c-exact",
+        "id" : "37126183"
       }
     }
   }

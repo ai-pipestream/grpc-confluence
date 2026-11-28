@@ -104,6 +104,12 @@ nothing, instead of crawling the rest and reporting the allowlist covered.
 ./gradlew :grpc-confluence-service:run
 ```
 
+The service user needs Confluence product access and view on each space to
+read; add, edit and delete on the space to write; and is an organization or
+site admin only for spaces, space roles and groups.
+[docs/permissions.md](docs/permissions.md) lists what each rpc needs, the plan
+it needs, and which of that is proven against a real site.
+
 RPCs: `ListSpaces`, `GetPage`, `GetBlogPost`, `ListPages`, `ListBlogPosts`,
 `GetAttachment` (`include_content`, optional `CONFLUENCE_ATTACHMENT_MAX_BYTES` cap), `ListAttachments` (stream),
 `Sync` (stream), `ProbeConnection`. Handlers run on virtual threads.

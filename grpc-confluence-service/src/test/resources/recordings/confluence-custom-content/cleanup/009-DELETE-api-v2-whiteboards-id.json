@@ -4,7 +4,7 @@
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/whiteboards/33095729",
+    "path" : "/wiki/api/v2/whiteboards/37290013",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -21,7 +21,7 @@
         "errors" : [ {
           "status" : 404,
           "code" : "NOT_FOUND",
-          "title" : "No content found with id : 33095729 and status [current, archived]",
+          "title" : "No content found with id : 37290013 and status [current, archived]",
           "detail" : null
         } ]
       }

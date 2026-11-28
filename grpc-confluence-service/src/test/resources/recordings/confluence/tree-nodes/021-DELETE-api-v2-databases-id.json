@@ -1,10 +1,10 @@
 {
-  "scenario" : "custom-content",
-  "sequence" : 5,
+  "scenario" : "tree-nodes",
+  "sequence" : 21,
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/custom-content/33652737",
+    "path" : "/wiki/api/v2/databases/37388321",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"

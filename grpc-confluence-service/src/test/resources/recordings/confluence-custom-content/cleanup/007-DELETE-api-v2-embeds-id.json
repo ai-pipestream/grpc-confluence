@@ -4,7 +4,7 @@
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/embeds/32833570",
+    "path" : "/wiki/api/v2/embeds/37781514",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -21,7 +21,7 @@
         "errors" : [ {
           "status" : 404,
           "code" : "NOT_FOUND",
-          "title" : "No content found with id : 32833570 and status [current, archived]",
+          "title" : "No content found with id : 37781514 and status [current, archived]",
           "detail" : null
         } ]
       }

@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/footer-comments/32833556",
+    "path" : "/wiki/api/v2/footer-comments/37716021",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -21,27 +21,27 @@
     },
     "body" : {
       "json" : {
-        "id" : "32833556",
+        "id" : "37716021",
         "status" : "current",
-        "title" : "Re: pipestream-live-write-20261123T223930Z-2b7ba40f retitled",
-        "pageId" : "32669736",
+        "title" : "Re: pipestream-live-write-20261127T182316Z-aa79d29c retitled",
+        "pageId" : "37322816",
         "version" : {
           "number" : 2,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-23T22:40:02.551Z",
+          "createdAt" : "2026-11-27T18:23:47.133Z",
           "contributorIds" : [ ]
         },
         "resolutionStatus" : "open",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>footer edited pipestream-live-write-20261123T223930Z-2b7ba40f</p>"
+            "value" : "<p>footer edited pipestream-live-write-20261127T182316Z-aa79d29c</p>"
           }
         },
         "_links" : {
-          "webui" : "/spaces/CLAUDEGRPC/pages/32669736/pipestream-live-write-20261123T223930Z-2b7ba40f+retitled?focusedCommentId=32833556",
+          "webui" : "/spaces/CLAUDEGRPC/pages/37322816/pipestream-live-write-20261127T182316Z-aa79d29c+retitled?focusedCommentId=37716021",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

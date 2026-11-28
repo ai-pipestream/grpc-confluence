@@ -4,7 +4,7 @@
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/space-roles/17e322af-f44e-4644-bb8d-6b83fc75482c",
+    "path" : "/wiki/api/v2/space-roles/ca686613-0d16-4095-9b1a-887972017d49",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -18,7 +18,7 @@
     },
     "body" : {
       "json" : {
-        "taskId" : "30638108"
+        "taskId" : "37355581"
       }
     }
   }

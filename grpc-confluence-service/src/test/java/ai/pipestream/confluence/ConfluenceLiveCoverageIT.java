@@ -139,6 +139,7 @@ class ConfluenceLiveCoverageIT {
             Map.entry("GetAppProperty", "GET /app/properties/{key}"),
             Map.entry("GetRestrictionState", "GET /{type}/{id}/restriction-state"),
             Map.entry("GetContentAccess", "GET /{type}/{id}, /ancestors, /restriction-state, /permissions"),
+            Map.entry("CheckContentPermission", "v1 POST /rest/api/content/{id}/permission/check"),
             Map.entry("GetGroup", "v1 GET /rest/api/group/by-id"),
             Map.entry("ListGroups", "v1 GET /rest/api/group"),
             Map.entry("ListGroupMembers", "v1 GET /rest/api/group/{groupId}/membersByGroupId"),
@@ -530,6 +531,19 @@ class ConfluenceLiveCoverageIT {
                     s -> s.batchGetUsers(BatchGetUsersRequest.newBuilder().addAccountIds(accountId).build()),
                     r -> r.getUsersCount() + " user(s)"
                             + (r.getUsersCount() > 0 ? ", " + r.getUsers(0).getAccountType().name() : ""));
+        }
+        if (accountId.isBlank() || pageId == null) {
+            skip("CheckContentPermission", "no page and account id discovered");
+        } else {
+            unary("CheckContentPermission", "CheckContentPermission [page, its author, read]",
+                    s -> s.checkContentPermission(CheckContentPermissionRequest.newBuilder().setContentId(pageId)
+                            .setSubject(ContentPermissionPrincipal.newBuilder()
+                                    .setPrincipalType(
+                                            ContentPermissionPrincipalType.CONTENT_PERMISSION_PRINCIPAL_TYPE_USER)
+                                    .setPrincipalId(accountId))
+                            .setOperation(ContentPermissionOperation.CONTENT_PERMISSION_OPERATION_READ).build()),
+                    r -> (r.getHasPermission() ? "allowed" : "refused") + ", " + r.getReasonsCount()
+                            + " reason(s)");
         }
         unary("CheckAccessByEmail", "CheckAccessByEmail [the configured account]",
                 s -> s.checkAccessByEmail(CheckAccessByEmailRequest.newBuilder().addEmails(email).build()),

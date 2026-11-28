@@ -1,10 +1,10 @@
 {
   "scenario" : "tree-nodes",
-  "sequence" : 12,
+  "sequence" : 24,
   "request" : {
     "method" : "DELETE",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/embeds/32833570",
+    "path" : "/wiki/api/v2/embeds/37388327",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"

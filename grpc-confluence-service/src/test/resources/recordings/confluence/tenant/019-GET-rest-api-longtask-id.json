@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/rest/api/longtask/30638108",
+    "path" : "/wiki/rest/api/longtask/37355581",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -18,18 +18,18 @@
     },
     "body" : {
       "json" : {
-        "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:long-running-task/activation/b1593a2f-bf8a-4c2e-a0c6-8b31a89d2389/30638108",
-        "id" : "30638108",
+        "ari" : "ari:cloud:confluence:00000000-0000-0000-0000-000000000002:long-running-task/activation/b1593a2f-bf8a-4c2e-a0c6-8b31a89d2389/37355581",
+        "id" : "37355581",
         "name" : {
           "key" : "com.atlassian.confluence.api.impl.service.longtasks.security.BulkReassignRoleWithDeleteRoleTaskRunner",
           "args" : [ ]
         },
-        "elapsedTime" : 34,
+        "elapsedTime" : 156,
         "percentageComplete" : 100,
         "successful" : true,
         "finished" : true,
         "messages" : [ {
-          "translation" : "Task completed. Bulk role reassignment set for 17e322af-f44e-4644-bb8d-6b83fc75482c to null guestRoleId: null anonymousRoleId: null - 0 spaces updated.",
+          "translation" : "Task completed. Bulk role reassignment set for ca686613-0d16-4095-9b1a-887972017d49 to null guestRoleId: null anonymousRoleId: null - 0 spaces updated.",
           "args" : [ ]
         } ],
         "status" : "FINISH_SUCCESS",

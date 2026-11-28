@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/space-roles/17e322af-f44e-4644-bb8d-6b83fc75482c",
+    "path" : "/wiki/api/v2/space-roles/ca686613-0d16-4095-9b1a-887972017d49",
     "query" : [ ],
     "headers" : {
       "accept" : "application/json"
@@ -18,9 +18,9 @@
     },
     "body" : {
       "json" : {
-        "id" : "17e322af-f44e-4644-bb8d-6b83fc75482c",
+        "id" : "ca686613-0d16-4095-9b1a-887972017d49",
         "type" : "CUSTOM",
-        "name" : "lw-76a48fba",
+        "name" : "lw-7e950beb",
         "description" : "live write run",
         "spacePermissions" : [ "read/space" ]
       }

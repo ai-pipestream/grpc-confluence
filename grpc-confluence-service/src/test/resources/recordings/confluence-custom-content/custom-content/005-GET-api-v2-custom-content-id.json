@@ -1,10 +1,10 @@
 {
   "scenario" : "custom-content",
-  "sequence" : 4,
+  "sequence" : 5,
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/custom-content/33652737",
+    "path" : "/wiki/api/v2/custom-content/37322836",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -21,18 +21,18 @@
     },
     "body" : {
       "json" : {
-        "id" : "33652737",
+        "id" : "37322836",
         "type" : "forge:d16971ce-921a-40d5-a97b-84b84a4cbfe1:b5506979-43d3-4c0e-9bd5-60f77934bdf3:pipestream-record",
         "status" : "current",
-        "title" : "pipestream-live-write-20261123T223930Z-2b7ba40f custom edited",
-        "createdAt" : "2026-11-23T22:40:16.167Z",
+        "title" : "pipestream-live-write-20261127T182316Z-aa79d29c custom edited",
+        "createdAt" : "2026-11-27T18:24:06.087Z",
         "authorId" : "account-1",
         "spaceId" : "7798786",
-        "pageId" : "32899104",
+        "pageId" : "37716000",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>custom edited pipestream-live-write-20261123T223930Z-2b7ba40f</p>"
+            "value" : "<p>custom edited pipestream-live-write-20261127T182316Z-aa79d29c</p>"
           }
         },
         "version" : {
@@ -40,10 +40,10 @@
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-23T22:40:16.486Z"
+          "createdAt" : "2026-11-27T18:24:06.543Z"
         },
         "_links" : {
-          "webui" : "/display/CLAUDEGRPC/customcontent/33652737",
+          "webui" : "/display/CLAUDEGRPC/customcontent/37322836",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

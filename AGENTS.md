@@ -45,6 +45,10 @@ build. Do not change how tests are run.
   "Decisions" section is the owner's ruling and wins over earlier sections.
 - `docs/contracts/confluence-fidelity.md`: field-by-field check that every
   response property reaches a typed field.
+- `docs/permissions.md`: what each rpc needs from the service user, the
+  plan it needs, and whether that is proven on the test site. A pull request
+  that adds an rpc or changes what the service user must hold updates it
+  (`PermissionsDocTest`).
 - v1 routes are used only where v2 has none (groups and their members,
   attachments upload, labels, `permission/check`, space delete, page copy,
   page archive).
@@ -68,7 +72,9 @@ Recording and scrubbing rules:
 Live runs go through `.github/workflows/ci.yml` `workflow_dispatch` inputs
 (`run_live_write`, `live_write_custom_content`, `import_recordings_run_id`,
 `run_live_acl`, `import_acl_recordings_run_id`, `run_live_changes` with
-`live_changes_group_member` and `forge_environment`). Reviewers do not
+`live_changes_group_member` and `forge_environment`, `run_live_coverage`;
+`live_minimal_account` runs the coverage and the account probe as the
+non-admin test account). Reviewers do not
 dispatch them. The live steps of the copy, archive and group write rpcs are
 in `ChangeScenarios`, not `WriteScenarios` (`ConfluenceWriteRoutes.CHANGE_SUITE`).
 The Forge app's development and production environments are both installed
@@ -96,8 +102,13 @@ on the test site and both receive its events, so run one change run at a time.
 - App property rpcs are served to Forge apps only, so they go through the
   Forge `app-api` trigger (`CONFLUENCE_FORGE_APP_URL` /
   `CONFLUENCE_FORGE_APP_SECRET`).
-- Data policy rpcs answer `PERMISSION_DENIED` with API-token auth; upstream
+- Data policy rpcs answer `NOT_FOUND` with API-token auth (live); upstream
   serves them to app credentials only.
+- The database field, entry and view reads answer `404 DATABASE_NOT_FOUND`
+  for a database created with `CreateDatabase`, still a minute later (live).
+  The test space keeps `pipestream-coverage-database` (three fields, one
+  view, one row, made through Confluence itself) so the read coverage run can
+  call them: do not delete it.
 - Custom content is proven live against a custom content type that a Forge
   app declares (PR #46).
 - Not proven live: classification levels and Guard Premium redaction (the

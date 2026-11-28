@@ -14,8 +14,8 @@
     "body" : {
       "json" : {
         "spaceId" : "7798786",
-        "title" : "pipestream-live-write-20261122T154612Z-76a48fba database",
-        "parentId" : "30376427"
+        "title" : "pipestream-live-write-20261127T183356Z-7e950beb database",
+        "parentId" : "37060645"
       }
     }
   },
@@ -26,29 +26,29 @@
     },
     "body" : {
       "json" : {
-        "id" : "30572900",
+        "id" : "37388321",
         "type" : "database",
-        "parentId" : "30376427",
-        "title" : "pipestream-live-write-20261122T154612Z-76a48fba database",
+        "parentId" : "37060645",
+        "title" : "pipestream-live-write-20261127T183356Z-7e950beb database",
         "parentType" : "page",
-        "position" : 1423,
+        "position" : 1720,
         "authorId" : "account-1",
         "ownerId" : "account-1",
-        "createdAt" : 1795362431418,
+        "createdAt" : 1795804500412,
         "version" : {
           "number" : 1,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-22T15:47:11.484Z"
+          "createdAt" : "2026-11-27T18:35:00.459Z"
         },
         "status" : "current",
         "spaceId" : "7798786",
         "_links" : {
-          "editui" : "/spaces/CLAUDEGRPC/database/30572900",
-          "webui" : "/spaces/CLAUDEGRPC/database/30572900",
-          "edituiv2" : "/spaces/CLAUDEGRPC/database/30572900",
-          "tinyui" : "/x/ZIHSAQ",
+          "editui" : "/spaces/CLAUDEGRPC/database/37388321",
+          "webui" : "/spaces/CLAUDEGRPC/database/37388321",
+          "edituiv2" : "/spaces/CLAUDEGRPC/database/37388321",
+          "tinyui" : "/x/IYA6Ag",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }

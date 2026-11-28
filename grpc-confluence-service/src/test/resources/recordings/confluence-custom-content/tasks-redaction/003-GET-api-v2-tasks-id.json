@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/tasks/353",
+    "path" : "/wiki/api/v2/tasks/487",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -21,14 +21,14 @@
     },
     "body" : {
       "json" : {
-        "pageId" : "32768008",
+        "pageId" : "37322796",
+        "completedAt" : "2026-11-27T18:24:01.214Z",
+        "completedBy" : "account-1",
         "assignedTo" : null,
         "dueAt" : null,
         "updatedAt" : null,
-        "completedAt" : "2026-11-23T22:40:12.766Z",
-        "completedBy" : "account-1",
-        "localId" : "85652054-8f8b-394f-aecb-8f89fc75996d",
-        "createdAt" : "2026-11-23T22:39:33.684Z",
+        "localId" : "599df18a-3c38-33c4-bbf4-ebd066d47d80",
+        "createdAt" : "2026-11-27T18:23:19.078Z",
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
@@ -38,7 +38,7 @@
         },
         "status" : "complete",
         "createdBy" : "account-1",
-        "id" : "353"
+        "id" : "487"
       }
     }
   }

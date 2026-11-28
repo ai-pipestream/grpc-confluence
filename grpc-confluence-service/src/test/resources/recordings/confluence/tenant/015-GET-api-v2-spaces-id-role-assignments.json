@@ -43,6 +43,12 @@
           "roleId" : "6820786b-b8db-4102-b789-dcb45cba7c83",
           "principal" : {
             "principalType" : "USER",
+            "principalId" : "account-5"
+          }
+        }, {
+          "roleId" : "6820786b-b8db-4102-b789-dcb45cba7c83",
+          "principal" : {
+            "principalType" : "USER",
             "principalId" : "account-1"
           }
         }, {

@@ -4,7 +4,7 @@
   "request" : {
     "method" : "GET",
     "host" : "site-1.example.invalid",
-    "path" : "/wiki/api/v2/pages/32669736",
+    "path" : "/wiki/api/v2/pages/37322816",
     "query" : [ {
       "name" : "body-format",
       "value" : "storage"
@@ -22,35 +22,35 @@
     "body" : {
       "json" : {
         "parentType" : "page",
-        "parentId" : "32899104",
-        "ownerId" : "account-1",
-        "createdAt" : "2026-11-23T22:39:34.503Z",
-        "lastOwnerId" : null,
         "authorId" : "account-1",
+        "parentId" : "37716000",
+        "ownerId" : "account-1",
+        "lastOwnerId" : null,
+        "createdAt" : "2026-11-27T18:23:20.241Z",
+        "position" : 876,
         "version" : {
           "number" : 3,
           "message" : "",
           "minorEdit" : false,
           "authorId" : "account-1",
-          "createdAt" : "2026-11-23T22:39:35.927Z",
+          "createdAt" : "2026-11-27T18:23:22.865Z",
           "ncsStepVersion" : "5"
         },
-        "position" : 992,
-        "id" : "32669736",
         "spaceId" : "7798786",
         "body" : {
           "storage" : {
             "representation" : "storage",
-            "value" : "<p>Updated body pipestream-live-write-20261123T223930Z-2b7ba40f inlinetarget</p>"
+            "value" : "<p>Updated body pipestream-live-write-20261127T182316Z-aa79d29c inlinetarget</p>"
           }
         },
         "status" : "current",
-        "title" : "pipestream-live-write-20261123T223930Z-2b7ba40f retitled",
+        "title" : "pipestream-live-write-20261127T182316Z-aa79d29c retitled",
+        "id" : "37322816",
         "_links" : {
-          "editui" : "/pages/resumedraft.action?draftId=32669736",
-          "webui" : "/spaces/CLAUDEGRPC/pages/32669736/pipestream-live-write-20261123T223930Z-2b7ba40f+retitled",
-          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/32669736",
-          "tinyui" : "/x/KIDyAQ",
+          "editui" : "/pages/resumedraft.action?draftId=37322816",
+          "webui" : "/spaces/CLAUDEGRPC/pages/37322816/pipestream-live-write-20261127T182316Z-aa79d29c+retitled",
+          "edituiv2" : "/spaces/CLAUDEGRPC/pages/edit-v2/37322816",
+          "tinyui" : "/x/QIA5Ag",
           "base" : "https://site-1.example.invalid/wiki"
         }
       }
