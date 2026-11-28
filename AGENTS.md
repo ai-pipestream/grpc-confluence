@@ -105,8 +105,10 @@ on the test site and both receive its events, so run one change run at a time.
 - Data policy rpcs answer `NOT_FOUND` with API-token auth (live); upstream
   serves them to app credentials only.
 - The database field, entry and view reads answer `404 DATABASE_NOT_FOUND`
-  for a database created through the API, still a minute later (live). They
-  are unproven until the test space holds a database made in the UI.
+  for a database created with `CreateDatabase`, still a minute later (live).
+  The test space keeps `pipestream-coverage-database` (three fields, one
+  view, one row, made through Confluence itself) so the read coverage run can
+  call them: do not delete it.
 - Custom content is proven live against a custom content type that a Forge
   app declares (PR #46).
 - Not proven live: classification levels and Guard Premium redaction (the
